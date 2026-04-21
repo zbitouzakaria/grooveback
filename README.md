@@ -1,5 +1,7 @@
 # grooveback
 
+🚧 **Work in progress — not ready for use.**
+
 **Music super-resolution for rare records that only survived as degraded rips.**
 
 As a DJ and listener, I keep running into the same problem: records I love that only exist, now, as 128 kbps MP3s ripped from YouTube — themselves sourced from someone's imperfect vinyl transfer. On laptop speakers they're fine. On a decent system they fall apart: smeared transients, no air in the top end, a generally flat and tired sound that makes everything around them in the library sound better by contrast.
