@@ -1,0 +1,10 @@
+defaults:
+  - data: default
+  - degradation: mp3_128
+  - model: unet_spec
+  - training: default
+  - _self_
+
+hydra:
+  run:
+    dir: artifacts/runs/${now:%Y-%m-%d_%H-%M-%S}
