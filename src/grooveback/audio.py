@@ -61,16 +61,23 @@ def spectrogram_db(
     n_fft: int = 2048,
     hop: int = 512,
     floor_db: float = -100.0,
+    max_frames: int = 4000,
 ) -> np.ndarray:
     """Magnitude spectrogram in dB, averaged across channels.
 
     Plain numpy STFT so this stays dependency-light and importable anywhere.
     Returns `(freq_bins, frames)`, ready for `imshow(origin="lower")`.
+
+    `max_frames` widens the hop on long input rather than returning a plot
+    nobody can render: a seven-minute track at hop 512 is 39k frames, which is
+    gigabytes of intermediate and far more columns than a screen has pixels.
+    Pass a bigger value if you are analysing rather than looking.
     """
-    mono = audio.mean(axis=0)
+    mono = np.ascontiguousarray(audio.mean(axis=0))
     if mono.size < n_fft:
         mono = np.pad(mono, (0, n_fft - mono.size))
 
+    hop = max(hop, -(-(mono.size - n_fft) // max(max_frames, 1)))
     window = np.hanning(n_fft).astype(np.float32)
     n_frames = 1 + (mono.size - n_fft) // hop
     frames = np.lib.stride_tricks.as_strided(
@@ -80,3 +87,18 @@ def spectrogram_db(
     )
     magnitude = np.abs(np.fft.rfft(frames * window, axis=1)).T
     return 20.0 * np.log10(np.maximum(magnitude, 10.0 ** (floor_db / 20.0)))
+
+
+def preview(audio: np.ndarray, sample_rate: int, seconds: float = 30.0) -> np.ndarray:
+    """A centered slice, for embedding in a notebook.
+
+    `IPython.display.Audio` base64-encodes its input into the page, so a full
+    track is hundreds of megabytes of DOM and hangs the browser. Listen to
+    full-length output from the written files instead.
+    """
+    total = audio.shape[1]
+    want = int(seconds * sample_rate)
+    if want >= total:
+        return audio
+    start = (total - want) // 2
+    return audio[:, start : start + want]
