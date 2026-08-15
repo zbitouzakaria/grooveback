@@ -4,7 +4,12 @@ Date: 2026-04-22
 
 ## Status
 
-Accepted
+Superseded by [5. Establish baselines and prior viability on real library material](0005-baselines-and-prior-viability-on-real-library-material.md)
+
+The instinct here — measure before deciding — is kept. What changed is scope: ADR-0004 replaced the supervised design
+with a prior-first one, so Apollo is now a standing baseline rather than a reference point on the way to training a
+similar model, a second free baseline (A2SB) has since appeared, and the autoencoder and pretrained prior also need
+smoke-testing before any budget is committed.
 
 ## Context
  
