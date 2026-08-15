@@ -102,18 +102,21 @@ def bandwidth_hz(
     band_hz: float = 250.0,
     span_hz: float = 1000.0,
 ) -> float:
-    """Where a band-limited file falls off a cliff, in Hz.
+    """Where a band-limited file starts falling off, in Hz — the knee.
 
-    Codec and resampling cutoffs are brick walls, so this looks for the steepest
-    drop in the long-term average spectrum above `min_hz` and returns the last
-    frequency still carrying signal.
+    Returns the frequency where the drop *begins*, not where it finishes.
+    Bandwidth-extension models are trained on brick walls (A2SB's `UpsampleMask`
+    zeroes everything above a bin), while real codec rolloffs are smeared over
+    about a kilohertz. Handed the bottom of that taper, the model sees a natural
+    rolloff, concludes nothing is missing and extends nothing: measured on a
+    5 kHz-limited file, a cutoff of 4750 Hz produced silence above it while
+    4000 Hz reconstructed the full band. Reporting the knee costs the taper
+    region, which is half-destroyed anyway, and buys an actual reconstruction.
 
     Deliberately not a spectral-rolloff percentile. In music almost all the
     energy sits below ~2 kHz, so a 99% rolloff reports ~2 kHz whatever the real
     bandwidth is — which is what A2SB's own helper does, and why its shipped
-    config claims a 2 kHz cutoff for full-band material. A bandwidth-extension
-    model handed that figure regenerates most of the spectrum instead of only
-    the missing top.
+    config claims a 2 kHz cutoff for full-band material.
     """
     mono = audio.mean(axis=0)
     spectrum = np.abs(np.fft.rfft(mono)) ** 2
@@ -137,7 +140,8 @@ def bandwidth_hz(
     drops = levels[start:] - levels[start - span : levels.size - span]
     if drops.size == 0 or drops.min() > -drop_db:
         return sample_rate / 2
-    return float(edges[start + int(np.argmin(drops))])
+    # The steepest drop spans `span`; its lower edge is the knee.
+    return float(edges[start + int(np.argmin(drops)) - span])
 
 
 def band_correlation(

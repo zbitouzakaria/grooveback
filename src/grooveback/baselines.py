@@ -285,15 +285,22 @@ def run_a2sb(
 ) -> np.ndarray:
     """Restore `(channels, samples)` audio with A2SB.
 
-    A2SB mono-sums on load, so each channel is a separate pass. That doubles the
-    cost and means the two channels are synthesised independently above the
-    cutoff — worth measuring inter-channel correlation up there before trusting
-    the stereo image.
+    **A2SB is a mono model.** The input is mono-summed, restored in one pass, and
+    the result copied across the output channels. So a stereo input comes back
+    mono-in-stereo, narrower than it went in.
+
+    That is the model's limitation, surfaced rather than hidden. Running the
+    channels separately would keep two of them, but each would be synthesised
+    independently: measured on this material, inter-channel correlation in the
+    restored band fell from 0.99 to 0.56, which is invented stereo width rather
+    than recovered width. It also doubles an already severe cost. If A2SB is
+    being judged as a baseline, it should be judged as what it is.
 
     Length is handled inside A2SB, which slides a 256-frame window over the
     spectrogram and runs `predict_batch_size` windows per forward pass. Their
     default of 16 exhausts MPS on anything past a few seconds, so this defaults
-    low. It is a memory/throughput knob only and does not change the output.
+    low. Verified output-neutral: it only sets the chunk count in
+    `get_multidiffusion_vf`, and the windows are recombined identically.
 
     Slow regardless: tens of times slower than realtime on MPS, so full tracks
     are an overnight or rented-GPU job. Use excerpts locally.
@@ -316,39 +323,35 @@ def run_a2sb(
     if cutoff_hz is None:
         cutoff_hz = ga.bandwidth_hz(audio, sample_rate)
 
-    channels = []
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
-        for index in range(audio.shape[0]):
-            wav_in = tmp / f"ch{index}_in.wav"
-            wav_out = tmp / f"ch{index}_out.wav"
-            ga.save(wav_in, audio[index : index + 1], sample_rate)
-            config = tmp / f"ch{index}.yaml"
-            config.write_text(_a2sb_config(wav_in, checkpoints, device, cutoff_hz))
+        wav_in, wav_out = tmp / "in.wav", tmp / "out.wav"
+        ga.save(wav_in, audio.mean(axis=0, keepdims=True), sample_rate)
+        config = tmp / "run.yaml"
+        config.write_text(_a2sb_config(wav_in, checkpoints, device, cutoff_hz))
 
-            env = {**os.environ, "PYTHONPATH": str(A2SB_SHIMS)}
-            result = subprocess.run(
-                [
-                    str(A2SB_PYTHON), "ensembled_inference_api.py", "predict",
-                    "-c", "configs/ensemble_2split_sampling.yaml",
-                    "-c", "configs/inference_files_upsampling.yaml",
-                    "-c", str(config),
-                    f"--model.predict_n_steps={n_steps}",
-                    f"--model.predict_batch_size={predict_batch_size}",
-                    f"--model.output_audio_filename={wav_out}",
-                ],
-                cwd=A2SB_REPO, env=env, capture_output=True, text=True,
-            )
-            if not wav_out.exists():
-                raise RuntimeError(f"A2SB produced no output.\n{result.stderr[-2000:]}")
-            restored, _ = ga.load(wav_out)
-            channels.append(restored[0])
+        env = {**os.environ, "PYTHONPATH": str(A2SB_SHIMS)}
+        result = subprocess.run(
+            [
+                str(A2SB_PYTHON), "ensembled_inference_api.py", "predict",
+                "-c", "configs/ensemble_2split_sampling.yaml",
+                "-c", "configs/inference_files_upsampling.yaml",
+                "-c", str(config),
+                f"--model.predict_n_steps={n_steps}",
+                f"--model.predict_batch_size={predict_batch_size}",
+                f"--model.output_audio_filename={wav_out}",
+            ],
+            cwd=A2SB_REPO, env=env, capture_output=True, text=True,
+        )
+        if not wav_out.exists():
+            raise RuntimeError(f"A2SB produced no output.\n{result.stderr[-2000:]}")
+        restored, _ = ga.load(wav_out)
 
     # A2SB returns a few hundred samples short of its input; pad so the result
-    # lines up with the original for any comparison.
+    # lines up with the original for any comparison. The single restored channel
+    # is copied across, so the output is mono carried in the input's shape.
     total = audio.shape[1]
-    out = np.zeros((len(channels), total), dtype=np.float32)
-    for index, channel in enumerate(channels):
-        n = min(total, channel.size)
-        out[index, :n] = channel[:n]
+    out = np.zeros((audio.shape[0], total), dtype=np.float32)
+    n = min(total, restored.shape[1])
+    out[:, :n] = restored[0, :n]
     return out
