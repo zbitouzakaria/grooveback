@@ -38,9 +38,11 @@ Not one plus a follow-on. They address complementary damage and the target mater
   targets **codec artifacts**. Its training distribution is professional multitrack material, not vinyl rips
   re-encoded by YouTube on a narrow genre, so generalisation across that gap is the open question — as ADR-0003
   correctly identified.
-- **A2SB** (NVIDIA, Schrödinger bridge over a magnitude-phase factorized representation, 44.1 kHz, trained on 2.3k
-  hours of permissively-licensed music) targets **missing bandwidth** and also does inpainting, end-to-end with no
-  vocoder.
+- **A2SB** (NVIDIA, 44.1 kHz, reportedly trained on ~2.3k hours of permissively-licensed music) targets **missing
+  bandwidth** and also does inpainting, end-to-end with no vocoder. It is built as a Schrödinger bridge — a generative
+  model that learns to transport one distribution directly into another, here degraded audio into clean, rather than
+  starting from noise as a diffusion model does. That makes it a third method family alongside supervised regression
+  and prior-plus-solver, and worth hearing for that reason as much as for its output.
 
 A practical asymmetry to record while running them: Apollo needs chunking to fit the 16 GB local machine, while A2SB
 claims hour-long inputs natively. That makes A2SB the cheaper one to run over whole tracks, and it means the chunking
@@ -78,15 +80,25 @@ autoencoder loses is lost regardless of how good the prior or the solver is.
 
 Two checks on the **base** checkpoint, before any fine-tuning:
 
-- **Unconditional sampling** — null text conditioning at CFG=1. Does it produce structurally coherent music at all
-  under the conditions the prior will actually be used in?
+- **Unconditional sampling** — null text conditioning at guidance scale 1, which is the mode the prior will actually be
+  used in and is a genuine unconditional score rather than a trick; see
+  [ADR-0004](0004-restoration-as-a-latent-inverse-problem.md) for why. Does it produce structurally coherent music at
+  all under those conditions?
 - **Inpainting** — mask a two-second region of a library track and have the model fill it. This is the cheapest
   possible test of prior quality: the operator is exactly known, there is no solver subtlety, and the answer is
-  audible immediately. If the prior cannot do this in-style, no amount of solver work rescues it.
+  audible immediately.
 
-This probe also resolves two facts that published sources disagree on and which should not be asserted in
-documentation until checked: the model's **parameter count** (variously reported as 433M, 459M, and 0.6B) and its
-**sample rate** (the paper and repository say 44.1 kHz; one Hugging Face model-card field reads 16 kHz).
+Read the two results differently. **Incoherent** output is fatal to the adapted-prior route. Output that is coherent
+but **stylistically wrong** for minimal and house is the expected result on a base checkpoint and is exactly what
+fine-tuning exists to fix — it is not a reason to abandon the route.
+
+This probe also resolves three claims that published sources report inconsistently, and which are deliberately not
+asserted in the other ADRs until checked:
+
+- **parameter count** — variously reported as 433M, 459M and 0.6B;
+- **sample rate** — 44.1 kHz per the paper and repository, 16 kHz in one Hugging Face model-card field;
+- **that the checkpoint decodes through SAME at all.** This is the cheapest of the three to confirm and by far the most
+  consequential: ADR-0004's decision to stop treating the autoencoder as an independent choice rests entirely on it.
 
 ### How output is judged at this stage
 
@@ -138,8 +150,9 @@ These are the conditions that open the next ADR round, and what each implies:
 - **SAME's round-trip is audibly damaging on hats, rides or reverb tails.** This bounds the whole approach and forces
   reconsideration of the latent space — which, because Stable Audio 3 is tied to SAME, means reconsidering the prior
   source too. This is the most consequential possible outcome of this ADR.
-- **The Stable Audio 3 probe fails** — no coherent unconditional output, or inpainting that is structurally or
-  stylistically wrong. This is the from-scratch trigger recorded in ADR-0004.
+- **The Stable Audio 3 probe produces incoherent output**, or the checkpoint does not decode through SAME. Either is
+  fatal to the adapted-prior route and escalates per ADR-0004's two-stage trigger. Stylistic mismatch alone does not —
+  that is the fine-tuning case.
 - **The probe succeeds well** — in which case fine-tuning may prove unnecessary for a first restoration attempt, and
   solver work can begin against the base prior directly.
 - **Apollo or A2SB proves impractical to run locally**, in which case the baseline moves to rented GPU and is costed

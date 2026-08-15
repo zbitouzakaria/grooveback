@@ -14,8 +14,13 @@ them in the library sound better by contrast.
 ## What this is
 
 The artifact is an **unconditional generative prior** over the music I actually listen to: old-school house, minimal,
-and adjacent electronic genres. It is trained on my own library, and it lives in the latent space of a pretrained audio
-autoencoder rather than on waveforms or spectrograms.
+and adjacent electronic genres. It lives in the latent space of a pretrained audio autoencoder rather than on waveforms
+or spectrograms.
+
+The prior is **adapted from [Stable Audio 3](#ref-sa3)** — an open-weights music model released in May 2026 — by
+fine-tuning on my own library, rather than trained from scratch. A ~2,000-track library is roughly 215 hours, which is
+thin for training a generative model from noise but ample for specialising one that already knows what music is.
+[ADR-0004](docs/decisions/0004-restoration-as-a-latent-inverse-problem.md) argues that case in full.
 
 Restoration is the prior's first application, not the object of the project. A degraded rip is treated as an
 observation of a clean track through an unknown operator:
@@ -80,7 +85,9 @@ informal audio comparisons and produce confident wrong conclusions.
 Objective metrics catch regressions. **Blinded listening on monitoring hardware is the judge.** Embedding-based metrics
 are preferred over waveform-level comparison, since the autoencoder introduces phase differences that unfairly penalise
 generative methods; distributional metrics like FAD are unreliable at this project's sample sizes and want the
-[per-song treatment](#ref-fad) and a music-appropriate embedding rather than the default one.
+[per-song treatment](#ref-fad) and a music-appropriate embedding rather than the default one. Per-sample metrics such
+as [MuQ-Eval](#ref-muqeval) are the right shape for an evaluation set of a few dozen tracks, where distributional
+distances are close to noise.
 
 ## A note on genre focus
 
@@ -243,5 +250,13 @@ degradation chain becomes an evaluation instrument instead.
 [MuQ-Eval] *MuQ-Eval: An Open-Source Per-Sample Quality Metric for AI Music Generation Evaluation.* [arXiv:2603.22677](https://arxiv.org/abs/2603.22677)
 
 ---
+
+## Licensing
+
+The code here is MIT. The prior is adapted from Stable Audio 3, so any resulting weights inherit the
+[Stability AI Community License](https://stability.ai/license) — free for personal and research use, which is this
+project's stated and indefinite scope, but not an unencumbered artifact. Training a prior from scratch is the route to
+unencumbered weights, and [ADR-0004](docs/decisions/0004-restoration-as-a-latent-inverse-problem.md) records why that
+is not the starting point.
 
 Decisions are recorded as ADRs in [`docs/decisions/`](docs/decisions/).
