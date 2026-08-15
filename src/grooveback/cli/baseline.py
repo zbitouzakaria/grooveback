@@ -1,0 +1,66 @@
+"""Run a baseline restoration method over a track.
+
+    uv run python -m grooveback.cli.baseline data/track.mp3 artifacts/track.wav
+"""
+
+from __future__ import annotations
+
+import argparse
+import time
+from pathlib import Path
+
+from grooveback import audio as ga
+from grooveback.baselines import run_apollo
+
+
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("input", type=Path)
+    parser.add_argument("output", type=Path)
+    parser.add_argument("--method", default="apollo", choices=["apollo"])
+    parser.add_argument("--device", default="auto", choices=["auto", "cuda", "mps", "cpu"])
+    parser.add_argument("--chunk-seconds", type=float, default=10.0)
+    parser.add_argument("--overlap-seconds", type=float, default=1.0)
+    parser.add_argument("--batch-size", type=int, default=1)
+    parser.add_argument(
+        "--match-loudness",
+        action="store_true",
+        help=f"Normalize the output to {ga.TARGET_LUFS} LUFS before writing.",
+    )
+    args = parser.parse_args(argv)
+
+    signal, sample_rate = ga.load(args.input)
+    print(
+        f"{args.input.name}: {sample_rate} Hz, {signal.shape[0]}ch, "
+        f"{signal.shape[1] / sample_rate:.1f}s, "
+        f"{ga.loudness(signal, sample_rate):.1f} LUFS"
+    )
+
+    started = time.perf_counter()
+    restored = run_apollo(
+        signal,
+        sample_rate,
+        device=args.device,
+        chunk_seconds=args.chunk_seconds,
+        overlap_seconds=args.overlap_seconds,
+        batch_size=args.batch_size,
+    )
+    elapsed = time.perf_counter() - started
+    print(
+        f"{args.method}: {elapsed:.1f}s "
+        f"({signal.shape[1] / sample_rate / elapsed:.1f}x realtime)"
+    )
+
+    if args.match_loudness:
+        restored = ga.normalize_loudness(restored, sample_rate)
+    print(
+        f"out: {ga.loudness(restored, sample_rate):.1f} LUFS, "
+        f"peak {ga.peak_dbfs(restored):.1f} dBFS"
+    )
+
+    ga.save(args.output, restored, sample_rate)
+    print(f"wrote {args.output}")
+
+
+if __name__ == "__main__":
+    main()
