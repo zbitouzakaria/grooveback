@@ -26,10 +26,14 @@ application, and makes the degradation chain a swappable component rather than t
 Two facts about the current landscape make this tractable for one person on a few hundred euros of GPU:
 
 1. **Pretrained audio autoencoders are good enough to work inside.** The prior does not operate on waveforms or
-   spectrograms; it operates on latents produced by a frozen autoencoder. This cuts the sequence length by three orders
-   of magnitude and is what makes a full-length track affordable to model at all.
+   spectrograms; it operates on latents produced by a frozen autoencoder. SAME, the autoencoder used here, reports
+   4096× temporal downsampling of 44.1 kHz stereo into 256 channels — roughly 10.8 latent frames per second. That cuts
+   the sequence length by more than three orders of magnitude and is what makes a full-length track affordable to model
+   at all. Every derived figure elsewhere in these ADRs follows from those two numbers.
 2. **Stable Audio 3 shipped in May 2026 with open weights**, including a music diffusion transformer that already lives
-   in exactly such a latent space, at 44.1 kHz stereo, with LoRA fine-tuning supported.
+   in exactly such a latent space, with LoRA fine-tuning supported. (LoRA — low-rank adaptation — trains a small pair
+   of low-rank matrices alongside frozen weights instead of updating the model itself, so fine-tuning costs a fraction
+   of full training and the base checkpoint stays intact.)
 
 ## Decision
 
@@ -74,18 +78,23 @@ precomputed once for the whole library so it never runs inside a training loop.
 
 ### The prior is sourced by adapting Stable Audio 3, not trained from scratch
 
-`stable-audio-3-small-music` — open weights, 44.1 kHz stereo, SAME latents, roughly 0.4–0.6B parameters (sources
-disagree; resolve by loading the checkpoint), Stability AI Community License, LoRA supported — is fine-tuned on the
-personal library. Sampling with null text conditioning at CFG=1 then gives the unconditional prior.
+`stable-audio-3-small-music` — open weights, stereo, SAME latents, Stability AI Community License, LoRA supported — is
+fine-tuned on the personal library. Sampling with null text conditioning at CFG=1 then gives the unconditional prior.
+
+Three of that checkpoint's properties are reported inconsistently across the paper, the repository and the model card,
+and are **not asserted here**: its parameter count (variously 433M, 459M and 0.6B), its sample rate (44.1 kHz per the
+paper and repository, 16 kHz in one model-card field), and — most consequentially — that it decodes through SAME at
+all, which is the assumption the whole "autoencoder is no longer an independent choice" consequence rests on. ADR-0005's
+probe resolves all three before anything is built on them.
 
 The reasoning, since this is the decision most likely to be second-guessed:
 
 - **The library is small for from-scratch training.** Roughly 2,000 tracks at a typical 6–7 minutes is about 215 hours,
-  which at the SAME latent rate is only ~6,500 distinct two-minute windows. For calibration, LOUDAR trained a 68M
-  parameter DiT for 375k iterations on 50 hours of *solo singing voice* — a far lower-entropy distribution than
-  full-mix stereo house — and still reports prior-mismatch artifacts, where heavily degraded input acquires
-  characteristics of the training corpus rather than of itself. A from-scratch prior on this library would very likely
-  be worse than an adapted one at several times the cost.
+  which is only ~6,500 distinct two-minute windows. For calibration, LOUDAR reports training a 68M-parameter diffusion
+  transformer for 375k iterations on 50 hours of *solo singing voice* — a far lower-entropy distribution than full-mix
+  stereo house — and still describes prior-mismatch artifacts, where heavily degraded input acquires characteristics of
+  the training corpus rather than of itself. A from-scratch prior on this library, at a comparable model size, would
+  very likely be worse than an adapted one at several times the cost.
 - **Null conditioning is a genuine unconditional prior, not a trick.** Classifier-free guidance requires training the
   model with the conditioning signal randomly dropped, so the network has an explicitly trained null-conditioned
   branch. That branch *is* an unconditional score estimate; it is half of what CFG combines at sampling time. Using it
@@ -99,8 +108,11 @@ The reasoning, since this is the decision most likely to be second-guessed:
   sampling produces convincing restoration, not whether a prior can be trained. Spending the entire GPU budget on the
   part with a known answer would leave nothing for the part without one.
 
-From-scratch training on SAME latents remains a documented fallback, not a committed phase. Its trigger is recorded
-under *Revisit triggers* below.
+From-scratch training on SAME latents remains a documented fallback, not a committed phase. It is worth naming what
+would have to change for it to become rational, since the library size that makes it a bad idea today does not change
+when the trigger fires: a **substantially smaller model** than the 0.4–0.6B being adapted, sized to ~215 hours rather
+than to a web-scale corpus; or a **narrower target** than the full genre; or more data. "Fall back to from-scratch at
+the same scale" is not a plan, and this ADR does not record one. The trigger itself is under *Revisit triggers* below.
 
 ### There will be no supervised spectrogram U-Net baseline
 
@@ -140,8 +152,10 @@ measures. Evaluation must account for that. See ADR-0005 and the evaluation ADR 
   pretrained prior in it.
 - The prior cannot be transplanted between latent spaces. Changing autoencoder means retraining. This is why the
   autoencoder is verified before any adaptation work begins, rather than after.
-- Licensing: the Stability AI Community License covers personal and research use, which is the stated and indefinite
-  scope. It is not an unencumbered artifact, and this constrains any future commercial use.
+- Licensing: the [Stability AI Community License](https://stability.ai/license) covers personal and research use and
+  organisations under $1M revenue, which is the stated and indefinite scope of this project. Any adapted weights
+  inherit those terms — the artifact is not unencumbered, and this constrains future commercial use. The project's own
+  code remains MIT.
 - Anyone reading this codebase needs to understand posterior sampling to understand what it does. The inference path is
   not a forward pass. This is a documentation burden the project accepts, and the reason these ADRs explain mechanism
   rather than only recording choices.
@@ -150,9 +164,13 @@ measures. Evaluation must account for that. See ADR-0005 and the evaluation ADR 
 
 ## Revisit triggers
 
-- **The adapted prior fails the viability probe in ADR-0005** — that is, the base or fine-tuned model cannot inpaint a
-  masked region of a library track in a way that is structurally coherent and stylistically near the material. This is
-  the trigger for from-scratch training on SAME latents.
+- **The adapted prior fails the viability probe in ADR-0005.** This escalates in two stages, because the two failure
+  modes mean different things:
+  - *Base checkpoint produces incoherent output* — not music, or structurally broken. Fatal to this route; fine-tuning
+    on 215 hours does not repair a prior that cannot generate at all.
+  - *Base checkpoint is coherent but stylistically wrong for the material* — *expected*, and precisely what fine-tuning
+    exists to fix. Not a trigger. Only if the **fine-tuned** model is still stylistically wrong does from-scratch
+    training become the question, and then under the scale caveat recorded above.
 - **Test-time posterior sampling proves impractical** — inference cost or instability makes it unusable in practice.
   The branch is then conditional fine-tuning on pairs from the degradation chain, in the StableSR / DiffBIR mould. That
   is a legitimate alternative, not a defeat, and it reuses the same prior and the same infrastructure.

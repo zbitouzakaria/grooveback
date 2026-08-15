@@ -17,9 +17,13 @@ U-Net, a loss module, and a training loop as the main run type. ADR-0004 removed
 adapting a pretrained model, the degradation chain is an evaluation instrument rather than a training distribution, and
 the first real run type is inference against frozen checkpoints.
 
-This ADR is scoped to what [ADR-0005](0005-baselines-and-prior-viability-on-real-library-material.md) requires and
-nothing further. ADR-0005 is a deliberate stopping point, and committing to a module for a solver that has not been
-chosen yet would be the same mistake this rewrite is correcting.
+The **module tree** below is scoped to what [ADR-0005](0005-baselines-and-prior-viability-on-real-library-material.md)
+requires and nothing further. ADR-0005 is a deliberate stopping point, and committing to a module for a solver that has
+not been chosen yet would be the same mistake this rewrite is correcting.
+
+Two sections deliberately look past that horizon and are marked where they do: the **compute topology**, because it
+determines what hardware is rented and when, and parts of the **dependency table**, because a dependency admitted now
+should be justified against the use it will actually get. Neither authorises writing the corresponding code.
 
 ## Decision
 
@@ -41,7 +45,7 @@ grooveback/
 │   ├── metrics.py       # minimal set; LSD as a regression tripwire only
 │   └── cli/
 │       ├── ingest.py        # build the manifest
-│       ├── baseline.py      # run Apollo / A2SB / DSP control
+│       ├── baseline.py      # run Apollo / A2SB / DSP control, singly or chained
 │       ├── roundtrip.py     # SAME encode-decode report
 │       ├── probe.py         # Stable Audio 3 viability probe
 │       └── evaluate.py      # level-matched comparison + listening pack
@@ -70,7 +74,9 @@ surviving stubs are to be removed, and files in the tree above appear when they 
 
 Named so their absence reads as scheduled rather than overlooked: `degradations.py` (the `A_eval` chain),
 `operators.py` (differentiable surrogates for use inside a solver), `solvers.py`, `data.py` (datasets over latent
-shards), `training.py`, `inference.py`, `listening.py` (ABX harness). Each waits on an ADR that waits on ADR-0005's
+shards), `training.py`, `inference.py`, `listening.py` (an ABX harness — blinded comparison where the ordering is
+randomised and the verdict logged, so listening produces a record rather than a memory). Each waits on an ADR that
+waits on ADR-0005's
 results.
 
 ### Dependencies
@@ -83,12 +89,12 @@ One sentence each, per the rule that every dependency justifies itself against i
 | `numpy` | Unavoidable interchange format at the edges |
 | `soundfile` | libsndfile bindings; the reliable file-IO layer, where torchaudio's backend story has historically churned |
 | `einops` | Makes tensor reshapes in latent code readable and self-documenting, which matters most where a silent axis swap is undetectable |
-| `pydantic` | Validation for manifests and latent-cache metadata specifically — the two places a silent schema error corrupts everything downstream. Not used for configs; Hydra/OmegaConf already owns that and two schema systems fight |
+| `pydantic` | Validation for manifests now, and for latent-cache metadata once that exists — the two places a silent schema error corrupts everything downstream. Not used for configs; Hydra/OmegaConf already owns that and two schema systems fight |
 | `pyloudnorm` | ITU-R BS.1770 loudness metering, required for the −14 LUFS matching every comparison depends on; nothing else in the stack implements the standard |
 | `pedalboard` | The DSP control condition (gain, high shelf, mono below ~120 Hz) at plugin quality, and it covers what `audiomentations` would have been added for |
 | `matplotlib` | Spectrogram rendering for by-eye comparison, which ADR-0005 treats as a primary instrument |
 | `hydra-core`, `omegaconf` | Composable run configuration with command-line override of any group |
-| `ffmpeg` (system, not a Python dep) | Real LAME and real container handling for building degraded test cases; an approximation of a codec is not a codec |
+| `ffmpeg` (system, not a Python dep) | Decoding whatever container and codec a library file arrives in, which `soundfile` alone does not cover. Later it also builds degraded test cases, where an approximation of a codec is not a codec |
 
 Deliberately excluded, with reasons, so they are not re-added by reflex:
 
@@ -122,13 +128,17 @@ mechanically rather than by discipline — see the gates below.
 
 ### Compute topology
 
+Forward-looking: this section covers work beyond ADR-0005, because it determines what hardware gets rented and when.
+
 - **Local (Apple Silicon, 16 GB unified, ~10–11 GB usable)**: manifests, level matching, evaluation, spectrograms,
   listening, the DSP control, Apollo (chunked), A2SB, SAME round-trip, and — because SAME is small and fast —
-  plausibly the full-library latent precompute as an overnight job. The whole library's latents are on the order of
-  4 GB in fp16, so the cache is not the constraint.
+  plausibly the full-library latent precompute as an overnight job. At SAME's reported ~10.8 latent frames per second
+  across 256 channels (see ADR-0004), 215 hours of audio is roughly 4 GB in fp16, so the cache is not the constraint
+  and fits in RAM.
 - **Rented GPU (4090-class, 24 GB)**: fine-tuning and, later, solver sweeps. Budget for solver sweeps separately:
   posterior sampling at hundreds of steps across a hyperparameter grid will outspend the fine-tune.
-- **Latents are precomputed once and never encoded inside a training loop.** This is a hard rule, not an optimisation.
+- **Latents are precomputed once and never encoded inside a training loop.** A hard rule for when training exists, not
+  an optimisation.
 
 ### Correctness gates
 
@@ -144,7 +154,7 @@ network.
 | **SAME round-trip threshold** — encode→decode must clear a fixed SI-SDR / mel-L1 bound on fixtures | Wrong channel order, wrong normalisation, stale or mismatched checkpoint |
 | **Golden-file spectral regression** with perceptual tolerance (mel-spectrogram L1 within bound), never bit-exact | Unintended processing changes, without the false positives that make bit-exact audio tests get muted after the first library upgrade |
 | **Property tests (hypothesis)** — sample rate preserved, channel count preserved, length contract held, no NaN/Inf, no clipping introduced beyond a declared gain stage, determinism under fixed seed | The invariants that hold across every transform in the codebase |
-| **Import-linter architecture test** — `audio`, `manifest`, `metrics`, `evaluation` may not import wandb, hydra, or CUDA-only paths | Infrastructure leaking into domain logic, which is what makes tests need a GPU six months later |
+| **Import-linter architecture test** — `audio`, `manifest`, `metrics`, `evaluation` may not import hydra, any experiment tracker, or CUDA-only paths | Infrastructure leaking into domain logic, which is what makes tests need a GPU six months later. The tracker is named in the contract when one is added; no tracker is a dependency yet |
 
 Tests come first where correctness is checkable. Where it is not — whether a restoration sounds good — the judge is
 blinded listening on monitoring hardware, and no gate substitutes for it.
