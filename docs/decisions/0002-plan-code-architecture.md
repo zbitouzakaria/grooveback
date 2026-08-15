@@ -67,8 +67,8 @@ one — roughly 300–500 lines, or when clearly separable concerns accumulate.
 
 **No empty folders, no stub files.** The original tree was created as docstring-only placeholders, which is the failure
 mode this rule exists to prevent: a stub asserts a design decision without paying for it, and `degradations.py`
-survived four months describing itself as "the core research artifact" after that framing had been abandoned. The
-surviving stubs are to be removed, and files in the tree above appear when they contain working code.
+survived four months describing itself as "the core research artifact" after that framing had been abandoned. Those
+stubs are deleted alongside this rewrite. Files in the tree above appear when they contain working code.
 
 ### Deliberately not written yet
 
