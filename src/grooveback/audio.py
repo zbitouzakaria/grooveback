@@ -63,7 +63,12 @@ def spectrogram_db(
     floor_db: float = -100.0,
     max_frames: int = 4000,
 ) -> np.ndarray:
-    """Magnitude spectrogram in dB, averaged across channels.
+    """Magnitude spectrogram in **dBFS**, averaged across channels.
+
+    Calibrated so a full-scale sine reads 0 dB: the single-sided `2/sum(window)`
+    scaling. Without it a raw `rfft` magnitude sits about +53 dB high at
+    `n_fft=2048`, which silently shifts everything up the colour scale and makes
+    faint content look loud — the plot disagrees with any real analyser.
 
     Plain numpy STFT so this stays dependency-light and importable anywhere.
     Returns `(freq_bins, frames)`, ready for `imshow(origin="lower")`.
@@ -85,5 +90,24 @@ def spectrogram_db(
         shape=(n_frames, n_fft),
         strides=(mono.strides[0] * hop, mono.strides[0]),
     )
-    magnitude = np.abs(np.fft.rfft(frames * window, axis=1)).T
+    magnitude = np.abs(np.fft.rfft(frames * window, axis=1)).T * (2.0 / window.sum())
     return 20.0 * np.log10(np.maximum(magnitude, 10.0 ** (floor_db / 20.0)))
+
+
+def band_energy_db(
+    audio: np.ndarray, sample_rate: int, low_hz: float, high_hz: float
+) -> float:
+    """RMS level in dBFS of the content between `low_hz` and `high_hz`.
+
+    A number to put next to a spectrogram, since a colour map is easy to read
+    optimistically and this is not.
+    """
+    mono = audio.mean(axis=0)
+    spectrum = np.fft.rfft(mono)
+    freqs = np.fft.rfftfreq(mono.size, 1.0 / sample_rate)
+    band = spectrum[(freqs >= low_hz) & (freqs < high_hz)]
+    if band.size == 0:
+        return float("-inf")
+    # Parseval: band power back to a time-domain RMS over the whole signal.
+    rms = np.sqrt(2.0 * np.sum(np.abs(band) ** 2)) / mono.size
+    return 20.0 * np.log10(rms) if rms > 0 else float("-inf")
