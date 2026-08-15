@@ -94,6 +94,67 @@ def spectrogram_db(
     return 20.0 * np.log10(np.maximum(magnitude, 10.0 ** (floor_db / 20.0)))
 
 
+def bandwidth_hz(
+    audio: np.ndarray,
+    sample_rate: int,
+    min_hz: float = 3000.0,
+    drop_db: float = 20.0,
+    band_hz: float = 250.0,
+) -> float:
+    """Where a band-limited file falls off a cliff, in Hz.
+
+    Codec and resampling cutoffs are brick walls, so this looks for the steepest
+    drop in the long-term average spectrum above `min_hz` and returns the last
+    frequency still carrying signal.
+
+    Deliberately not a spectral-rolloff percentile. In music almost all the
+    energy sits below ~2 kHz, so a 99% rolloff reports ~2 kHz whatever the real
+    bandwidth is — which is what A2SB's own helper does, and why its shipped
+    config claims a 2 kHz cutoff for full-band material. A bandwidth-extension
+    model handed that figure regenerates most of the spectrum instead of only
+    the missing top.
+    """
+    mono = audio.mean(axis=0)
+    spectrum = np.abs(np.fft.rfft(mono)) ** 2
+    freqs = np.fft.rfftfreq(mono.size, 1.0 / sample_rate)
+
+    edges = np.arange(0, sample_rate / 2, band_hz)
+    levels = np.array(
+        [
+            10 * np.log10(max(spectrum[(freqs >= lo) & (freqs < lo + band_hz)].sum(), 1e-30))
+            for lo in edges
+        ]
+    )
+
+    start = int(min_hz // band_hz)
+    steps = np.diff(levels[start:])
+    if steps.size == 0 or steps.min() > -drop_db:
+        return sample_rate / 2
+    return float(edges[start + int(np.argmin(steps)) + 1])
+
+
+def band_correlation(
+    audio: np.ndarray, sample_rate: int, low_hz: float, high_hz: float
+) -> float:
+    """Inter-channel correlation in a band: 1.0 is mono, 0.0 is uncorrelated.
+
+    A model that restores each channel separately synthesises the two
+    independently, so the recovered band can come back decorrelated. That is
+    inaudible as a level change and obvious as a smeared stereo image, so it
+    needs its own number.
+    """
+    if audio.shape[0] < 2:
+        return 1.0
+    spectra = np.fft.rfft(audio[:2], axis=1)
+    freqs = np.fft.rfftfreq(audio.shape[1], 1.0 / sample_rate)
+    band = (freqs >= low_hz) & (freqs < high_hz)
+    left, right = spectra[0, band], spectra[1, band]
+    denom = np.sqrt(np.sum(np.abs(left) ** 2) * np.sum(np.abs(right) ** 2))
+    if denom == 0:
+        return 1.0
+    return float(np.abs(np.sum(left * np.conj(right))) / denom)
+
+
 def band_energy_db(
     audio: np.ndarray, sample_rate: int, low_hz: float, high_hz: float
 ) -> float:

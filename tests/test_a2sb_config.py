@@ -68,6 +68,19 @@ def test_cutoff_when_given_is_a_fixed_band():
     assert args["p_upsample_mask"] == 1.0
 
 
+def test_cutoff_block_keeps_the_inpainting_arguments():
+    """Overriding transforms_aug replaces the whole block, so every required
+    argument has to be restated — `InpaintMask` needs its kwargs even with
+    inpainting disabled, and omitting them fails inside the subprocess."""
+    args = parse(cutoff_hz=16000)["data"]["transforms_aug"][0]["init_args"]
+    assert set(args["inpainting_mask_kwargs"]) == {
+        "min_inpainting_frac",
+        "max_inpainting_frac",
+        "is_random",
+    }
+    assert args["p_inpaint_mask"] == 0.0
+
+
 @pytest.mark.parametrize("device", ["mps", "cpu", "gpu"])
 def test_device_passes_through(device):
     assert parse(device=device)["trainer"]["accelerator"] == device

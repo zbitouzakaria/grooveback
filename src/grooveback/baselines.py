@@ -243,7 +243,11 @@ def _a2sb_config(wav_in: Path, checkpoints: list[str], device: str, cutoff_hz: f
         sampling_rate: {A2SB_SAMPLE_RATE}
         upsample_mask_kwargs:
           min_cutoff_freq: {int(cutoff_hz)}
-          max_cutoff_freq: {int(cutoff_hz)}"""
+          max_cutoff_freq: {int(cutoff_hz)}
+        inpainting_mask_kwargs:
+          min_inpainting_frac: 0.1013
+          max_inpainting_frac: 0.1013
+          is_random: false"""
     ckpts = "\n".join(f"    - {c}" for c in checkpoints)
     cutoffs = "[0.5]" if len(checkpoints) == 2 else "[]"
     return f"""
@@ -304,6 +308,13 @@ def run_a2sb(
             "it needs its own venv because ssr_eval will not install."
         )
     checkpoints = checkpoints or a2sb_checkpoints()
+
+    # A2SB regenerates everything above the cutoff it is given, and the shipped
+    # config says 2000 Hz. Left alone it rebuilds most of the spectrum, which
+    # overwrites real content and — because each channel is synthesised
+    # separately — collapses the stereo image toward mono.
+    if cutoff_hz is None:
+        cutoff_hz = ga.bandwidth_hz(audio, sample_rate)
 
     channels = []
     with tempfile.TemporaryDirectory() as tmp:
