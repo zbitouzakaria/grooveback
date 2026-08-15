@@ -1,0 +1,20 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "jupyter",
+      "runtimeExecutable": "uv",
+      "runtimeArgs": [
+        "run",
+        "--group",
+        "notebooks",
+        "jupyter",
+        "lab",
+        "--no-browser",
+        "--port=8888",
+        "--ServerApp.root_dir=."
+      ],
+      "port": 8888
+    }
+  ]
+}
