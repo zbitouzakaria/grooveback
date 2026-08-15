@@ -27,10 +27,45 @@ def band_limited(cutoff_hz: float, seconds: float = 2.0) -> np.ndarray:
     return np.tile(signal, (2, 1))
 
 
+def smeared(cutoff_hz: float, width_hz: float = 1000.0, seconds: float = 4.0) -> np.ndarray:
+    """A rolloff that fades over `width_hz` rather than stopping dead.
+
+    This is what real codecs leave behind, and it is the case a brick-wall
+    fixture does not cover: the drop is spread across a kilohertz, so no pair of
+    narrow adjacent bands ever shows the whole step.
+    """
+    rng = np.random.default_rng(1)
+    n = int(seconds * SR)
+    spectrum = np.fft.rfft(rng.standard_normal(n))
+    freqs = np.fft.rfftfreq(n, 1.0 / SR)
+    spectrum /= np.maximum(freqs, 20.0)
+    taper = np.clip((cutoff_hz + width_hz - freqs) / width_hz, 0.0, 1.0)
+    spectrum *= taper**4
+    signal = np.fft.irfft(spectrum, n).astype(np.float32)
+    signal /= np.max(np.abs(signal))
+    return np.tile(signal, (2, 1))
+
+
 @pytest.mark.parametrize("cutoff", [5000, 8000, 11000, 16000, 20000])
 def test_finds_the_brick_wall(cutoff):
     found = ga.bandwidth_hz(band_limited(cutoff), SR)
-    assert abs(found - cutoff) <= 750, f"expected ~{cutoff}, got {found}"
+    assert abs(found - cutoff) <= 1250, f"expected ~{cutoff}, got {found}"
+
+
+@pytest.mark.parametrize("cutoff", [8000, 12000, 16000])
+def test_finds_a_smeared_rolloff(cutoff):
+    """The real-world case. Detection must not need a perfectly sharp edge."""
+    found = ga.bandwidth_hz(smeared(cutoff), SR)
+    assert abs(found - cutoff) <= 2000, f"expected ~{cutoff}, got {found}"
+
+
+def test_detection_is_stable_across_excerpt_lengths():
+    """A short excerpt and a long one must agree, or the same track gets
+    restored differently depending on how much of it you passed in."""
+    long_signal = smeared(16000, seconds=20.0)
+    short = ga.bandwidth_hz(long_signal[:, : 3 * SR], SR)
+    full = ga.bandwidth_hz(long_signal, SR)
+    assert abs(short - full) <= 1000, f"{short} vs {full}"
 
 
 def test_full_band_audio_reports_nyquist():

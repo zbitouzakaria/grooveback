@@ -100,6 +100,7 @@ def bandwidth_hz(
     min_hz: float = 3000.0,
     drop_db: float = 20.0,
     band_hz: float = 250.0,
+    span_hz: float = 1000.0,
 ) -> float:
     """Where a band-limited file falls off a cliff, in Hz.
 
@@ -126,11 +127,17 @@ def bandwidth_hz(
         ]
     )
 
-    start = int(min_hz // band_hz)
-    steps = np.diff(levels[start:])
-    if steps.size == 0 or steps.min() > -drop_db:
+    # Compare each band against the one a span below it, not its neighbour. A
+    # real codec rolloff is smeared over roughly a kilohertz, so no adjacent
+    # 250 Hz pair ever shows the full drop and a per-step test finds nothing.
+    span = max(1, int(round(span_hz / band_hz)))
+    start = max(int(min_hz // band_hz), span)
+    if start >= levels.size:
         return sample_rate / 2
-    return float(edges[start + int(np.argmin(steps)) + 1])
+    drops = levels[start:] - levels[start - span : levels.size - span]
+    if drops.size == 0 or drops.min() > -drop_db:
+        return sample_rate / 2
+    return float(edges[start + int(np.argmin(drops))])
 
 
 def band_correlation(
