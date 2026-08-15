@@ -892,6 +892,7 @@ dev = [
     { name = "import-linter" },
     { name = "pytest" },
     { name = "pytest-cov" },
+    { name = "pyyaml" },
     { name = "ruff" },
 ]
 notebooks = [
@@ -922,6 +923,7 @@ dev = [
     { name = "import-linter", specifier = ">=2.0" },
     { name = "pytest", specifier = ">=8" },
     { name = "pytest-cov" },
+    { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "ruff" },
 ]
 notebooks = [

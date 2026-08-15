@@ -277,6 +277,7 @@ def run_a2sb(
     checkpoints: list[str] | None = None,
     device: str = "mps",
     cutoff_hz: float | None = None,
+    predict_batch_size: int = 2,
 ) -> np.ndarray:
     """Restore `(channels, samples)` audio with A2SB.
 
@@ -285,8 +286,13 @@ def run_a2sb(
     cutoff — worth measuring inter-channel correlation up there before trusting
     the stereo image.
 
-    Slow: roughly 19x slower than realtime per channel at 20 steps on MPS, so a
-    full stereo track is measured in hours. Use excerpts locally.
+    Length is handled inside A2SB, which slides a 256-frame window over the
+    spectrogram and runs `predict_batch_size` windows per forward pass. Their
+    default of 16 exhausts MPS on anything past a few seconds, so this defaults
+    low. It is a memory/throughput knob only and does not change the output.
+
+    Slow regardless: tens of times slower than realtime on MPS, so full tracks
+    are an overnight or rented-GPU job. Use excerpts locally.
     """
     from grooveback import audio as ga
 
@@ -317,6 +323,7 @@ def run_a2sb(
                     "-c", "configs/inference_files_upsampling.yaml",
                     "-c", str(config),
                     f"--model.predict_n_steps={n_steps}",
+                    f"--model.predict_batch_size={predict_batch_size}",
                     f"--model.output_audio_filename={wav_out}",
                 ],
                 cwd=A2SB_REPO, env=env, capture_output=True, text=True,
