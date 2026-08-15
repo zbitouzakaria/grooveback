@@ -15,13 +15,12 @@ The artifact is an unconditional generative prior over the music I actually list
 adjacent electronic genres. It lives in the latent space of a pretrained audio autoencoder, and it is adapted from
 [Stable Audio 3](#ref-sa3) by fine-tuning on my own library rather than trained from scratch.
 
-Restoration is the prior's first application. A degraded rip is treated as an observation of a clean track through some
-unknown operator, and restoration means sampling from the posterior at inference time. The prior is learned once, from
-clean audio only, and never sees a degraded example; the degradation enters only when the model runs.
+Restoration is the prior's first application. The model is trained on clean audio only — it knows what this music
+sounds like, and nothing about MP3s or vinyl transfers. Restoring a track means asking it, at inference time, which of
+the clean tracks it finds plausible could have produced the damaged file I have.
 
-That split is the point. Changing what damage gets restored means changing the operator, not retraining. Unconditional
-generation falls out of the prior for free. Conditioning on inspiration samples — a vocal, a loop, a reference texture
-— is a later and more open problem.
+Generating new music falls out of the same model for free. Conditioning on inspiration samples — a vocal, a loop, a
+reference texture — is a later and more open problem.
 
 [ADR-0004](docs/decisions/0004-restoration-as-a-latent-inverse-problem.md) has the full reasoning.
 

@@ -41,10 +41,8 @@ The last one is what ADR-0004 rests on.
 Level-matched to −14 LUFS before any comparison, without exception. Then by ear on monitors, and by spectrogram.
 Objective metrics are not the instrument here.
 
-### Not done yet
-
-No alignment of the real clean/rip pairs, so no paired metrics — the pairs have arbitrary offsets and are often
-different masters, and that is second-wave work. No degradation chain, no solvers, no fine-tuning.
+The ~20 real clean/rip pairs I hold are not aligned yet — they have arbitrary offsets and are often different masters —
+so no paired metrics at this stage. Aligning them comes later.
 
 ### SonicMaster
 
@@ -54,10 +52,8 @@ negative prompt. Not adopted. Recorded so it does not get re-tested later.
 ## Consequences
 
 - Every later method has something to beat, established before it is designed.
-- The two components the design depends on are checked before any GPU budget is spent on them.
+- SAME and Stable Audio 3 get checked before any GPU budget goes into them.
 - Work stops here until results exist.
-- Running other people's checkpoints on a 16 GB machine has its own friction. Accepted; smaller than training
-  anything.
 
 ## Revisit triggers
 
