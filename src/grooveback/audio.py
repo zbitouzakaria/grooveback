@@ -87,18 +87,3 @@ def spectrogram_db(
     )
     magnitude = np.abs(np.fft.rfft(frames * window, axis=1)).T
     return 20.0 * np.log10(np.maximum(magnitude, 10.0 ** (floor_db / 20.0)))
-
-
-def preview(audio: np.ndarray, sample_rate: int, seconds: float = 30.0) -> np.ndarray:
-    """A centered slice, for embedding in a notebook.
-
-    `IPython.display.Audio` base64-encodes its input into the page, so a full
-    track is hundreds of megabytes of DOM and hangs the browser. Listen to
-    full-length output from the written files instead.
-    """
-    total = audio.shape[1]
-    want = int(seconds * sample_rate)
-    if want >= total:
-        return audio
-    start = (total - want) // 2
-    return audio[:, start : start + want]

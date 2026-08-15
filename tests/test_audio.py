@@ -35,18 +35,6 @@ def test_spectrogram_survives_input_shorter_than_fft():
     assert ga.spectrogram_db(tone(0.001)).shape[1] >= 1
 
 
-def test_preview_centers_and_bounds():
-    audio = tone(120.0)
-    clip = ga.preview(audio, SR, seconds=30.0)
-    assert clip.shape == (2, 30 * SR)
-    assert np.array_equal(clip, audio[:, 45 * SR : 75 * SR])
-
-
-def test_preview_passes_short_audio_through():
-    audio = tone(5.0)
-    assert np.array_equal(ga.preview(audio, SR, seconds=30.0), audio)
-
-
 @pytest.mark.parametrize("target", [-14.0, -23.0])
 def test_normalize_loudness_hits_target(target):
     result = ga.normalize_loudness(tone(5.0), SR, target_lufs=target)
