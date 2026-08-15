@@ -1,3 +1,6 @@
 [submodule "third_party/apollo"]
 	path = third_party/apollo
 	url = https://github.com/JusperLee/Apollo.git
+[submodule "third_party/a2sb"]
+	path = third_party/a2sb
+	url = https://github.com/NVIDIA/diffusion-audio-restoration.git

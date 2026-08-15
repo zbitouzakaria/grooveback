@@ -19,3 +19,6 @@ multirun/
 
 # OS
 .DS_Store
+
+# isolated envs for third-party baselines
+.venvs/

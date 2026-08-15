@@ -1,27 +1,37 @@
 """Baseline restoration methods.
 
-Apollo (Li & Luo, ICASSP 2025) restores MP3-compressed music. It is a standing
-baseline, not a component — see ADR-0005.
+Standing baselines, not components — see ADR-0005.
 
-The model comes from the Apollo repo, vendored as a submodule at
-`third_party/apollo` because it ships no installable package. Chunking is ours:
-their crossfade lives in a top-level `inference.py` script rather than in the
-`look2hear` package, and importing a module called `inference` into this
-namespace is a trap.
+**Apollo** (Li & Luo, ICASSP 2025) targets codec artifacts. Vendored as a
+submodule at `third_party/apollo` because it ships no installable package, and
+imported directly: its model needs only torch, numpy and huggingface_hub.
+Chunking is ours, since their crossfade lives in a top-level `inference.py`
+script rather than in the `look2hear` package.
+
+**A2SB** (NVIDIA) targets missing bandwidth. It is kept behind a subprocess
+boundary in its own environment rather than imported: it wants pytorch_lightning
+and `ssr_eval`, and the latter is not installable at all. Its entry point is a
+Lightning CLI driven by YAML, so this module generates a config and shells out.
+It is also mono, so stereo costs two passes.
 """
 
 from __future__ import annotations
 
+import os
+import subprocess
 import sys
+import tempfile
 from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
 import torch
 
+_REPO = Path(__file__).resolve().parents[2]
+
 APOLLO_SAMPLE_RATE = 44_100
 APOLLO_CHECKPOINT = "JusperLee/Apollo"
-_APOLLO_REPO = Path(__file__).resolve().parents[2] / "third_party" / "apollo"
+_APOLLO_REPO = _REPO / "third_party" / "apollo"
 
 # Apollo's hyperparameters are not in the checkpoint — the Hugging Face repo
 # holds only pytorch_model.bin, no config — so they are pinned here from the
@@ -192,3 +202,135 @@ def run_apollo(
             batch_size,
         )
     return output.squeeze(0).numpy()
+
+
+# --- A2SB ------------------------------------------------------------------
+
+A2SB_SAMPLE_RATE = 44_100
+A2SB_REPO = _REPO / "third_party" / "a2sb"
+A2SB_PYTHON = _REPO / ".venvs" / "a2sb" / "bin" / "python"
+A2SB_SHIMS = _REPO / "third_party" / "shims"
+A2SB_HF_REPO = "nvidia/audio_to_audio_schrodinger_bridge"
+A2SB_SINGLE_SPLIT = "ckpt/A2SB_onesplit_0.0_1.0_release.ckpt"
+A2SB_TWO_SPLIT = (
+    "ckpt/A2SB_twosplit_0.0_0.5_release.ckpt",
+    "ckpt/A2SB_twosplit_0.5_1.0_release.ckpt",
+)
+
+
+def a2sb_checkpoints(ensemble: bool = False) -> list[str]:
+    """Fetch A2SB weights, 2.26 GB per checkpoint.
+
+    `ensemble=True` uses the two-split pair the paper reports, at twice the
+    download, memory and compute of the single-split model.
+    """
+    from huggingface_hub import hf_hub_download
+
+    names = A2SB_TWO_SPLIT if ensemble else (A2SB_SINGLE_SPLIT,)
+    return [hf_hub_download(A2SB_HF_REPO, n) for n in names]
+
+
+def _a2sb_config(wav_in: Path, checkpoints: list[str], device: str, cutoff_hz: float | None) -> str:
+    """Override for A2SB's cluster-shaped defaults: gpu + ddp + a SLURM plugin."""
+    cutoff = "" if cutoff_hz is None else f"""
+  transforms_aug:
+    - class_path: corruption.corruptions.MultinomialInpaintMaskTransform
+      init_args:
+        p_upsample_mask: 1.0
+        p_extension_mask: 0.0
+        p_inpaint_mask: 0.0
+        fill_noise_level: 0.5
+        sampling_rate: {A2SB_SAMPLE_RATE}
+        upsample_mask_kwargs:
+          min_cutoff_freq: {int(cutoff_hz)}
+          max_cutoff_freq: {int(cutoff_hz)}"""
+    ckpts = "\n".join(f"    - {c}" for c in checkpoints)
+    cutoffs = "[0.5]" if len(checkpoints) == 2 else "[]"
+    return f"""
+trainer:
+  accelerator: {device}
+  strategy: auto
+  devices: 1
+  num_nodes: 1
+  plugins: null
+  logger: false
+checkpoint_callback:
+  dirpath: {wav_in.parent / "lightning"}
+model:
+  pretrained_checkpoints:
+{ckpts}
+  t_cutoffs: {cutoffs}
+data:
+  num_workers: 0
+  batch_size: 1
+  mix_dataset_config: {{}}
+  predict_filelist:
+    - filepath: {wav_in}
+      output_subdir: "."{cutoff}
+"""
+
+
+def run_a2sb(
+    audio: np.ndarray,
+    sample_rate: int,
+    n_steps: int = 20,
+    checkpoints: list[str] | None = None,
+    device: str = "mps",
+    cutoff_hz: float | None = None,
+) -> np.ndarray:
+    """Restore `(channels, samples)` audio with A2SB.
+
+    A2SB mono-sums on load, so each channel is a separate pass. That doubles the
+    cost and means the two channels are synthesised independently above the
+    cutoff — worth measuring inter-channel correlation up there before trusting
+    the stereo image.
+
+    Slow: roughly 19x slower than realtime per channel at 20 steps on MPS, so a
+    full stereo track is measured in hours. Use excerpts locally.
+    """
+    from grooveback import audio as ga
+
+    if sample_rate != A2SB_SAMPLE_RATE:
+        raise ValueError(f"A2SB expects {A2SB_SAMPLE_RATE} Hz, got {sample_rate} Hz.")
+    if not A2SB_PYTHON.exists():
+        raise FileNotFoundError(
+            f"A2SB environment missing at {A2SB_PYTHON}. See docs/decisions/0005 — "
+            "it needs its own venv because ssr_eval will not install."
+        )
+    checkpoints = checkpoints or a2sb_checkpoints()
+
+    channels = []
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        for index in range(audio.shape[0]):
+            wav_in = tmp / f"ch{index}_in.wav"
+            wav_out = tmp / f"ch{index}_out.wav"
+            ga.save(wav_in, audio[index : index + 1], sample_rate)
+            config = tmp / f"ch{index}.yaml"
+            config.write_text(_a2sb_config(wav_in, checkpoints, device, cutoff_hz))
+
+            env = {**os.environ, "PYTHONPATH": str(A2SB_SHIMS)}
+            result = subprocess.run(
+                [
+                    str(A2SB_PYTHON), "ensembled_inference_api.py", "predict",
+                    "-c", "configs/ensemble_2split_sampling.yaml",
+                    "-c", "configs/inference_files_upsampling.yaml",
+                    "-c", str(config),
+                    f"--model.predict_n_steps={n_steps}",
+                    f"--model.output_audio_filename={wav_out}",
+                ],
+                cwd=A2SB_REPO, env=env, capture_output=True, text=True,
+            )
+            if not wav_out.exists():
+                raise RuntimeError(f"A2SB produced no output.\n{result.stderr[-2000:]}")
+            restored, _ = ga.load(wav_out)
+            channels.append(restored[0])
+
+    # A2SB returns a few hundred samples short of its input; pad so the result
+    # lines up with the original for any comparison.
+    total = audio.shape[1]
+    out = np.zeros((len(channels), total), dtype=np.float32)
+    for index, channel in enumerate(channels):
+        n = min(total, channel.size)
+        out[index, :n] = channel[:n]
+    return out
