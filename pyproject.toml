@@ -1,36 +1,49 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
-build-backend = "setuptools.backends.legacy:build"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "grooveback"
 version = "0.1.0"
-description = "Music super-resolution for degraded electronic music rips"
-requires-python = ">=3.10"
+description = "Latent generative prior over minimal and electronic music, with restoration as its first application"
+requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
 dependencies = [
     "torch>=2.2",
     "torchaudio>=2.2",
-    "hydra-core>=1.3",
-    "omegaconf>=2.3",
     "numpy>=1.26",
     "soundfile>=0.12",
-    "librosa>=0.10",
     "einops>=0.7",
+    "pydantic>=2.7",
+    "pyloudnorm>=0.1.1",
+    "pedalboard>=0.9",
+    "matplotlib>=3.8",
+    "hydra-core>=1.3",
+    "omegaconf>=2.3",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "pytest>=8",
     "pytest-cov",
+    "hypothesis>=6.100",
     "ruff",
+    "import-linter>=2.0",
 ]
-eval = [
-    "pesq",
-    "pystoi",
+notebooks = [
+    "librosa>=0.10",
+    "jupyterlab",
 ]
 
-[tool.setuptools.packages.find]
-where = ["src"]
+[tool.hatch.build.targets.wheel]
+packages = ["src/grooveback"]
 
 [tool.ruff]
 line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
