@@ -90,3 +90,19 @@ def test_ignores_cliffs_below_min_hz():
     """A spectral hole in the mids is not a bandwidth limit."""
     found = ga.bandwidth_hz(band_limited(18000), SR, min_hz=3000)
     assert found > 15000
+
+
+def test_brickwall_lowpass_removes_everything_above_cutoff():
+    audio = band_limited(20000)
+    cut = ga.brickwall_lowpass(audio, SR, 4000)
+    assert ga.band_energy_db(cut, SR, 4500, 8000) < -120
+    assert ga.band_energy_db(cut, SR, 1000, 3500) == pytest.approx(
+        ga.band_energy_db(audio, SR, 1000, 3500), abs=0.1
+    )
+
+
+def test_brickwall_lowpass_preserves_shape_and_is_detectable():
+    audio = band_limited(20000)
+    cut = ga.brickwall_lowpass(audio, SR, 8000)
+    assert cut.shape == audio.shape
+    assert abs(ga.bandwidth_hz(cut, SR) - 8000) <= 1250

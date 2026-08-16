@@ -144,6 +144,22 @@ def bandwidth_hz(
     return float(edges[start + int(np.argmin(drops)) - span])
 
 
+def brickwall_lowpass(
+    audio: np.ndarray, sample_rate: int, cutoff_hz: float
+) -> np.ndarray:
+    """Zero everything at or above `cutoff_hz`, with no transition band.
+
+    A real codec leaves a rolloff, not a wall. This makes a wall, which is what
+    bandwidth-extension models are trained on — A2SB's `UpsampleMask` zeroes
+    whole FFT bins — so it produces a test case with no ambiguity about where
+    the content ends.
+    """
+    spectrum = np.fft.rfft(audio, axis=1)
+    freqs = np.fft.rfftfreq(audio.shape[1], 1.0 / sample_rate)
+    spectrum[:, freqs >= cutoff_hz] = 0.0
+    return np.fft.irfft(spectrum, audio.shape[1], axis=1).astype(np.float32)
+
+
 def band_correlation(
     audio: np.ndarray, sample_rate: int, low_hz: float, high_hz: float
 ) -> float:
