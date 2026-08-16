@@ -20,5 +20,8 @@ multirun/
 # OS
 .DS_Store
 
-# isolated envs for third-party baselines
-.venvs/
+
+# A2SB fork clone (github.com/zbitouzakaria/diffusion-audio-restoration,
+# branch runnable-anywhere); not a submodule -- a tool we shell out to,
+# not code we import.
+third_party/a2sb/
