@@ -8,16 +8,14 @@ imported directly: its model needs only torch, numpy and huggingface_hub.
 Chunking is ours, since their crossfade lives in a top-level `inference.py`
 script rather than in the `look2hear` package.
 
-**A2SB** (NVIDIA) targets missing bandwidth. It is kept behind a subprocess
-boundary in its own environment rather than imported: it wants pytorch_lightning
-and `ssr_eval`, and the latter is not installable at all. Its entry point is a
-Lightning CLI driven by YAML, so this module generates a config and shells out.
-It is also mono, so stereo costs two passes.
+**A2SB** (NVIDIA) targets missing bandwidth. It lives in a fork with its own
+environment and one-command entry point; this module shells out to it and
+nothing more. It is a mono model, so its output is mono carried across the
+input's channels.
 """
 
 from __future__ import annotations
 
-import os
 import subprocess
 import sys
 import tempfile
@@ -205,194 +203,82 @@ def run_apollo(
 
 
 # --- A2SB ------------------------------------------------------------------
+# A2SB lives in a fork with its own environment and entry point; everything
+# A2SB-shaped — input preparation, config assembly, memory handling — lives
+# there, not here. This wrapper only moves audio across the process boundary.
+# Fork: github.com/zbitouzakaria/diffusion-audio-restoration, branch
+# runnable-anywhere, cloned (gitignored) at third_party/a2sb.
 
 A2SB_SAMPLE_RATE = 44_100
-A2SB_REPO = _REPO / "third_party" / "a2sb"
-A2SB_PYTHON = _REPO / ".venvs" / "a2sb" / "bin" / "python"
-A2SB_SHIMS = _REPO / "third_party" / "shims"
-A2SB_HF_REPO = "nvidia/audio_to_audio_schrodinger_bridge"
-A2SB_SINGLE_SPLIT = "ckpt/A2SB_onesplit_0.0_1.0_release.ckpt"
-A2SB_TWO_SPLIT = (
-    "ckpt/A2SB_twosplit_0.0_0.5_release.ckpt",
-    "ckpt/A2SB_twosplit_0.5_1.0_release.ckpt",
-)
+A2SB_DIR = _REPO / "third_party" / "a2sb"
+A2SB_PYTHON = A2SB_DIR / ".venv" / "bin" / "python"
 
 
-def a2sb_checkpoints(ensemble: bool = True) -> list[str]:
-    """Fetch A2SB weights, 2.26 GB per checkpoint.
-
-    The two-split ensemble is the default because it is what the paper
-    evaluates and what upstream's own exp config uses — and the difference is
-    not subtle. On identical input the single-split checkpoint paints a flat
-    shelf (~-45 dB from 4 kHz to 19 kHz) where the ensemble rolls off like
-    music (-46 down to -92). Verified bit-exact against upstream inference
-    with the ensemble; `ensemble=False` halves download and memory for smoke
-    tests only.
-    """
-    from huggingface_hub import hf_hub_download
-
-    names = A2SB_TWO_SPLIT if ensemble else (A2SB_SINGLE_SPLIT,)
-    return [hf_hub_download(A2SB_HF_REPO, n) for n in names]
-
-
-def _a2sb_config(wav_in: Path, checkpoints: list[str], device: str, cutoff_hz: float | None) -> str:
-    """Override for A2SB's cluster-shaped defaults: gpu + ddp + a SLURM plugin."""
-    cutoff = "" if cutoff_hz is None else f"""
-  transforms_aug:
-    - class_path: corruption.corruptions.MultinomialInpaintMaskTransform
-      init_args:
-        p_upsample_mask: 1.0
-        p_extension_mask: 0.0
-        p_inpaint_mask: 0.0
-        fill_noise_level: 0.5
-        sampling_rate: {A2SB_SAMPLE_RATE}
-        upsample_mask_kwargs:
-          min_cutoff_freq: {int(cutoff_hz)}
-          max_cutoff_freq: {int(cutoff_hz)}
-        inpainting_mask_kwargs:
-          min_inpainting_frac: 0.1013
-          max_inpainting_frac: 0.1013
-          is_random: false"""
-    ckpts = "\n".join(f"    - {c}" for c in checkpoints)
-    cutoffs = "[0.5]" if len(checkpoints) == 2 else "[]"
-    return f"""
-trainer:
-  accelerator: {device}
-  strategy: auto
-  devices: 1
-  num_nodes: 1
-  plugins: null
-  logger: false
-checkpoint_callback:
-  dirpath: {wav_in.parent / "lightning"}
-model:
-  pretrained_checkpoints:
-{ckpts}
-  t_cutoffs: {cutoffs}
-data:
-  num_workers: 0
-  batch_size: 1
-  mix_dataset_config: {{}}
-  predict_filelist:
-    - filepath: {wav_in}
-      output_subdir: "."{cutoff}
-"""
+def a2sb_fork_sha() -> str:
+    """Short HEAD of the fork clone, printed with every run for provenance."""
+    result = subprocess.run(
+        ["git", "-C", str(A2SB_DIR), "rev-parse", "--short", "HEAD"],
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip() or "unknown"
 
 
 def run_a2sb(
     audio: np.ndarray,
     sample_rate: int,
     n_steps: int = 20,
-    checkpoints: list[str] | None = None,
-    device: str = "mps",
     cutoff_hz: float | None = None,
-    predict_batch_size: int = 2,
-    segment_seconds: float | None = 30.0,
-    overlap_seconds: float = 1.0,
+    single_split: bool = False,
+    device: str = "mps",
 ) -> np.ndarray:
-    """Restore `(channels, samples)` audio with A2SB.
+    """Restore `(channels, samples)` audio with the A2SB fork.
 
-    **A2SB is a mono model.** The input is mono-summed, restored in one pass, and
-    the result copied across the output channels. So a stereo input comes back
-    mono-in-stereo, narrower than it went in.
-
-    That is the model's limitation, surfaced rather than hidden. Running the
-    channels separately would keep two of them, but each would be synthesised
-    independently: measured on this material, inter-channel correlation in the
-    restored band fell from 0.99 to 0.56, which is invented stereo width rather
-    than recovered width. It also doubles an already severe cost. If A2SB is
-    being judged as a baseline, it should be judged as what it is.
-
-    Long input is segmented here rather than passed whole. A2SB's `ddpm_sample`
-    appends every diffusion step's full spectrogram to a list and returns all of
-    them, though only the last is used — 482 MB per step for a seven-minute
-    track, so 20 steps is ~10 GB of pure retention before the model or working
-    tensors are counted. Segmenting caps that regardless of track length, and
-    costs nothing in quality: A2SB's own multidiffusion already windows at 256
-    frames (~3 s), so it never sees long context anyway. Segments are crossfaded
-    with the same overlap-add used for Apollo, which is covered by the identity
-    test.
-
-    `predict_batch_size` sets how many spectrogram windows go through the UNet
-    per forward pass. Their default of 16 exhausts MPS quickly, so this defaults
-    low. Verified output-neutral: it only sets the chunk count in
-    `get_multidiffusion_vf`, and the windows are recombined identically.
-
-    Slow regardless: tens of times slower than realtime on MPS, so full tracks
-    are an overnight or rented-GPU job. Use excerpts locally.
+    The model is mono: output is the restored mono copied across the input's
+    channel count. Cutoff detection happens fork-side on the audio it is
+    handed, so when processing an excerpt of a longer file, pass the full
+    file's `cutoff_hz` explicitly.
     """
     from grooveback import audio as ga
 
     if sample_rate != A2SB_SAMPLE_RATE:
         raise ValueError(f"A2SB expects {A2SB_SAMPLE_RATE} Hz, got {sample_rate} Hz.")
+    if not (A2SB_DIR / "restore.py").exists():
+        raise FileNotFoundError(
+            f"A2SB fork missing at {A2SB_DIR}. Clone it:\n"
+            "  git clone -b runnable-anywhere "
+            f"git@github.com:zbitouzakaria/diffusion-audio-restoration.git {A2SB_DIR}"
+        )
     if not A2SB_PYTHON.exists():
         raise FileNotFoundError(
-            f"A2SB environment missing at {A2SB_PYTHON}. See docs/decisions/0005 — "
-            "it needs its own venv because ssr_eval will not install."
+            f"A2SB environment missing at {A2SB_PYTHON}. Create it:\n"
+            f"  {A2SB_DIR}/setup.sh"
         )
-    checkpoints = checkpoints or a2sb_checkpoints()
-
-    # A2SB regenerates everything above the cutoff it is given, and the shipped
-    # config says 2000 Hz. Left alone it rebuilds most of the spectrum, which
-    # overwrites real content and — because each channel is synthesised
-    # separately — collapses the stereo image toward mono.
-    if cutoff_hz is None:
-        cutoff_hz = ga.bandwidth_hz(audio, sample_rate)
-
-    mono = torch.from_numpy(
-        np.ascontiguousarray(audio.mean(axis=0, keepdims=True))
-    ).unsqueeze(0)
+    print(f"a2sb: fork @ {a2sb_fork_sha()}")
 
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
-        config = tmp / "run.yaml"
-        env = {**os.environ, "PYTHONPATH": str(A2SB_SHIMS)}
-        counter = {"n": 0}
-
-        def a2sb_once(batch: torch.Tensor) -> torch.Tensor:
-            counter["n"] += 1
-            index = counter["n"]
-            wav_in, wav_out = tmp / f"seg{index}_in.wav", tmp / f"seg{index}_out.wav"
-            ga.save(wav_in, batch[0].numpy(), sample_rate)
-            config.write_text(_a2sb_config(wav_in, checkpoints, device, cutoff_hz))
-            result = subprocess.run(
-                [
-                    str(A2SB_PYTHON), "ensembled_inference_api.py", "predict",
-                    "-c", "configs/ensemble_2split_sampling.yaml",
-                    "-c", "configs/inference_files_upsampling.yaml",
-                    "-c", str(config),
-                    f"--model.predict_n_steps={n_steps}",
-                    f"--model.predict_batch_size={predict_batch_size}",
-                    f"--model.output_audio_filename={wav_out}",
-                ],
-                cwd=A2SB_REPO, env=env, capture_output=True, text=True,
+        wav_in, wav_out = tmp / "in.wav", tmp / "out.wav"
+        ga.save(wav_in, audio, sample_rate)
+        cmd = [
+            str(A2SB_PYTHON), "restore.py", str(wav_in), str(wav_out),
+            f"--steps={n_steps}", f"--device={device}",
+        ]
+        if cutoff_hz is not None:
+            cmd.append(f"--cutoff-hz={cutoff_hz}")
+        if single_split:
+            cmd.append("--single-split")
+        result = subprocess.run(cmd, cwd=A2SB_DIR, capture_output=True, text=True)
+        if result.returncode != 0 or not wav_out.exists():
+            raise RuntimeError(
+                f"A2SB failed.\n{(result.stderr or result.stdout)[-2000:]}"
             )
-            if not wav_out.exists():
-                raise RuntimeError(
-                    f"A2SB produced no output.\n{result.stderr[-2000:]}"
-                )
-            restored, _ = ga.load(wav_out)
-            wav_in.unlink(missing_ok=True)
+        for line in result.stdout.splitlines():
+            if line.startswith("restore:"):
+                print(f"a2sb: {line[9:]}")
+        restored, _ = ga.load(wav_out)
 
-            # A2SB returns a few hundred samples short; pad back so overlap-add
-            # lines up with the segment it was given.
-            out = torch.zeros_like(batch)
-            n = min(batch.shape[-1], restored.shape[1])
-            out[0, 0, :n] = torch.from_numpy(restored[0, :n])
-            wav_out.unlink(missing_ok=True)
-            return out
-
-        segment_samples = (
-            int(round(segment_seconds * sample_rate)) if segment_seconds else None
-        )
-        restored = chunked(
-            a2sb_once,
-            mono,
-            segment_samples,
-            int(round(overlap_seconds * sample_rate)),
-            batch_size=1,
-        )
-
-    # The single restored channel is copied across, so the output is mono
-    # carried in the input's shape.
-    return np.repeat(restored[0].numpy(), audio.shape[0], axis=0)
+    out = np.zeros((audio.shape[0], audio.shape[1]), dtype=np.float32)
+    n = min(audio.shape[1], restored.shape[1])
+    out[:, :n] = restored[0, :n]
+    return out

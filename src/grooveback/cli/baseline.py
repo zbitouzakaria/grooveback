@@ -35,7 +35,9 @@ def main(argv: list[str] | None = None) -> None:
         "--cutoff-hz",
         type=float,
         default=None,
-        help="a2sb: override the detected bandwidth knee",
+        help="a2sb: cutoff for masking and brick-walling; by default the fork "
+        "detects the knee on the audio it receives, so pass this explicitly "
+        "when processing an excerpt of a longer file",
     )
     parser.add_argument(
         "--start", type=float, default=None, help="excerpt start in seconds"
@@ -52,11 +54,6 @@ def main(argv: list[str] | None = None) -> None:
 
     signal, sample_rate = ga.load(args.input)
 
-    # Bandwidth is a property of the file, not of the excerpt. A quiet couple of
-    # seconds carries no high-frequency content to form a cliff, so detecting on
-    # a slice can report full bandwidth and leave A2SB with nothing to extend.
-    cutoff_hz = args.cutoff_hz or ga.bandwidth_hz(signal, sample_rate)
-
     if args.start is not None or args.seconds is not None:
         a = int((args.start or 0.0) * sample_rate)
         b = a + int(args.seconds * sample_rate) if args.seconds else signal.shape[1]
@@ -64,8 +61,7 @@ def main(argv: list[str] | None = None) -> None:
     print(
         f"{args.input.name}: {sample_rate} Hz, {signal.shape[0]}ch, "
         f"{signal.shape[1] / sample_rate:.1f}s, "
-        f"{ga.loudness(signal, sample_rate):.1f} LUFS, "
-        f"bandwidth {cutoff_hz:.0f} Hz"
+        f"{ga.loudness(signal, sample_rate):.1f} LUFS"
     )
 
     started = time.perf_counter()
@@ -79,14 +75,12 @@ def main(argv: list[str] | None = None) -> None:
             batch_size=args.batch_size,
         )
     else:
-        from grooveback.baselines import a2sb_checkpoints
-
         restored = run_a2sb(
             signal,
             sample_rate,
             n_steps=args.steps,
-            cutoff_hz=cutoff_hz,
-            checkpoints=a2sb_checkpoints(ensemble=not args.single_split),
+            cutoff_hz=args.cutoff_hz,
+            single_split=args.single_split,
             device="mps" if args.device == "auto" else args.device,
         )
     elapsed = time.perf_counter() - started
