@@ -26,9 +26,10 @@ def main(argv: list[str] | None = None) -> None:
         "--steps", type=int, default=20, help="a2sb sampling steps; cost scales with this"
     )
     parser.add_argument(
-        "--ensemble",
+        "--single-split",
         action="store_true",
-        help="a2sb: use the two-split checkpoint pair, at twice the cost",
+        help="a2sb: use the 1-split checkpoint (half the memory, audibly worse "
+        "-- it paints a flat shelf where the ensemble rolls off naturally)",
     )
     parser.add_argument(
         "--cutoff-hz",
@@ -85,7 +86,7 @@ def main(argv: list[str] | None = None) -> None:
             sample_rate,
             n_steps=args.steps,
             cutoff_hz=cutoff_hz,
-            checkpoints=a2sb_checkpoints(ensemble=args.ensemble),
+            checkpoints=a2sb_checkpoints(ensemble=not args.single_split),
             device="mps" if args.device == "auto" else args.device,
         )
     elapsed = time.perf_counter() - started
