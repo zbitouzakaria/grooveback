@@ -124,7 +124,9 @@ Level-matched packs in `artifacts/listen/`; CUDA renders in `artifacts/cuda/`.
 
 - **codec set** (2026-08-17, monitoring headphones): **Apollo preferred, and the earlier verdict survives the
   ensemble fix** — "it at least tries to invent things, and is brighter. A2SB fills in missing frequencies minimally
-  and it's audible — I hear some hats, but it's very shy in adding anything else."
+  and it's audible — I hear some hats, but it's very shy in adding anything else." On the instruments themselves:
+  "Apollo sounds way more musical — it adds a full hi-hat; A2SB sounds more like a click." The regression model
+  reconstructs the *instrument*; the bridge model reconstructs *energy at the transient* and stops.
 - **AN-2 set** (2026-08-17, monitoring headphones): **everything sounds the same** — before, Apollo, and both A2SB
   renders indistinguishable on headphones. To retry on the monitoring speakers. If it holds, it matters: at a
   15.75 kHz cutoff, top-octave-only restoration may be barely audible at all, and the audible battleground is the
