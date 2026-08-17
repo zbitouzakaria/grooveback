@@ -10,18 +10,36 @@ import time
 from pathlib import Path
 
 from grooveback import audio as ga
-from grooveback.baselines import run_apollo
+from grooveback.baselines import run_a2sb, run_apollo
 
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("input", type=Path)
     parser.add_argument("output", type=Path)
-    parser.add_argument("--method", default="apollo", choices=["apollo"])
+    parser.add_argument("--method", default="apollo", choices=["apollo", "a2sb"])
     parser.add_argument("--device", default="auto", choices=["auto", "cuda", "mps", "cpu"])
-    parser.add_argument("--chunk-seconds", type=float, default=10.0)
-    parser.add_argument("--overlap-seconds", type=float, default=1.0)
-    parser.add_argument("--batch-size", type=int, default=1)
+    parser.add_argument("--chunk-seconds", type=float, default=10.0, help="apollo only")
+    parser.add_argument("--overlap-seconds", type=float, default=1.0, help="apollo only")
+    parser.add_argument("--batch-size", type=int, default=1, help="apollo only")
+    parser.add_argument("--steps", type=int, default=20, help="a2sb sampling steps")
+    parser.add_argument(
+        "--single-split",
+        action="store_true",
+        help="a2sb: 1-split checkpoint instead of the 2-split ensemble",
+    )
+    parser.add_argument(
+        "--cutoff-hz",
+        type=float,
+        default=None,
+        help="a2sb: cutoff Hz; default: detected fork-side (pass it for excerpts)",
+    )
+    parser.add_argument(
+        "--start", type=float, default=None, help="excerpt start in seconds"
+    )
+    parser.add_argument(
+        "--seconds", type=float, default=None, help="excerpt length in seconds"
+    )
     parser.add_argument(
         "--match-loudness",
         action="store_true",
@@ -30,6 +48,11 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
 
     signal, sample_rate = ga.load(args.input)
+
+    if args.start is not None or args.seconds is not None:
+        a = int((args.start or 0.0) * sample_rate)
+        b = a + int(args.seconds * sample_rate) if args.seconds else signal.shape[1]
+        signal = signal[:, a:b]
     print(
         f"{args.input.name}: {sample_rate} Hz, {signal.shape[0]}ch, "
         f"{signal.shape[1] / sample_rate:.1f}s, "
@@ -37,14 +60,24 @@ def main(argv: list[str] | None = None) -> None:
     )
 
     started = time.perf_counter()
-    restored = run_apollo(
-        signal,
-        sample_rate,
-        device=args.device,
-        chunk_seconds=args.chunk_seconds,
-        overlap_seconds=args.overlap_seconds,
-        batch_size=args.batch_size,
-    )
+    if args.method == "apollo":
+        restored = run_apollo(
+            signal,
+            sample_rate,
+            device=args.device,
+            chunk_seconds=args.chunk_seconds,
+            overlap_seconds=args.overlap_seconds,
+            batch_size=args.batch_size,
+        )
+    else:
+        restored = run_a2sb(
+            signal,
+            sample_rate,
+            n_steps=args.steps,
+            cutoff_hz=args.cutoff_hz,
+            single_split=args.single_split,
+            device="mps" if args.device == "auto" else args.device,
+        )
     elapsed = time.perf_counter() - started
     print(
         f"{args.method}: {elapsed:.1f}s "
