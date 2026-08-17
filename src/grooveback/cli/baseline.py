@@ -22,22 +22,17 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--chunk-seconds", type=float, default=10.0, help="apollo only")
     parser.add_argument("--overlap-seconds", type=float, default=1.0, help="apollo only")
     parser.add_argument("--batch-size", type=int, default=1, help="apollo only")
-    parser.add_argument(
-        "--steps", type=int, default=20, help="a2sb sampling steps; cost scales with this"
-    )
+    parser.add_argument("--steps", type=int, default=20, help="a2sb sampling steps")
     parser.add_argument(
         "--single-split",
         action="store_true",
-        help="a2sb: use the 1-split checkpoint (half the memory, audibly worse "
-        "-- it paints a flat shelf where the ensemble rolls off naturally)",
+        help="a2sb: 1-split checkpoint instead of the 2-split ensemble",
     )
     parser.add_argument(
         "--cutoff-hz",
         type=float,
         default=None,
-        help="a2sb: cutoff for masking and brick-walling; by default the fork "
-        "detects the knee on the audio it receives, so pass this explicitly "
-        "when processing an excerpt of a longer file",
+        help="a2sb: cutoff Hz; default: detected fork-side (pass it for excerpts)",
     )
     parser.add_argument(
         "--start", type=float, default=None, help="excerpt start in seconds"

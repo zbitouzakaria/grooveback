@@ -20,14 +20,9 @@ def level_matched_set(
 ) -> dict[str, np.ndarray]:
     """Level-match every item, then pull the whole set down clear of full scale.
 
-    Each item is normalised to `target_lufs` so no comparison is decided by
-    loudness. Restoration models routinely push peaks past 0 dBFS afterwards —
-    Apollo reaches +2.9 dBFS on this material — which clips in any integer
-    playback path and adds distortion that has nothing to do with the model.
-
-    The headroom gain is **one value applied to every item**, not per-item
-    normalisation. Scaling individually would undo the level matching and put
-    the loudest-sounding file back in front regardless of quality.
+    Restoration output can peak past 0 dBFS after loudness matching, which
+    clips on playback. The headroom gain is one value applied to every item —
+    per-item scaling would undo the level matching.
     """
     matched = {
         name: ga.normalize_loudness(audio, sample_rate, target_lufs)

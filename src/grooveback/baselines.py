@@ -203,9 +203,6 @@ def run_apollo(
 
 
 # --- A2SB ------------------------------------------------------------------
-# A2SB lives in a fork with its own environment and entry point; everything
-# A2SB-shaped — input preparation, config assembly, memory handling — lives
-# there, not here. This wrapper only moves audio across the process boundary.
 # Fork: github.com/zbitouzakaria/diffusion-audio-restoration, branch
 # runnable-anywhere, cloned (gitignored) at third_party/a2sb.
 

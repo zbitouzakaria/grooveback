@@ -63,20 +63,12 @@ def spectrogram_db(
     floor_db: float = -100.0,
     max_frames: int = 4000,
 ) -> np.ndarray:
-    """Magnitude spectrogram in **dBFS**, averaged across channels.
+    """Magnitude spectrogram in dBFS, averaged across channels.
 
-    Calibrated so a full-scale sine reads 0 dB: the single-sided `2/sum(window)`
-    scaling. Without it a raw `rfft` magnitude sits about +53 dB high at
-    `n_fft=2048`, which silently shifts everything up the colour scale and makes
-    faint content look loud — the plot disagrees with any real analyser.
-
-    Plain numpy STFT so this stays dependency-light and importable anywhere.
-    Returns `(freq_bins, frames)`, ready for `imshow(origin="lower")`.
-
-    `max_frames` widens the hop on long input rather than returning a plot
-    nobody can render: a seven-minute track at hop 512 is 39k frames, which is
-    gigabytes of intermediate and far more columns than a screen has pixels.
-    Pass a bigger value if you are analysing rather than looking.
+    Calibrated so a full-scale sine reads 0 dB (`2/sum(window)` scaling) —
+    without it the plot disagrees with any real analyser. Returns
+    `(freq_bins, frames)` for `imshow(origin="lower")`. `max_frames` widens
+    the hop on long input so a full track stays plottable.
     """
     mono = np.ascontiguousarray(audio.mean(axis=0))
     if mono.size < n_fft:
@@ -99,14 +91,8 @@ def band_energy_db(
 ) -> float:
     """RMS level in dBFS of the content between `low_hz` and `high_hz`.
 
-    A number to put next to a spectrogram, since a colour map is easy to read
-    optimistically and this is not.
-
-    The float64 cast is load-bearing. numpy keeps single precision for float32
-    input, and at full-track lengths (~20M samples) FFT roundoff swamps quiet
-    bands: a band actually at -82 dBFS measured as -143 on a 7.6-minute file.
-    Wrong by 60 dB, silently, only on long input — which is how it survived
-    every short-file test.
+    The float64 cast is load-bearing: float32 FFT roundoff at full-track
+    lengths buries quiet bands by tens of dB.
     """
     mono = audio.mean(axis=0).astype(np.float64)
     spectrum = np.fft.rfft(mono)
