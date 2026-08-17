@@ -122,12 +122,15 @@ Two measurement lessons bought during this investigation, both now fixed and reg
 
 Level-matched packs in `artifacts/listen/`; CUDA renders in `artifacts/cuda/`.
 
-- **codec set** (input / Apollo / A2SB 2-split): earlier verdict "Apollo way better" was against the flat-shelf
-  1-split and needs re-judging against the ensemble.
-  - TODO
-- **AN-2 set** (before / Apollo / A2SB 2-split / A2SB 1-split):
-  - TODO
-- **Apollo crackles** — still audible on the unchunked render? TODO
+- **codec set** (2026-08-17, monitoring headphones): **Apollo preferred, and the earlier verdict survives the
+  ensemble fix** — "it at least tries to invent things, and is brighter. A2SB fills in missing frequencies minimally
+  and it's audible — I hear some hats, but it's very shy in adding anything else."
+- **AN-2 set** (2026-08-17, monitoring headphones): **everything sounds the same** — before, Apollo, and both A2SB
+  renders indistinguishable on headphones. To retry on the monitoring speakers. If it holds, it matters: at a
+  15.75 kHz cutoff, top-octave-only restoration may be barely audible at all, and the audible battleground is the
+  severely band-limited material (codec-class, ≤8 kHz) — which reframes how much the typical-library damage profile
+  actually needs a restorer, and sharpens the case for the DSP control (ADR-0005 step 3).
+- **Apollo crackles** — still audible on the unchunked render? TODO (open)
 
 ## Consequences
 
