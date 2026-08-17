@@ -1,27 +1,35 @@
 """Baseline restoration methods.
 
-Apollo (Li & Luo, ICASSP 2025) restores MP3-compressed music. It is a standing
-baseline, not a component — see ADR-0005.
+Standing baselines, not components — see ADR-0005.
 
-The model comes from the Apollo repo, vendored as a submodule at
-`third_party/apollo` because it ships no installable package. Chunking is ours:
-their crossfade lives in a top-level `inference.py` script rather than in the
-`look2hear` package, and importing a module called `inference` into this
-namespace is a trap.
+**Apollo** (Li & Luo, ICASSP 2025) targets codec artifacts. Vendored as a
+submodule at `third_party/apollo` because it ships no installable package, and
+imported directly: its model needs only torch, numpy and huggingface_hub.
+Chunking is ours, since their crossfade lives in a top-level `inference.py`
+script rather than in the `look2hear` package.
+
+**A2SB** (NVIDIA) targets missing bandwidth. It lives in a fork with its own
+environment and one-command entry point; this module shells out to it and
+nothing more. It is a mono model, so its output is mono carried across the
+input's channels.
 """
 
 from __future__ import annotations
 
+import subprocess
 import sys
+import tempfile
 from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
 import torch
 
+_REPO = Path(__file__).resolve().parents[2]
+
 APOLLO_SAMPLE_RATE = 44_100
 APOLLO_CHECKPOINT = "JusperLee/Apollo"
-_APOLLO_REPO = Path(__file__).resolve().parents[2] / "third_party" / "apollo"
+_APOLLO_REPO = _REPO / "third_party" / "apollo"
 
 # Apollo's hyperparameters are not in the checkpoint — the Hugging Face repo
 # holds only pytorch_model.bin, no config — so they are pinned here from the
@@ -192,3 +200,82 @@ def run_apollo(
             batch_size,
         )
     return output.squeeze(0).numpy()
+
+
+# --- A2SB ------------------------------------------------------------------
+# Fork: github.com/zbitouzakaria/diffusion-audio-restoration, branch
+# runnable-anywhere, cloned (gitignored) at third_party/a2sb.
+
+A2SB_SAMPLE_RATE = 44_100
+A2SB_DIR = _REPO / "third_party" / "a2sb"
+A2SB_PYTHON = A2SB_DIR / ".venv" / "bin" / "python"
+
+
+def a2sb_fork_sha() -> str:
+    """Short HEAD of the fork clone, printed with every run for provenance."""
+    result = subprocess.run(
+        ["git", "-C", str(A2SB_DIR), "rev-parse", "--short", "HEAD"],
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip() or "unknown"
+
+
+def run_a2sb(
+    audio: np.ndarray,
+    sample_rate: int,
+    n_steps: int = 20,
+    cutoff_hz: float | None = None,
+    single_split: bool = False,
+    device: str = "mps",
+) -> np.ndarray:
+    """Restore `(channels, samples)` audio with the A2SB fork.
+
+    The model is mono: output is the restored mono copied across the input's
+    channel count. Cutoff detection happens fork-side on the audio it is
+    handed, so when processing an excerpt of a longer file, pass the full
+    file's `cutoff_hz` explicitly.
+    """
+    from grooveback import audio as ga
+
+    if sample_rate != A2SB_SAMPLE_RATE:
+        raise ValueError(f"A2SB expects {A2SB_SAMPLE_RATE} Hz, got {sample_rate} Hz.")
+    if not (A2SB_DIR / "restore.py").exists():
+        raise FileNotFoundError(
+            f"A2SB fork missing at {A2SB_DIR}. Clone it:\n"
+            "  git clone -b runnable-anywhere "
+            f"git@github.com:zbitouzakaria/diffusion-audio-restoration.git {A2SB_DIR}"
+        )
+    if not A2SB_PYTHON.exists():
+        raise FileNotFoundError(
+            f"A2SB environment missing at {A2SB_PYTHON}. Create it:\n"
+            f"  {A2SB_DIR}/setup.sh"
+        )
+    print(f"a2sb: fork @ {a2sb_fork_sha()}")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        wav_in, wav_out = tmp / "in.wav", tmp / "out.wav"
+        ga.save(wav_in, audio, sample_rate)
+        cmd = [
+            str(A2SB_PYTHON), "restore.py", str(wav_in), str(wav_out),
+            f"--steps={n_steps}", f"--device={device}",
+        ]
+        if cutoff_hz is not None:
+            cmd.append(f"--cutoff-hz={cutoff_hz}")
+        if single_split:
+            cmd.append("--single-split")
+        result = subprocess.run(cmd, cwd=A2SB_DIR, capture_output=True, text=True)
+        if result.returncode != 0 or not wav_out.exists():
+            raise RuntimeError(
+                f"A2SB failed.\n{(result.stderr or result.stdout)[-2000:]}"
+            )
+        for line in result.stdout.splitlines():
+            if line.startswith("restore:"):
+                print(f"a2sb: {line[9:]}")
+        restored, _ = ga.load(wav_out)
+
+    out = np.zeros((audio.shape[0], audio.shape[1]), dtype=np.float32)
+    n = min(audio.shape[1], restored.shape[1])
+    out[:, :n] = restored[0, :n]
+    return out
