@@ -38,11 +38,9 @@ is decided by loudness.
   released**. The 1-split adds a flat shelf of energy instead of a natural rolloff; the 2-split is the only one
   worth using.
 - Smoother than Apollo at the seam (1.3 dB step vs 8.7 dB) but much more conservative above 18 kHz.
+- Heavy: a full track does not fit a 4090; on an A100 80 GB it takes ~~13 min~~ ~35 min at the paper's 50 steps
+  (~$1). Full tracks run on RunPod.
 - Mono. Stereo comes back mono-in-stereo.
-- Heavy: a full track does not fit a 4090; on an A100 80 GB it takes ~13 min (~$0.35). Full tracks run on RunPod.
-- Two runs are two samples, not two copies: the sampler draws fresh noise at every step, so the same seed gives
-  different (equally valid) results on different hardware.
-- Trained cutoff range is 2–16 kHz — our typical 16 kHz truncation sits at the edge of what it knows.
 
 ### AN-2 full track (mono, level-matched, dBFS per 1 kHz band)
 
@@ -85,16 +83,18 @@ concentrated at the top.
 
 1. **A2SB is limited here by design**: it only fills in what sits above a cutoff. That is the visible damage,
    not the audible damage.
-2. **Apollo attacks the right problem** — codec artifacts, full band — but it is a regression model, with the
-   usual shyness. It would benefit from a diffusion approach, which is ironically exactly what A2SB is, aimed at
-   the wrong problem.
+2. **Apollo attacks the right problem** — codec artifacts, full band — but it is a regression model: trained to
+   minimize average error, it predicts the average of everything plausible, which mutes detail. It would benefit
+   from a diffusion approach, which is ironically exactly what A2SB is, aimed at the wrong problem.
 3. What we actually want is a model that has really learned what a mastered electronic track sounds like, and
    fixes the whole band at once. That is the prior of ADR-0004.
 4. Practical next step from this: align at least one real clean/rip pair and look at the difference.
 
+## Next steps
+
+- Listen on the monitoring speakers.
+- Solve the chunking issue in Apollo on full-length tracks.
+
 ## Revisit triggers
 
-- My listening verdicts on the monitoring speakers — the ear decides, not the band tables.
-- The Mac inference issue gets a cause.
 - NVIDIA releases the 4-split ensemble.
-- The DSP control (ADR-0005 step 3) tells us how much of this was tonal balance all along.
