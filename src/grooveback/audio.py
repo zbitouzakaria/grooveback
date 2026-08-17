@@ -123,8 +123,14 @@ def band_energy_db(
 
     A number to put next to a spectrogram, since a colour map is easy to read
     optimistically and this is not.
+
+    The float64 cast is load-bearing. numpy keeps single precision for float32
+    input, and at full-track lengths (~20M samples) FFT roundoff swamps quiet
+    bands: a band actually at -82 dBFS measured as -143 on a 7.6-minute file.
+    Wrong by 60 dB, silently, only on long input — which is how it survived
+    every short-file test.
     """
-    mono = audio.mean(axis=0)
+    mono = audio.mean(axis=0).astype(np.float64)
     spectrum = np.fft.rfft(mono)
     freqs = np.fft.rfftfreq(mono.size, 1.0 / sample_rate)
     band = spectrum[(freqs >= low_hz) & (freqs < high_hz)]

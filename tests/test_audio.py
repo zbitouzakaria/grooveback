@@ -91,3 +91,19 @@ def test_roundtrip_through_disk(tmp_path):
     assert sr == SR
     assert loaded.shape == audio.shape
     assert np.allclose(loaded, audio, atol=1e-6)
+
+
+def test_band_energy_is_precise_on_full_track_lengths():
+    """A quiet band must measure the same on a 7.6-minute file as on a slice.
+
+    float32 FFT roundoff at ~20M samples buried a -82 dBFS band at -143 dBFS.
+    The failure needs length, so short fixtures never catch it.
+    """
+    n = 456 * SR  # 7.6 minutes
+    loud = 0.3 * np.sin(2 * np.pi * 440.0 * np.arange(n) / SR)
+    quiet = 10 ** (-82.0 / 20.0) * np.sqrt(2) * np.sin(2 * np.pi * 16500.0 * np.arange(n) / SR)
+    audio = np.tile((loud + quiet).astype(np.float32), (2, 1))
+    full = ga.band_energy_db(audio, SR, 16000, 17000)
+    slice_ = ga.band_energy_db(audio[:, : 30 * SR], SR, 16000, 17000)
+    assert full == pytest.approx(-82.0, abs=1.0)
+    assert full == pytest.approx(slice_, abs=1.0)
