@@ -94,28 +94,6 @@ def spectrogram_db(
     return 20.0 * np.log10(np.maximum(magnitude, 10.0 ** (floor_db / 20.0)))
 
 
-def band_correlation(
-    audio: np.ndarray, sample_rate: int, low_hz: float, high_hz: float
-) -> float:
-    """Inter-channel correlation in a band: 1.0 is mono, 0.0 is uncorrelated.
-
-    A model that restores each channel separately synthesises the two
-    independently, so the recovered band can come back decorrelated. That is
-    inaudible as a level change and obvious as a smeared stereo image, so it
-    needs its own number.
-    """
-    if audio.shape[0] < 2:
-        return 1.0
-    spectra = np.fft.rfft(audio[:2], axis=1)
-    freqs = np.fft.rfftfreq(audio.shape[1], 1.0 / sample_rate)
-    band = (freqs >= low_hz) & (freqs < high_hz)
-    left, right = spectra[0, band], spectra[1, band]
-    denom = np.sqrt(np.sum(np.abs(left) ** 2) * np.sum(np.abs(right) ** 2))
-    if denom == 0:
-        return 1.0
-    return float(np.abs(np.sum(left * np.conj(right))) / denom)
-
-
 def band_energy_db(
     audio: np.ndarray, sample_rate: int, low_hz: float, high_hz: float
 ) -> float:
