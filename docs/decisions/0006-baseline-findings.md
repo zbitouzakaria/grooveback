@@ -62,8 +62,7 @@ is decided by loudness.
 
 Full-track single-pass A2SB comes out wrong on the MacBook: the 2-split adds nothing, the 1-split adds incoherent
 content. Short inputs (6 s, 30 s) are fine. The exact same commands on a rented A100 are correct and match the
-segmented workaround within 1–3 dB per band. The cause is not identified yet. Until it is, full tracks run on
-CUDA and the Mac handles everything else.
+segmented workaround within 1–3 dB per band. The cause is not identified yet.
 
 ## Listening notes
 
