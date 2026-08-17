@@ -143,8 +143,13 @@ Level-matched packs in `artifacts/listen/`; CUDA renders in `artifacts/cuda/`.
   training corruption's *shape*) directly informs the degradation-chain design to come.
 - Full-track A2SB inference happens on RunPod (A100, `restore.py`, volume `18v73b8ggl` in US-MO-1); the Mac runs
   everything else. MPS is not trusted for long multidiffusion sampling until the pending diagnostic says otherwise.
-- ADR-0005's remaining steps (DSP control, chained baselines, SAME round-trip, SA3 probe) proceed unchanged; nothing
-  found here reorders them.
+- ADR-0005's remaining steps (DSP control, chained baselines, SAME round-trip, SA3 probe) proceed unchanged — with
+  one addition from the listening session: codec damage is full-band by construction (per-frame quantization under
+  masking, pre-echo on transients, joint-stereo collapse), and the visible brick wall is only its most photogenic
+  symptom. Both baselines address slices of the damage; neither knows what a finished electronic master sounds like.
+  That is the prior's job (ADR-0004). Consequence: aligning at least one real clean/rip pair for a null test
+  (subtract, inspect the residual) moves up in priority — it characterizes the true damage distribution and is the
+  seed of the eventual operator model.
 
 ## Revisit triggers
 
