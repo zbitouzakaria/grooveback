@@ -65,7 +65,7 @@ content. Short inputs (6 s, 30 s) are fine. The exact same commands on a rented 
 segmented workaround within 1–3 dB per band. The cause is not identified yet. Until it is, full tracks run on
 CUDA and the Mac handles everything else.
 
-## Listening notes (Zakaria)
+## Listening notes
 
 - **codec set** (monitoring headphones): Apollo preferred. It at least tries to invent things, and is brighter.
   A2SB fills in missing frequencies minimally — I hear some hats, but it's very shy in adding anything else.
