@@ -8,7 +8,6 @@ error.
 - **Judge a latent-space method against `decode(encode(x))`, never against the input file.** The autoencoder is not
   transparent and invents content where the input is empty, so scoring against the input credits the autoencoder's
   behaviour to the method.
-- **Save residuals before level matching**, so they are the honest difference.
 - **Energy is not perception.** Band deltas catch regressions. Blinded listening on monitoring hardware decides, and
   it has already overturned an energy-based reading once.
 
