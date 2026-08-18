@@ -37,15 +37,10 @@ _APOLLO_REPO = _REPO / "third_party" / "apollo"
 # upstream inference script.
 _APOLLO_ARCH = {"sr": APOLLO_SAMPLE_RATE, "win": 20, "feature_dim": 256, "layer": 6}
 
-# Apollo's attention is over the full time axis, and its rotary embedding tables
-# are precomputed for a fixed number of positions (`Roformer.window`, 10_000).
-# At a 20 ms window with 50% overlap the frame rate is 100/s, so input longer
-# than 100 s indexes past the table and dies inside the model on a broadcast
-# mismatch. This is architectural, not a memory limit: no GPU raises it.
+# Apollo's rotary tables cover 10_000 positions at 100 frames/s. Past that it
+# dies inside the model on a broadcast mismatch — architectural, not memory, so
+# no GPU raises it. Attention is also quadratic, so the practical limit is lower.
 APOLLO_MAX_SECONDS = 10_000 * (_APOLLO_ARCH["win"] // 2) / 1000
-
-# Attention is quadratic in length on top of that, so the practical limit is
-# lower than the architectural one and depends on the device.
 APOLLO_SAFE_CHUNK_SECONDS = 90.0
 
 
@@ -98,21 +93,16 @@ def chunked(
 ) -> torch.Tensor:
     """Apply `fn` over windows and stitch the results back together.
 
-    `audio` is `(1, channels, samples)`; output length always equals input
-    length.
+    `audio` is `(1, channels, samples)`; output length equals input length.
 
-    Windows overlap by `context_samples` on each side, and that context is
-    **discarded** — every output sample comes from one forward pass that saw
-    real audio on both sides of it. Consecutive cores are joined with a short
-    `join_samples` crossfade to absorb the discontinuity.
+    Windows overlap by `context_samples` per side and that context is
+    discarded, so every output sample comes from one forward pass. Cores meet
+    with a short `join_samples` crossfade.
 
-    The obvious alternative, crossfading the whole overlap, is wrong for any
-    `fn` that invents content. Apollo synthesizes everything above the codec
-    cutoff, so two windows produce different, equally valid high bands with
-    unrelated phase; averaging them loses about 3 dB there instead of blending,
-    which was audible as a dropout at every seam. Keeping one realisation and
-    confining the blend to ~10 ms — below the ear's loudness integration —
-    is what fixes it.
+    Crossfading the whole overlap instead would be wrong for any `fn` that
+    invents content: two windows produce the same band at different phase, and
+    averaging them loses ~3 dB rather than blending. Keeping one realisation
+    and confining the blend to ~10 ms is the fix.
     """
     total = audio.shape[-1]
     if chunk_samples is None or total <= chunk_samples:
