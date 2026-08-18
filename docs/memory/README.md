@@ -6,6 +6,8 @@ own PR — see *Memory mirror* in `CLAUDE.md`.
 
 Secrets are never mirrored: files name the environment variable and where to get its value.
 
+`docs/CLAUDE.md` is mirrored the same way, from `~/.claude/CLAUDE.md`.
+
 - [Minimal commit messages](minimal-commit-messages.md) — subject line only unless a body is genuinely needed; reasoning lives in ADRs
 - [Atomic commits per unit of work](atomic-commits-per-unit-of-work.md) — one reviewable chunk per commit, committed as you go
 - [PR descriptions for external readers](pr-descriptions-for-external-readers.md) — show bugs with concrete examples, drop in-session iteration
