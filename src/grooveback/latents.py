@@ -44,6 +44,15 @@ def _run(args: list[str]) -> None:
         raise RuntimeError(f"same_codec failed.\n{(result.stderr or result.stdout)[-2000:]}")
 
 
+def encode_tree(directory: str | Path, variant: str = "same-s", device: str = "auto") -> None:
+    """Encode every wav under `directory` to `<name>.<variant>.npy`.
+
+    One model load for the whole tree, which matters for SAME-L where loading
+    costs more than encoding a clip.
+    """
+    _run(["--model", variant, "--encode-tree", str(directory), "--device", device])
+
+
 def encode(
     audio: np.ndarray, sample_rate: int, variant: str = "same-s", device: str = "auto"
 ) -> np.ndarray:

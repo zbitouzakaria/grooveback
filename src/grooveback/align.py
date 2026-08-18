@@ -99,8 +99,9 @@ def align_to(
     directly. Uses a rational resample; at the ratios a turntable produces the
     approximation error is far below a sample.
     """
-    import torchaudio  # noqa: PLC0415 — keeps the rest of this module torch-free
+    # Imported here so the rest of this module stays torch-free.
     import torch
+    import torchaudio
 
     ratio = Fraction(drift.speed_ratio).limit_denominator(100_000)
     stretched = torchaudio.functional.resample(
