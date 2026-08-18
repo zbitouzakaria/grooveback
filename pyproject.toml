@@ -43,6 +43,8 @@ packages = ["src/grooveback"]
 
 [tool.ruff]
 line-length = 100
+# Vendored upstream code; we do not hold it to our style.
+extend-exclude = ["third_party"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]

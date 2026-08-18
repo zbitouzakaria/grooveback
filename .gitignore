@@ -25,5 +25,9 @@ multirun/
 # not code we import.
 third_party/a2sb/
 
+# Stable Audio 3 (github.com/Stability-AI/stable-audio-3); a tool we shell out
+# to for SAME encode/decode, not code we import.
+third_party/stable-audio-3/
+
 # Secrets
 .env
