@@ -104,3 +104,40 @@ def test_apollo_rejects_input_past_the_rotary_limit():
     short = np.zeros((2, APOLLO_SAMPLE_RATE), np.float32)
     with pytest.raises(ValueError, match="rotary embeddings"):
         run_apollo(short, APOLLO_SAMPLE_RATE, chunk_seconds=APOLLO_MAX_SECONDS + 1)
+
+
+def test_invented_content_survives_the_seams():
+    """A model that invents content must not lose power where windows meet.
+
+    Apollo synthesises everything above the codec cutoff, so two windows
+    covering the same instant produce the same band at *different phase*.
+    Crossfading them sums incoherently and loses about 3 dB in the middle of
+    every overlap — audible as a periodic dropout, and invisible to the
+    identity-model tests above, which are coherent by construction.
+
+    The fake model here is that failure in its purest form: one tone, fixed
+    amplitude, random phase per call.
+    """
+    sr, freq = 44_100, 18_000.0
+    audio = torch.zeros((1, 1, 5 * sr))
+    phases = iter(np.random.default_rng(0).uniform(0, 2 * np.pi, 64).tolist())
+
+    def invent(batch: torch.Tensor) -> torch.Tensor:
+        t = torch.arange(batch.shape[-1], dtype=torch.float32) / sr
+        out = torch.empty_like(batch)
+        for i in range(batch.shape[0]):
+            out[i] = 0.5 * torch.sin(2 * np.pi * freq * t + next(phases))
+        return out
+
+    out = chunked(invent, audio, sr, int(0.2 * sr))[0, 0].numpy()
+
+    # Power in 20 ms frames. A faithful stitch holds it constant; an
+    # incoherent blend digs a hole wherever two realisations were averaged.
+    frame = int(0.02 * sr)
+    power = (out[: len(out) // frame * frame] ** 2).reshape(-1, frame).mean(axis=1)
+    db = 10 * np.log10(power + 1e-12)
+    dip = float(np.median(db) - db.min())
+
+    # The join is 10 ms inside a 20 ms frame, so the worst frame can sag ~1.2 dB.
+    # A crossfaded overlap would sit 3 dB down for 200 ms.
+    assert dip < 2.0, f"lost {dip:.1f} dB at a seam; windows are being blended"
