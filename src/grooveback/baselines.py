@@ -6,8 +6,8 @@ Standing baselines, not components — see ADR-0005.
 submodule at `third_party/apollo` because it ships no installable package, and
 imported directly: its model needs only torch, numpy and huggingface_hub.
 Chunking is ours: upstream's lives in a top-level `inference.py` script rather
-than in the `look2hear` package, and crossfades its overlaps, which is wrong
-for a model that invents content.
+than in the `look2hear` package, and crossfades whole overlaps, which loses
+power on a model that invents content.
 
 **A2SB** (NVIDIA) targets missing bandwidth. It lives in a fork with its own
 environment and one-command entry point; this module shells out to it and
@@ -89,20 +89,21 @@ def chunked(
     chunk_samples: int | None,
     context_samples: int = 0,
     batch_size: int = 1,
-    join_samples: int = 441,
+    crossfade_samples: int = 441,
 ) -> torch.Tensor:
     """Apply `fn` over windows and stitch the results back together.
 
     `audio` is `(1, channels, samples)`; output length equals input length.
 
     Windows overlap by `context_samples` per side and that context is
-    discarded, so every output sample comes from one forward pass. Cores meet
-    with a short `join_samples` crossfade.
+    discarded, so every output sample comes from one forward pass. Cores are
+    then crossfaded into each other over `crossfade_samples`.
 
-    Crossfading the whole overlap instead would be wrong for any `fn` that
-    invents content: two windows produce the same band at different phase, and
-    averaging them loses ~3 dB rather than blending. Keeping one realisation
-    and confining the blend to ~10 ms is the fix.
+    Crossfading the *whole* overlap instead is what breaks on an `fn` that
+    invents content: two windows produce the same band at different phase, so
+    averaging them loses ~3 dB rather than blending. The crossfade stays — it
+    just shrinks to ~10 ms and joins one realisation to another, which is short
+    enough to read as a splice rather than a dropout.
     """
     total = audio.shape[-1]
     if chunk_samples is None or total <= chunk_samples:
@@ -111,7 +112,7 @@ def chunked(
     if context_samples * 2 >= chunk_samples:
         raise ValueError("Context must be under half the chunk length.")
 
-    join = min(join_samples, context_samples) if context_samples else 0
+    fade = min(crossfade_samples, context_samples) if context_samples else 0
     hop = chunk_samples - 2 * context_samples
     padded = torch.nn.functional.pad(audio, (context_samples, context_samples))
     starts = list(range(0, total, hop))
@@ -123,10 +124,10 @@ def chunked(
         batch = starts[i : i + batch_size]
         windows, keeps = [], []
         for start in batch:
-            # Core is [start, start+hop) in original coordinates, widened by
-            # half a join on interior edges so neighbours meet with a fade.
-            lo = max(start - (join // 2 if start else 0), 0)
-            hi = min(start + hop + join - join // 2, total)
+            # Core is [start, start+hop), widened by half a crossfade on
+            # interior edges so neighbours overlap by exactly `fade`.
+            lo = max(start - (fade // 2 if start else 0), 0)
+            hi = min(start + hop + fade - fade // 2, total)
             keeps.append((lo, hi, lo - start + context_samples))
             window = padded[..., start : start + chunk_samples]
             if window.shape[-1] < chunk_samples:
@@ -139,8 +140,8 @@ def chunked(
 
         for offset, (lo, hi, src) in enumerate(keeps):
             length = hi - lo
-            weights = _join_ramp(
-                length, join, fade_in=lo > 0, fade_out=hi < total, dtype=audio.dtype
+            weights = _crossfade(
+                length, fade, fade_in=lo > 0, fade_out=hi < total, dtype=audio.dtype
             )
             out_sum[..., lo:hi] += (
                 processed[offset : offset + 1, ..., src : src + length] * weights
@@ -150,19 +151,19 @@ def chunked(
     return out_sum / weight_sum.clamp(min=1e-8)
 
 
-def _join_ramp(
-    length: int, join: int, fade_in: bool, fade_out: bool, dtype: torch.dtype
+def _crossfade(
+    length: int, fade: int, fade_in: bool, fade_out: bool, dtype: torch.dtype
 ) -> torch.Tensor:
-    """Linear edge ramps for the short join between cores.
+    """Linear edge ramps for the crossfade between cores.
 
     The ramp is open at both ends — `i/(fade+1)` for `i` in `1..fade`, never
     reaching 0 or 1. A ramp starting at 0 zeroes the shared sample from both
-    sides when `join == 1`, leaving zero total weight and a hole in the output.
+    sides when `fade == 1`, leaving zero total weight and a hole in the output.
     Upstream Apollo's `linspace(0, 1, fade)` has this bug; normalization hides
-    it for wider joins but still skews the blend at the seams.
+    it for wider fades but still skews the blend at the seams.
     """
     weights = torch.ones(length, dtype=dtype)
-    fade = min(join, length)
+    fade = min(fade, length)
     if fade:
         ramp = (torch.arange(fade, dtype=dtype) + 1.0) / (fade + 1.0)
         if fade_in:

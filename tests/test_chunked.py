@@ -60,10 +60,10 @@ def test_batching_does_not_change_output(batch_size):
     assert torch.allclose(out, audio, atol=1e-5)
 
 
-def test_join_does_not_change_level():
+def test_crossfade_does_not_change_level():
     """A constant signal stays constant across boundaries.
 
-    An unnormalized join dips at every seam. On music that reads as a faint
+    An unnormalized crossfade dips at every seam. On music that reads as a faint
     tremolo, which is easy to miss and hard to trace back.
     """
     audio = torch.full((1, 2, 30_000), 0.5)
@@ -77,11 +77,11 @@ def test_context_consuming_whole_chunk_rejected():
         chunked(IDENTITY, signal(10_000), 1_000, 500)
 
 
-def test_single_realisation_outside_joins():
-    """Away from the ~join-width seams, output equals one window's estimate
+def test_single_realisation_outside_crossfades():
+    """Away from the short crossfades at the seams, output equals one window's estimate
     exactly — no blending — which is the property this stitching exists for."""
     audio = signal(20_000)
-    out = chunked(lambda b: b * 0.5, audio, 3_000, 500, join_samples=100)
+    out = chunked(lambda b: b * 0.5, audio, 3_000, 500, crossfade_samples=100)
     assert torch.allclose(out, audio * 0.5, atol=1e-6)
 
 
