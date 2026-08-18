@@ -87,11 +87,14 @@ Decide by setup cost, not by habit:
 | SAME-L, and anything else | **no** | setup is a git clone plus a venv that inherits the image's torch. The whole 140-window transport run, setup included, was 111 s on a fresh $0.49/h L4 |
 
 So: one volume, where the heavy setup lives, and everything else runs volume-less on whatever GPU is cheapest in any
-region. Do not add a second volume to chase a GPU class — the budget cap is $1/month, about 14 GB total at
-$0.07/GB/mo, and a second volume either halves that or doubles the bill.
+region. Do not add a second volume to chase a GPU class.
 
-Note the existing volume bills every month whether or not it is used, and it has not been verified since the A2SB
-work. Worth confirming it still holds that setup rather than paying to store nothing.
+**Keep `grooveback-US-MO-1`. Do not delete it to save money.** It bills ~$1/month whether used or not, and that cost
+is accepted: it exists so returning to an A100 does not mean rebuilding the A2SB fork, its venv and its checkpoints
+from scratch. Deleting it trades a known dollar for an unknown hour.
+
+That $1/month is also the whole budget, about 14 GB at $0.07/GB/mo, so a second volume either halves the space or
+doubles the bill. Neither is worth it when the alternative is a five-minute setup on a fresh pod.
 
 ## Cost rules
 
