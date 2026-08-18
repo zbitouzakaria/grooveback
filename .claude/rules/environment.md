@@ -30,7 +30,20 @@ uv run python scripts/run_experiments.py mps same-s same-l
 ```
 
 `run_experiments.py` skips any step whose output already exists, so it is safe to re-run and can pick up renders
-produced elsewhere. SAME-L is generated on a rented GPU — it is far too slow locally. See the `runpod` skill.
+produced elsewhere — which is how GPU-rendered results get folded back in.
+
+## What does not run locally
+
+The MacBook is 16 GB unified memory. These need a rented GPU — use the `runpod` skill without asking, then delete the
+pod:
+
+| | local | rented |
+|---|---|---|
+| SAME-L encode/decode | ~10x slower than realtime | the full 140-window transport run took **111 s on an L4** |
+| A2SB, full track | does not fit | A100 |
+| Any fine-tuning | no | yes |
+
+Apollo, SAME-S, the degradation chain, evaluation and listening all run locally and should stay there.
 
 Outputs land in `artifacts/` (gitignored). Listening sets are named for the operation that produced them: `1_input_*`
 is before, `2_output_*` is after, `ref_*` are references.
