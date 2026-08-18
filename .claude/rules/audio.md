@@ -26,8 +26,11 @@ band power stays flat across seams. Extend that pattern before chunking anything
 ## Findings live in ADRs
 
 `docs/decisions/` holds what we have learned and the evidence for it. Read before proposing a change of method —
-they record what was already tried and why it was rejected. Do not restate their conclusions anywhere else; two
-copies means one goes stale, and the stale one is the one that gets read.
+they record what was already tried and why it was rejected.
+
+Avoid duplicating an ADR's conclusion where it is not doing work — a copy that drifts is worse than a
+pointer. Restating one in a rule or a memory file is fine when it is operationally useful; cite the ADR so
+the source of truth stays obvious.
 
 | ADR | |
 |---|---|
