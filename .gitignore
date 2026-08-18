@@ -24,3 +24,6 @@ multirun/
 # branch runnable-anywhere); not a submodule -- a tool we shell out to,
 # not code we import.
 third_party/a2sb/
+
+# Secrets: RUNPOD_API_KEY and friends. Never committed.
+.env

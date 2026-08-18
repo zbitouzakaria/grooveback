@@ -1,6 +1,6 @@
 ---
 name: runpod
-description: Run GPU experiments on RunPod with runpodctl — auth, creating and killing pods, network volumes, moving files, and the cost rules. Use when a job is too slow locally and needs a rented GPU.
+description: Run GPU experiments on RunPod with runpodctl — auth via RUNPOD_API_KEY in a gitignored .env, creating and killing pods, when a network volume is and is not worth it, moving files, and the cost rules. Use when a job is too slow locally and needs a rented GPU.
 ---
 
 # RunPod
@@ -11,14 +11,22 @@ The rented-GPU tier. Prepaid credits on Zakaria's account, so a forgotten pod ea
 
 ## Auth
 
-Read the key from the environment; it is never committed.
+The key lives in `.env` at the repo root, which is gitignored. One variable:
 
 ```bash
-export RUNPOD_API_KEY=...   # runpod.io -> Settings -> API Keys
+RUNPOD_API_KEY=rpa_...        # runpod.io -> Settings -> API Keys
 ```
 
-`runpodctl doctor` prompts for it and saves it instead. SSH uses `~/.ssh/id_ed25519`, whose public half is
-registered in the RunPod UI.
+Load it before any `runpodctl` call, and never paste the value into a command, a commit, or a file:
+
+```bash
+set -a; source .env; set +a
+```
+
+`runpodctl doctor` prompts for the key and stores it in its own config instead, which also works — the `.env` exists
+so the value has one home rather than being re-pasted from shell history.
+
+SSH uses `~/.ssh/id_ed25519`, whose public half is registered in the RunPod UI.
 
 ## Commands
 
@@ -61,16 +69,36 @@ when it is really a blocked installer.
   shell rather than waiting.
 - **A failed or crash-looping pod still reports RUNNING and still bills.** Delete it; do not wait for it to recover.
 - **Match CUDA to the host driver** with `--min-cuda-version`, or an image can crash-loop on an older driver.
-- **Network volumes are pinned to a datacenter and cannot move.** That constrains which GPUs are reachable, so a
-  volume can force an expensive GPU class. For one-off jobs, skip the volume entirely and pick on price.
+- **Network volumes are pinned to a datacenter and cannot move.** A volume therefore constrains which GPUs you can
+  reach — see *Volumes* below before assuming you need one.
 - Stock shown as "available" does not guarantee a schedulable host; `pod create` can still fail.
+
+## Volumes: default to none
+
+A volume is pinned to one datacenter, and datacenters do not carry every GPU. US-MO-1 has A100s and no 4090s, so
+attaching that volume rules out the cheap consumer cards. Reaching both classes with persistence would mean a second
+volume in a second region — but that is the wrong conclusion, because **most jobs need no volume at all**.
+
+Decide by setup cost, not by habit:
+
+| | volume | why |
+|---|---|---|
+| A2SB | yes — the existing `grooveback-US-MO-1` (`18v73b8ggl`, 14 GB) | fork clone, its own venv, and checkpoints; rebuilding each time is real work, and it needs an A100 anyway |
+| SAME-L, and anything else | **no** | setup is a git clone plus a venv that inherits the image's torch. The whole 140-window transport run, setup included, was 111 s on a fresh $0.49/h L4 |
+
+So: one volume, where the heavy setup lives, and everything else runs volume-less on whatever GPU is cheapest in any
+region. Do not add a second volume to chase a GPU class — the budget cap is $1/month, about 14 GB total at
+$0.07/GB/mo, and a second volume either halves that or doubles the bill.
+
+Note the existing volume bills every month whether or not it is used, and it has not been verified since the A2SB
+work. Worth confirming it still holds that setup rather than paying to store nothing.
 
 ## Cost rules
 
 - Pods run experiments only. Results come back to the Mac for analysis.
 - **`pod delete` when the run finishes, not `pod stop`** — stopped pods still bill for disk.
 - Check `runpodctl pod list` returns `[]` before considering a job done.
-- Pick the cheapest GPU that fits. Most jobs are small: 140 SAME-L encodes plus decodes took 111 s on a $0.49/h L4.
+- Pick the cheapest GPU that fits. Most jobs here are small.
 - Watch `runpodctl user` for the balance.
 
 Pair every pod setup with the audit loop in `CLAUDE.md` — provisioning is exactly the kind of outside effect that
