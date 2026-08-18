@@ -43,7 +43,8 @@ pod:
 | A2SB, full track | does not fit | A100 |
 | Any fine-tuning | no | yes |
 
-Apollo, SAME-S, the degradation chain, evaluation and listening all run locally and should stay there.
+Everything else has run locally so far, but that is an observation, not a limit — measure before assuming either way.
+SAME-S is only known fast on short excerpts; a full track is untested.
 
 Outputs land in `artifacts/` (gitignored). Listening sets are named for the operation that produced them: `1_input_*`
 is before, `2_output_*` is after, `ref_*` are references.
