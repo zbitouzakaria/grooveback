@@ -82,36 +82,71 @@ def chunked(
     chunk_samples: int | None,
     overlap_samples: int = 0,
     batch_size: int = 1,
+    mode: str = "crossfade",
+    join_samples: int = 441,
 ) -> torch.Tensor:
-    """Apply `fn` over overlapping chunks and crossfade the results back.
+    """Apply `fn` over overlapping chunks and reassemble the results.
 
     `audio` is `(1, channels, samples)`. Output length always equals input
-    length: chunks are padded for the forward pass and cropped afterwards, and
-    the overlap-add is normalized by its own weights so the crossfade cannot
-    change the level. Tested against an identity `fn`, which is what catches the
+    length. Tested against an identity `fn`, which is what catches the
     off-by-one and windowing bugs this function exists to hide.
+
+    Two reassembly modes:
+
+    - `"crossfade"`: overlap-add with linear ramps across `overlap_samples`,
+      normalized by its own weights so the crossfade cannot change the level.
+      When `fn` invents content (Apollo synthesizes everything above the codec
+      cutoff), the two chunks disagree in phase across the entire overlap and
+      the blend comb-filters — audible as brief crackles at every seam.
+    - `"discard"`: `overlap_samples` becomes *context per side*. Windows overlap
+      by twice that, each window's outer context is thrown away, and only the
+      core is kept, so every output sample comes from a single forward pass
+      that saw at least `overlap_samples` of audio on both sides. Consecutive
+      cores are joined with a `join_samples` crossfade (~10 ms) to absorb the
+      residual discontinuity.
     """
     total = audio.shape[-1]
     if chunk_samples is None or total <= chunk_samples:
         return fn(audio)
-    if overlap_samples * 2 > chunk_samples:
+    if mode not in ("crossfade", "discard"):
+        raise ValueError(f"Unknown mode {mode!r}.")
+    # In discard mode the context is thrown away, so it must leave a core.
+    limit = chunk_samples - 1 if mode == "discard" else chunk_samples
+    if overlap_samples * 2 > limit:
         raise ValueError("Overlap must not exceed half the chunk length.")
 
-    hop = chunk_samples - overlap_samples
-    starts = [0]
-    while starts[-1] + chunk_samples < total:
-        starts.append(starts[-1] + hop)
+    if mode == "discard":
+        context = overlap_samples
+        join = min(join_samples, context) if context else 0
+        # Core hop; each window is core + context on both sides, and cores are
+        # widened by the join fade so neighbours overlap by exactly `join`.
+        hop = chunk_samples - 2 * context
+        padded = torch.nn.functional.pad(audio, (context, context))
+        starts = list(range(0, total, hop))
+    else:
+        hop = chunk_samples - overlap_samples
+        starts = [0]
+        while starts[-1] + chunk_samples < total:
+            starts.append(starts[-1] + hop)
 
     out_sum = torch.zeros_like(audio)
     weight_sum = torch.zeros((1, 1, total), dtype=audio.dtype)
 
     for i in range(0, len(starts), batch_size):
         batch = starts[i : i + batch_size]
-        chunks, lengths = [], []
+        chunks, keeps = [], []
         for start in batch:
-            end = min(start + chunk_samples, total)
-            chunk = audio[..., start:end]
-            lengths.append(end - start)
+            if mode == "discard":
+                # Window in padded coordinates; core [start, start+hop) in
+                # original coordinates, widened by join/2 on interior edges.
+                lo = max(start - (join // 2 if start else 0), 0)
+                hi = min(start + hop + join - join // 2, total)
+                chunk = padded[..., start : start + chunk_samples]
+                keeps.append((lo, hi, lo - start + context))
+            else:
+                end = min(start + chunk_samples, total)
+                chunk = audio[..., start:end]
+                keeps.append((start, end, 0))
             if chunk.shape[-1] < chunk_samples:
                 chunk = torch.nn.functional.pad(
                     chunk, (0, chunk_samples - chunk.shape[-1])
@@ -120,18 +155,28 @@ def chunked(
 
         processed = fn(torch.cat(chunks, dim=0))
 
-        for offset, (start, length) in enumerate(zip(batch, lengths, strict=True)):
-            weights = _crossfade(
-                length,
-                overlap_samples,
-                fade_in=i + offset > 0,
-                fade_out=i + offset < len(starts) - 1,
-                dtype=audio.dtype,
-            )
-            out_sum[..., start : start + length] += (
-                processed[offset : offset + 1, ..., :length] * weights
-            )
-            weight_sum[..., start : start + length] += weights
+        for offset, (lo, hi, src) in enumerate(keeps):
+            length = hi - lo
+            if mode == "discard":
+                weights = _crossfade(
+                    length,
+                    join,
+                    fade_in=lo > 0,
+                    fade_out=hi < total,
+                    dtype=audio.dtype,
+                )
+                piece = processed[offset : offset + 1, ..., src : src + length]
+            else:
+                weights = _crossfade(
+                    length,
+                    overlap_samples,
+                    fade_in=i + offset > 0,
+                    fade_out=i + offset < len(starts) - 1,
+                    dtype=audio.dtype,
+                )
+                piece = processed[offset : offset + 1, ..., :length]
+            out_sum[..., lo:hi] += piece * weights
+            weight_sum[..., lo:hi] += weights
 
     return out_sum / weight_sum.clamp(min=1e-8)
 
@@ -163,14 +208,21 @@ def run_apollo(
     sample_rate: int,
     model=None,
     device: str = "auto",
-    chunk_seconds: float | None = 10.0,
-    overlap_seconds: float = 1.0,
+    chunk_seconds: float | None = 12.0,
+    overlap_seconds: float = 2.0,
     batch_size: int = 1,
+    mode: str = "discard",
 ) -> np.ndarray:
     """Restore `(channels, samples)` audio with Apollo.
 
     Chunking defaults to on. Apollo will happily try to process a seven-minute
     track in one pass and exhaust 16 GB of unified memory doing it.
+
+    Default reassembly is `"discard"`: Apollo synthesizes the band above the
+    codec cutoff, two chunks realise different phase there, and crossfading
+    them comb-filters — the periodic crackle heard on full-track renders.
+    Discard keeps one realisation everywhere. `overlap_seconds` is context per
+    side in that mode.
     """
     if sample_rate != APOLLO_SAMPLE_RATE:
         raise ValueError(
@@ -198,6 +250,7 @@ def run_apollo(
             chunk_samples,
             int(round(overlap_seconds * sample_rate)),
             batch_size,
+            mode=mode,
         )
     return output.squeeze(0).numpy()
 
