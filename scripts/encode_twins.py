@@ -22,14 +22,11 @@ sys.path.insert(0, str(REPO / "third_party" / "stable-audio-3"))
 from huggingface_hub import hf_hub_download  # noqa: E402
 from stable_audio_3.loading_utils import load_autoencoder  # noqa: E402
 
-VARIANT = "same-s"
-REPO_ID = "stabilityai/SAME-S"
-
-
-def main(device: str) -> None:
+def main(device: str, variant: str = "same-s") -> None:
+    repo_id = f"stabilityai/{variant.upper()}"
     model = load_autoencoder(
-        hf_hub_download(REPO_ID, "model_config.json"),
-        hf_hub_download(REPO_ID, "model.safetensors"),
+        hf_hub_download(repo_id, "model_config.json"),
+        hf_hub_download(repo_id, "model.safetensors"),
         device=device,
     ).eval()
 
@@ -37,7 +34,7 @@ def main(device: str) -> None:
     start, done = time.time(), 0
     with torch.inference_mode():
         for wav in sorted(cut.rglob("*.wav")):
-            npy = wav.with_suffix(f".{VARIANT}.npy")
+            npy = wav.with_suffix(f".{variant}.npy")
             if npy.exists():
                 continue
             audio, _ = sf.read(wav, dtype="float32", always_2d=True)
@@ -48,4 +45,5 @@ def main(device: str) -> None:
 
 
 if __name__ == "__main__":
-    main(sys.argv[1] if len(sys.argv) > 1 else "mps")
+    main(sys.argv[1] if len(sys.argv) > 1 else "mps",
+         sys.argv[2] if len(sys.argv) > 2 else "same-s")
