@@ -147,13 +147,21 @@ def roundtrip_experiment(variants: list[str], device: str) -> dict:
             src, dec = trim(source, decoded)
             tag = variant.replace("-", "_")
             pack[f"2_output_decode_encode_{tag}"] = dec
-            residual = src - dec
+
+            # Match level before subtracting, or the residual is dominated by a
+            # gain offset rather than by the error, and report what was removed —
+            # a large offset is itself a finding. Deliberately not a least-squares
+            # optimal gain: that also absorbs the decoder's phase decorrelation
+            # (it wants −0.2 to −0.4 dB here) and so understates the error.
+            offset_db = ga.loudness(dec, sr) - ga.loudness(src, sr)
+            residual = src - dec * 10.0 ** (-offset_db / 20.0)
             ga.save(OUT / "roundtrip" / wav.stem / f"residual_input_minus_{tag}.wav",
                     residual, sr)
             results[f"{wav.stem}.{variant}"] = {
                 "residual_below_signal_db": round(float(
                     20 * np.log10(np.sqrt((residual**2).mean()) + 1e-12)
                     - 20 * np.log10(np.sqrt((src**2).mean()) + 1e-12)), 1),
+                "level_offset_removed_db": round(offset_db, 3),
                 "band_delta_db": deltas(dec, src, sr),
             }
             print(f"  {wav.stem} {variant}: "

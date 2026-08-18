@@ -33,7 +33,10 @@ Both variants; there is no SAME-M. Stable Audio 3 small generates into SAME-S.
 - **Alignment is sample-exact**, so residuals are a plain subtraction.
 - **Transparent below 12 kHz** on clean material, within a few tenths of a dB.
 - **Residuals are loud** — 10 to 14 dB below signal, worst on the severe case at 5.6 dB — because the decoder
-  re-realises phase rather than reproducing it. They are listening material, not a score.
+  re-realises phase rather than reproducing it. They are listening material, not a score. Level is matched before
+  subtracting, though it barely matters here: SAME preserves loudness to within 0.06 dB. Note that a least-squares
+  optimal gain would want −0.2 to −0.4 dB despite that, because it absorbs the phase decorrelation as well as level;
+  using it would shrink the residual while hiding real error.
 - **SAME-L is better everywhere** by 1.3 to 3.5 dB, at roughly 100x the compute. It runs on a rented GPU in seconds
   and takes minutes per clip locally.
 
