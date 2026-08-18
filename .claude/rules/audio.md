@@ -8,7 +8,12 @@ error.
 - **Judge a latent-space method against `decode(encode(x))`, never against the input file.** The autoencoder is not
   transparent and invents content where the input is empty, so scoring against the input credits the autoencoder's
   behaviour to the method.
-- **Save residuals before level matching**, so they are the honest difference.
+- **Match level before subtracting, and report the gain you removed.** Two signals at different levels produce a
+  residual dominated by the level difference rather than by the error. Measure the offset first — if it is
+  negligible, raw subtraction is fine and the reported gain says so. For the SAME round-trip the offset is under
+  0.06 dB and the two agree to 0.03 dB, but that is a fact about this autoencoder, not a general licence.
+  **Never use a least-squares optimal gain.** It absorbs decorrelation as well as level: here it wants −0.2 to
+  −0.4 dB purely because the decoder re-realises phase, which shrinks the residual while hiding real error.
 - **Energy is not perception.** Band deltas catch regressions. Blinded listening on monitoring hardware decides, and
   it has already overturned an energy-based reading once.
 
