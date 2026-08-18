@@ -17,7 +17,8 @@ The key lives in `.env` at the repo root, which is gitignored. One variable:
 RUNPOD_API_KEY=rpa_...        # runpod.io -> Settings -> API Keys
 ```
 
-Load it before any `runpodctl` call, and never paste the value into a command, a commit, or a file:
+Load it before any `runpodctl` call. Keep the value out of commands, commits and files — reading it from the
+environment is the whole point:
 
 ```bash
 set -a; source .env; set +a
@@ -47,16 +48,27 @@ Files: `scp`/`rsync` over the pod's SSH is the reliable path. `runpodctl send` /
 ## Setting up a pod
 
 **Always make a venv, even here** — the image's Python is externally managed and plain `pip install` fails silently,
-with no error in quiet mode. Inherit the preinstalled torch rather than downloading it again:
+with no error in quiet mode. Inherit the preinstalled torch rather than downloading it again.
+
+Use uv — it is a single binary and much faster than pip:
 
 ```bash
-python -m venv --system-site-packages /workspace/venv
-/workspace/venv/bin/pip install numpy soundfile einops safetensors huggingface-hub
+curl -LsSf https://astral.sh/uv/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"
+
+uv venv --system-site-packages /workspace/venv
+uv pip install --python /workspace/venv/bin/python \
+    numpy soundfile einops safetensors huggingface-hub
 ```
 
-Never `uv sync --frozen` a torch project on a pod: the lockfile pulls ~4 GB of torch and CUDA wheels the image
-already has. Inheriting took 5 seconds where syncing took over half an hour. Run pip without `-q` so a refusal is
-visible.
+`--system-site-packages` is the load-bearing flag: it lets the venv see the image's torch so only the missing
+packages are fetched.
+
+Avoid `uv sync --frozen` on a pod. It follows the project lockfile, which pins its own torch, so it re-downloads
+~4 GB of torch and CUDA wheels the image already has — over half an hour, against 5 seconds for inheriting. Install
+the handful of missing packages explicitly instead of syncing an environment.
+
+Run installers without `-q` so a refusal is visible.
 
 Note that `runpod/pytorch:*` images ship torch **without numpy**, so a missing-numpy error looks like a broken image
 when it is really a blocked installer.
