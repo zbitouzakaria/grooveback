@@ -57,6 +57,8 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 export PATH="$HOME/.local/bin:$PATH"
 
 uv venv --system-site-packages /workspace/venv
+
+# example only — install whatever the job actually imports and the image lacks
 uv pip install --python /workspace/venv/bin/python \
     numpy soundfile einops safetensors huggingface-hub
 ```
@@ -67,6 +69,11 @@ packages are fetched.
 Avoid `uv sync --frozen` on a pod. It follows the project lockfile, which pins its own torch, so it re-downloads
 ~4 GB of torch and CUDA wheels the image already has — over half an hour, against 5 seconds for inheriting. Install
 the handful of missing packages explicitly instead of syncing an environment.
+
+**Exception: sync when the lockfile's torch is the point.** If the project pins a torch version the image does not
+provide, inheriting gives you the wrong one and results will not match local runs. Then pay the download and sync
+properly. Check before assuming — compare the image's `torch.__version__` against the project's pin; only sync when
+they genuinely differ in a way the job cares about.
 
 Run installers without `-q` so a refusal is visible.
 
