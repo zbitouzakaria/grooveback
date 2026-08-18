@@ -32,23 +32,8 @@ def signal(samples: int, channels: int = 2) -> torch.Tensor:
 def test_identity_roundtrip(total, chunk, overlap_frac):
     """Any chunk and overlap combination returns the input untouched."""
     audio = signal(total)
-    out = chunked(IDENTITY, audio, chunk, int(chunk * overlap_frac))
-    assert out.shape == audio.shape
-    assert torch.allclose(out, audio, atol=1e-5)
-
-
-@given(
-    total=st.integers(min_value=1, max_value=5000),
-    chunk=st.integers(min_value=2, max_value=1000),
-    context_frac=st.floats(min_value=0.0, max_value=0.49),
-    join=st.integers(min_value=0, max_value=500),
-)
-@settings(max_examples=200, deadline=None)
-def test_identity_roundtrip_discard(total, chunk, context_frac, join):
-    """Discard mode is also transparent for an identity model."""
-    audio = signal(total)
-    context = min(int(chunk * context_frac), (chunk - 1) // 2)
-    out = chunked(IDENTITY, audio, chunk, context, mode="discard", join_samples=join)
+    context = min(int(chunk * overlap_frac), (chunk - 1) // 2)
+    out = chunked(IDENTITY, audio, chunk, context)
     assert out.shape == audio.shape
     assert torch.allclose(out, audio, atol=1e-5)
 
@@ -75,10 +60,10 @@ def test_batching_does_not_change_output(batch_size):
     assert torch.allclose(out, audio, atol=1e-5)
 
 
-def test_crossfade_does_not_change_level():
+def test_join_does_not_change_level():
     """A constant signal stays constant across boundaries.
 
-    An unnormalized crossfade dips at every seam. On music that reads as a faint
+    An unnormalized join dips at every seam. On music that reads as a faint
     tremolo, which is easy to miss and hard to trace back.
     """
     audio = torch.full((1, 2, 30_000), 0.5)
@@ -86,35 +71,17 @@ def test_crossfade_does_not_change_level():
     assert torch.allclose(out, audio, atol=1e-6)
 
 
-def test_overlap_larger_than_half_chunk_rejected():
-    with pytest.raises(ValueError, match="half the chunk"):
-        chunked(IDENTITY, signal(10_000), 1_000, 600)
-
-
-def test_discard_context_consuming_whole_chunk_rejected():
+def test_context_consuming_whole_chunk_rejected():
     """context*2 == chunk leaves no core to keep."""
     with pytest.raises(ValueError, match="half the chunk"):
-        chunked(IDENTITY, signal(10_000), 1_000, 500, mode="discard")
+        chunked(IDENTITY, signal(10_000), 1_000, 500)
 
 
-def test_discard_level_constant():
-    audio = torch.full((1, 2, 30_000), 0.5)
-    out = chunked(IDENTITY, audio, 4_000, 1_000, mode="discard")
-    assert torch.allclose(out, audio, atol=1e-6)
-
-
-@pytest.mark.parametrize("batch_size", [1, 2, 3, 8])
-def test_discard_batching_does_not_change_output(batch_size):
+def test_single_realisation_outside_joins():
+    """Away from the ~join-width seams, output equals one window's estimate
+    exactly — no blending — which is the property this stitching exists for."""
     audio = signal(20_000)
-    out = chunked(IDENTITY, audio, 3_000, 500, batch_size=batch_size, mode="discard")
-    assert torch.allclose(out, audio, atol=1e-5)
-
-
-def test_discard_single_realisation_outside_joins():
-    """Away from the ~join-width seams, output equals one chunk's estimate
-    exactly — no blending — which is the property the mode exists for."""
-    audio = signal(20_000)
-    out = chunked(lambda b: b * 0.5, audio, 3_000, 500, mode="discard", join_samples=100)
+    out = chunked(lambda b: b * 0.5, audio, 3_000, 500, join_samples=100)
     assert torch.allclose(out, audio * 0.5, atol=1e-6)
 
 

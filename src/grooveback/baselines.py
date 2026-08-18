@@ -5,8 +5,9 @@ Standing baselines, not components — see ADR-0005.
 **Apollo** (Li & Luo, ICASSP 2025) targets codec artifacts. Vendored as a
 submodule at `third_party/apollo` because it ships no installable package, and
 imported directly: its model needs only torch, numpy and huggingface_hub.
-Chunking is ours, since their crossfade lives in a top-level `inference.py`
-script rather than in the `look2hear` package.
+Chunking is ours: upstream's lives in a top-level `inference.py` script rather
+than in the `look2hear` package, and crossfades its overlaps, which is wrong
+for a model that invents content.
 
 **A2SB** (NVIDIA) targets missing bandwidth. It lives in a fork with its own
 environment and one-command entry point; this module shells out to it and
@@ -91,120 +92,87 @@ def chunked(
     fn: Callable[[torch.Tensor], torch.Tensor],
     audio: torch.Tensor,
     chunk_samples: int | None,
-    overlap_samples: int = 0,
+    context_samples: int = 0,
     batch_size: int = 1,
-    mode: str = "crossfade",
     join_samples: int = 441,
 ) -> torch.Tensor:
-    """Apply `fn` over overlapping chunks and reassemble the results.
+    """Apply `fn` over windows and stitch the results back together.
 
-    `audio` is `(1, channels, samples)`. Output length always equals input
-    length. Tested against an identity `fn`, which is what catches the
-    off-by-one and windowing bugs this function exists to hide.
+    `audio` is `(1, channels, samples)`; output length always equals input
+    length.
 
-    Two reassembly modes:
+    Windows overlap by `context_samples` on each side, and that context is
+    **discarded** — every output sample comes from one forward pass that saw
+    real audio on both sides of it. Consecutive cores are joined with a short
+    `join_samples` crossfade to absorb the discontinuity.
 
-    - `"crossfade"`: overlap-add with linear ramps across `overlap_samples`,
-      normalized by its own weights so the crossfade cannot change the level.
-      When `fn` invents content (Apollo synthesizes everything above the codec
-      cutoff), the two chunks disagree in phase across the entire overlap and
-      the blend comb-filters — audible as brief crackles at every seam.
-    - `"discard"`: `overlap_samples` becomes *context per side*. Windows overlap
-      by twice that, each window's outer context is thrown away, and only the
-      core is kept, so every output sample comes from a single forward pass
-      that saw at least `overlap_samples` of audio on both sides. Consecutive
-      cores are joined with a `join_samples` crossfade (~10 ms) to absorb the
-      residual discontinuity.
+    The obvious alternative, crossfading the whole overlap, is wrong for any
+    `fn` that invents content. Apollo synthesizes everything above the codec
+    cutoff, so two windows produce different, equally valid high bands with
+    unrelated phase; averaging them loses about 3 dB there instead of blending,
+    which was audible as a dropout at every seam. Keeping one realisation and
+    confining the blend to ~10 ms — below the ear's loudness integration —
+    is what fixes it.
     """
     total = audio.shape[-1]
     if chunk_samples is None or total <= chunk_samples:
         return fn(audio)
-    if mode not in ("crossfade", "discard"):
-        raise ValueError(f"Unknown mode {mode!r}.")
-    # In discard mode the context is thrown away, so it must leave a core.
-    limit = chunk_samples - 1 if mode == "discard" else chunk_samples
-    if overlap_samples * 2 > limit:
-        raise ValueError("Overlap must not exceed half the chunk length.")
+    # The context is thrown away, so it has to leave a core behind.
+    if context_samples * 2 >= chunk_samples:
+        raise ValueError("Context must be under half the chunk length.")
 
-    if mode == "discard":
-        context = overlap_samples
-        join = min(join_samples, context) if context else 0
-        # Core hop; each window is core + context on both sides, and cores are
-        # widened by the join fade so neighbours overlap by exactly `join`.
-        hop = chunk_samples - 2 * context
-        padded = torch.nn.functional.pad(audio, (context, context))
-        starts = list(range(0, total, hop))
-    else:
-        hop = chunk_samples - overlap_samples
-        starts = [0]
-        while starts[-1] + chunk_samples < total:
-            starts.append(starts[-1] + hop)
+    join = min(join_samples, context_samples) if context_samples else 0
+    hop = chunk_samples - 2 * context_samples
+    padded = torch.nn.functional.pad(audio, (context_samples, context_samples))
+    starts = list(range(0, total, hop))
 
     out_sum = torch.zeros_like(audio)
     weight_sum = torch.zeros((1, 1, total), dtype=audio.dtype)
 
     for i in range(0, len(starts), batch_size):
         batch = starts[i : i + batch_size]
-        chunks, keeps = [], []
+        windows, keeps = [], []
         for start in batch:
-            if mode == "discard":
-                # Window in padded coordinates; core [start, start+hop) in
-                # original coordinates, widened by join/2 on interior edges.
-                lo = max(start - (join // 2 if start else 0), 0)
-                hi = min(start + hop + join - join // 2, total)
-                chunk = padded[..., start : start + chunk_samples]
-                keeps.append((lo, hi, lo - start + context))
-            else:
-                end = min(start + chunk_samples, total)
-                chunk = audio[..., start:end]
-                keeps.append((start, end, 0))
-            if chunk.shape[-1] < chunk_samples:
-                chunk = torch.nn.functional.pad(
-                    chunk, (0, chunk_samples - chunk.shape[-1])
+            # Core is [start, start+hop) in original coordinates, widened by
+            # half a join on interior edges so neighbours meet with a fade.
+            lo = max(start - (join // 2 if start else 0), 0)
+            hi = min(start + hop + join - join // 2, total)
+            keeps.append((lo, hi, lo - start + context_samples))
+            window = padded[..., start : start + chunk_samples]
+            if window.shape[-1] < chunk_samples:
+                window = torch.nn.functional.pad(
+                    window, (0, chunk_samples - window.shape[-1])
                 )
-            chunks.append(chunk)
+            windows.append(window)
 
-        processed = fn(torch.cat(chunks, dim=0))
+        processed = fn(torch.cat(windows, dim=0))
 
         for offset, (lo, hi, src) in enumerate(keeps):
             length = hi - lo
-            if mode == "discard":
-                weights = _crossfade(
-                    length,
-                    join,
-                    fade_in=lo > 0,
-                    fade_out=hi < total,
-                    dtype=audio.dtype,
-                )
-                piece = processed[offset : offset + 1, ..., src : src + length]
-            else:
-                weights = _crossfade(
-                    length,
-                    overlap_samples,
-                    fade_in=i + offset > 0,
-                    fade_out=i + offset < len(starts) - 1,
-                    dtype=audio.dtype,
-                )
-                piece = processed[offset : offset + 1, ..., :length]
-            out_sum[..., lo:hi] += piece * weights
+            weights = _join_ramp(
+                length, join, fade_in=lo > 0, fade_out=hi < total, dtype=audio.dtype
+            )
+            out_sum[..., lo:hi] += (
+                processed[offset : offset + 1, ..., src : src + length] * weights
+            )
             weight_sum[..., lo:hi] += weights
 
     return out_sum / weight_sum.clamp(min=1e-8)
 
 
-def _crossfade(
-    length: int, overlap: int, fade_in: bool, fade_out: bool, dtype: torch.dtype
+def _join_ramp(
+    length: int, join: int, fade_in: bool, fade_out: bool, dtype: torch.dtype
 ) -> torch.Tensor:
-    """Linear edge ramps for normalized overlap-add.
+    """Linear edge ramps for the short join between cores.
 
     The ramp is open at both ends — `i/(fade+1)` for `i` in `1..fade`, never
     reaching 0 or 1. A ramp starting at 0 zeroes the shared sample from both
-    sides when `overlap == 1`, leaving zero total weight and a hole in the
-    output. Upstream Apollo's `linspace(0, 1, fade)` has this bug; normalization
-    hides it for wider overlaps but still skews the crossfade at the seams.
+    sides when `join == 1`, leaving zero total weight and a hole in the output.
+    Upstream Apollo's `linspace(0, 1, fade)` has this bug; normalization hides
+    it for wider joins but still skews the blend at the seams.
     """
     weights = torch.ones(length, dtype=dtype)
-    fade = min(overlap, length)
+    fade = min(join, length)
     if fade:
         ramp = (torch.arange(fade, dtype=dtype) + 1.0) / (fade + 1.0)
         if fade_in:
@@ -220,9 +188,8 @@ def run_apollo(
     model=None,
     device: str = "auto",
     chunk_seconds: float | None = 12.0,
-    overlap_seconds: float = 2.0,
+    context_seconds: float = 2.0,
     batch_size: int = 1,
-    mode: str = "discard",
 ) -> np.ndarray:
     """Restore `(channels, samples)` audio with Apollo.
 
@@ -231,11 +198,8 @@ def run_apollo(
     that. Passing `chunk_seconds=None` is only valid for input already under
     the limit.
 
-    Default reassembly is `"discard"`: Apollo synthesizes the band above the
-    codec cutoff, two chunks realise different phase there, and crossfading
-    them comb-filters — the periodic crackle heard on full-track renders.
-    Discard keeps one realisation everywhere. `overlap_seconds` is context per
-    side in that mode.
+    `context_seconds` is extra audio given to the model on each side of a
+    window and then thrown away; see `chunked`.
     """
     if sample_rate != APOLLO_SAMPLE_RATE:
         raise ValueError(
@@ -271,9 +235,8 @@ def run_apollo(
             forward,
             tensor,
             chunk_samples,
-            int(round(overlap_seconds * sample_rate)),
+            int(round(context_seconds * sample_rate)),
             batch_size,
-            mode=mode,
         )
     return output.squeeze(0).numpy()
 

@@ -19,8 +19,11 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("output", type=Path)
     parser.add_argument("--method", default="apollo", choices=["apollo", "a2sb"])
     parser.add_argument("--device", default="auto", choices=["auto", "cuda", "mps", "cpu"])
-    parser.add_argument("--chunk-seconds", type=float, default=10.0, help="apollo only")
-    parser.add_argument("--overlap-seconds", type=float, default=1.0, help="apollo only")
+    parser.add_argument("--chunk-seconds", type=float, default=12.0, help="apollo only")
+    parser.add_argument(
+        "--context-seconds", type=float, default=2.0,
+        help="apollo only: audio given to the model each side of a window, then discarded",
+    )
     parser.add_argument("--batch-size", type=int, default=1, help="apollo only")
     parser.add_argument("--steps", type=int, default=20, help="a2sb sampling steps")
     parser.add_argument(
@@ -66,7 +69,7 @@ def main(argv: list[str] | None = None) -> None:
             sample_rate,
             device=args.device,
             chunk_seconds=args.chunk_seconds,
-            overlap_seconds=args.overlap_seconds,
+            context_seconds=args.context_seconds,
             batch_size=args.batch_size,
         )
     else:
