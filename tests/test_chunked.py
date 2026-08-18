@@ -123,3 +123,17 @@ def test_gain_model_is_applied_uniformly():
     audio = torch.full((1, 2, 30_000), 0.4)
     out = chunked(lambda b: b * 0.5, audio, 4_000, 1_000)
     assert torch.allclose(out, audio * 0.5, atol=1e-6)
+
+
+def test_apollo_rejects_input_past_the_rotary_limit():
+    """Apollo's rotary tables cover a fixed span; past it the model dies on a
+    shape mismatch deep inside a forward pass. Fail early with the reason."""
+    from grooveback.baselines import APOLLO_MAX_SECONDS, APOLLO_SAMPLE_RATE, run_apollo
+
+    too_long = np.zeros((2, int((APOLLO_MAX_SECONDS + 1) * APOLLO_SAMPLE_RATE)), np.float32)
+    with pytest.raises(ValueError, match="rotary embeddings"):
+        run_apollo(too_long, APOLLO_SAMPLE_RATE, chunk_seconds=None)
+
+    short = np.zeros((2, APOLLO_SAMPLE_RATE), np.float32)
+    with pytest.raises(ValueError, match="rotary embeddings"):
+        run_apollo(short, APOLLO_SAMPLE_RATE, chunk_seconds=APOLLO_MAX_SECONDS + 1)

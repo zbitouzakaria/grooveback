@@ -36,6 +36,17 @@ _APOLLO_REPO = _REPO / "third_party" / "apollo"
 # upstream inference script.
 _APOLLO_ARCH = {"sr": APOLLO_SAMPLE_RATE, "win": 20, "feature_dim": 256, "layer": 6}
 
+# Apollo's attention is over the full time axis, and its rotary embedding tables
+# are precomputed for a fixed number of positions (`Roformer.window`, 10_000).
+# At a 20 ms window with 50% overlap the frame rate is 100/s, so input longer
+# than 100 s indexes past the table and dies inside the model on a broadcast
+# mismatch. This is architectural, not a memory limit: no GPU raises it.
+APOLLO_MAX_SECONDS = 10_000 * (_APOLLO_ARCH["win"] // 2) / 1000
+
+# Attention is quadratic in length on top of that, so the practical limit is
+# lower than the architectural one and depends on the device.
+APOLLO_SAFE_CHUNK_SECONDS = 90.0
+
 
 def select_device(requested: str = "auto") -> torch.device:
     """Resolve a device, preferring CUDA, then MPS, then CPU."""
@@ -215,8 +226,10 @@ def run_apollo(
 ) -> np.ndarray:
     """Restore `(channels, samples)` audio with Apollo.
 
-    Chunking defaults to on. Apollo will happily try to process a seven-minute
-    track in one pass and exhaust 16 GB of unified memory doing it.
+    Chunking is mandatory, not an optimisation: Apollo cannot process more than
+    `APOLLO_MAX_SECONDS` of audio at all, and runs out of memory well before
+    that. Passing `chunk_seconds=None` is only valid for input already under
+    the limit.
 
     Default reassembly is `"discard"`: Apollo synthesizes the band above the
     codec cutoff, two chunks realise different phase there, and crossfading
@@ -230,6 +243,16 @@ def run_apollo(
         )
     if not np.isfinite(audio).all():
         raise ValueError("Input audio contains NaN or infinite values.")
+
+    span = chunk_seconds if chunk_seconds else audio.shape[-1] / sample_rate
+    if span > APOLLO_MAX_SECONDS:
+        what = "chunk_seconds" if chunk_seconds else "input"
+        raise ValueError(
+            f"{what} is {span:.1f} s; Apollo's rotary embeddings only cover "
+            f"{APOLLO_MAX_SECONDS:.0f} s. Past that it fails inside the model "
+            f"on a shape mismatch. Set chunk_seconds to "
+            f"{APOLLO_SAFE_CHUNK_SECONDS:.0f} or less."
+        )
 
     if model is None:
         model = load_apollo(device=device)
