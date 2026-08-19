@@ -5,9 +5,8 @@ Standing baselines, not components — see ADR-0005.
 **Apollo** (Li & Luo, ICASSP 2025) targets codec artifacts. Vendored as a
 submodule at `third_party/apollo` because it ships no installable package, and
 imported directly: its model needs only torch, numpy and huggingface_hub.
-Chunking is ours: upstream's lives in a top-level `inference.py` script rather
-than in the `look2hear` package, and crossfades whole overlaps, which loses
-power on a model that invents content.
+Chunking is upstream's `run_model` with chunk padding — the seam fix lives in
+the Apollo fork, and grooveback carries no parallel implementation.
 
 **A2SB** (NVIDIA) targets missing bandwidth. It lives in a fork with its own
 environment and one-command entry point; this module shells out to it and
@@ -20,7 +19,6 @@ from __future__ import annotations
 import subprocess
 import sys
 import tempfile
-from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
@@ -83,94 +81,18 @@ def load_apollo(checkpoint: str | Path = APOLLO_CHECKPOINT, device: str = "auto"
     return model.to(select_device(device)).eval()
 
 
-def chunked(
-    fn: Callable[[torch.Tensor], torch.Tensor],
-    audio: torch.Tensor,
-    chunk_samples: int | None,
-    context_samples: int = 0,
-    batch_size: int = 1,
-    crossfade_samples: int = 441,
-) -> torch.Tensor:
-    """Apply `fn` over windows and stitch the results back together.
+def _apollo_inference():
+    """Import the vendored Apollo's inference module (chunking lives there).
 
-    `audio` is `(1, channels, samples)`; output length equals input length.
-
-    Windows overlap by `context_samples` per side and that context is
-    discarded, so every output sample comes from one forward pass. Cores are
-    then crossfaded into each other over `crossfade_samples`.
-
-    Crossfading the *whole* overlap instead is what breaks on an `fn` that
-    invents content: two windows produce the same band at different phase, so
-    averaging them loses ~3 dB rather than blending. The crossfade stays — it
-    just shrinks to ~10 ms and joins one realisation to another, which is short
-    enough to read as a splice rather than a dropout.
+    Chunking is upstream's since the chunk-padding fix; grooveback no longer
+    carries a parallel implementation. Requires the fork branch checked out in
+    the submodule — an older checkout fails loudly on the missing parameter.
     """
-    total = audio.shape[-1]
-    if chunk_samples is None or total <= chunk_samples:
-        return fn(audio)
-    # The context is thrown away, so it has to leave a core behind.
-    if context_samples * 2 >= chunk_samples:
-        raise ValueError("Context must be under half the chunk length.")
+    if str(_APOLLO_REPO) not in sys.path:
+        sys.path.insert(0, str(_APOLLO_REPO))
+    import inference
 
-    fade = min(crossfade_samples, context_samples) if context_samples else 0
-    hop = chunk_samples - 2 * context_samples
-    padded = torch.nn.functional.pad(audio, (context_samples, context_samples))
-    starts = list(range(0, total, hop))
-
-    out_sum = torch.zeros_like(audio)
-    weight_sum = torch.zeros((1, 1, total), dtype=audio.dtype)
-
-    for i in range(0, len(starts), batch_size):
-        batch = starts[i : i + batch_size]
-        windows, keeps = [], []
-        for start in batch:
-            # Core is [start, start+hop), widened by half a crossfade on
-            # interior edges so neighbours overlap by exactly `fade`.
-            lo = max(start - (fade // 2 if start else 0), 0)
-            hi = min(start + hop + fade - fade // 2, total)
-            keeps.append((lo, hi, lo - start + context_samples))
-            window = padded[..., start : start + chunk_samples]
-            if window.shape[-1] < chunk_samples:
-                window = torch.nn.functional.pad(
-                    window, (0, chunk_samples - window.shape[-1])
-                )
-            windows.append(window)
-
-        processed = fn(torch.cat(windows, dim=0))
-
-        for offset, (lo, hi, src) in enumerate(keeps):
-            length = hi - lo
-            weights = _crossfade(
-                length, fade, fade_in=lo > 0, fade_out=hi < total, dtype=audio.dtype
-            )
-            out_sum[..., lo:hi] += (
-                processed[offset : offset + 1, ..., src : src + length] * weights
-            )
-            weight_sum[..., lo:hi] += weights
-
-    return out_sum / weight_sum.clamp(min=1e-8)
-
-
-def _crossfade(
-    length: int, fade: int, fade_in: bool, fade_out: bool, dtype: torch.dtype
-) -> torch.Tensor:
-    """Linear edge ramps for the crossfade between cores.
-
-    The ramp is open at both ends — `i/(fade+1)` for `i` in `1..fade`, never
-    reaching 0 or 1. A ramp starting at 0 zeroes the shared sample from both
-    sides when `fade == 1`, leaving zero total weight and a hole in the output.
-    Upstream Apollo's `linspace(0, 1, fade)` has this bug; normalization hides
-    it for wider fades but still skews the blend at the seams.
-    """
-    weights = torch.ones(length, dtype=dtype)
-    fade = min(fade, length)
-    if fade:
-        ramp = (torch.arange(fade, dtype=dtype) + 1.0) / (fade + 1.0)
-        if fade_in:
-            weights[:fade] = ramp
-        if fade_out:
-            weights[-fade:] = ramp.flip(0)
-    return weights.view(1, 1, -1)
+    return inference
 
 
 def run_apollo(
@@ -179,18 +101,17 @@ def run_apollo(
     model=None,
     device: str = "auto",
     chunk_seconds: float | None = 12.0,
-    context_seconds: float = 2.0,
+    overlap_seconds: float = 1.0,
+    chunk_pad_seconds: float = 1.0,
     batch_size: int = 1,
 ) -> np.ndarray:
     """Restore `(channels, samples)` audio with Apollo.
 
-    Chunking is mandatory, not an optimisation: Apollo cannot process more than
-    `APOLLO_MAX_SECONDS` of audio at all, and runs out of memory well before
-    that. Passing `chunk_seconds=None` is only valid for input already under
-    the limit.
-
-    `context_seconds` is extra audio given to the model on each side of a
-    window and then thrown away; see `chunked`.
+    Chunking is mandatory for real tracks: Apollo cannot process more than
+    `APOLLO_MAX_SECONDS` at all, and runs out of memory well before that.
+    Each chunk is inferred with `chunk_pad_seconds` of surrounding audio per
+    side, discarded from the output, because the model's output is wrong near
+    the edges of its input.
     """
     if sample_rate != APOLLO_SAMPLE_RATE:
         raise ValueError(
@@ -199,35 +120,37 @@ def run_apollo(
     if not np.isfinite(audio).all():
         raise ValueError("Input audio contains NaN or infinite values.")
 
-    span = chunk_seconds if chunk_seconds else audio.shape[-1] / sample_rate
+    span = (
+        chunk_seconds + 2 * chunk_pad_seconds
+        if chunk_seconds
+        else audio.shape[-1] / sample_rate
+    )
     if span > APOLLO_MAX_SECONDS:
-        what = "chunk_seconds" if chunk_seconds else "input"
+        what = "chunk plus padding" if chunk_seconds else "input"
         raise ValueError(
             f"{what} is {span:.1f} s; Apollo's rotary embeddings only cover "
             f"{APOLLO_MAX_SECONDS:.0f} s. Past that it fails inside the model "
-            f"on a shape mismatch. Set chunk_seconds to "
-            f"{APOLLO_SAFE_CHUNK_SECONDS:.0f} or less."
+            f"on a shape mismatch. Use chunks of "
+            f"{APOLLO_SAFE_CHUNK_SECONDS:.0f} s or less."
         )
 
+    inference = _apollo_inference()
     if model is None:
         model = load_apollo(device=device)
     target = next(model.parameters()).device
 
     tensor = torch.from_numpy(np.ascontiguousarray(audio)).unsqueeze(0)
-    chunk_samples = (
-        int(round(chunk_seconds * sample_rate)) if chunk_seconds else None
-    )
-
-    def forward(batch: torch.Tensor) -> torch.Tensor:
-        return model(batch.to(target)).detach().to("cpu")
-
     with torch.inference_mode():
-        output = chunked(
-            forward,
+        output = inference.run_model(
+            model,
             tensor,
-            chunk_samples,
-            int(round(context_seconds * sample_rate)),
-            batch_size,
+            target,
+            chunk_samples=(
+                int(round(chunk_seconds * sample_rate)) if chunk_seconds else None
+            ),
+            overlap_samples=int(round(overlap_seconds * sample_rate)),
+            chunk_batch_size=batch_size,
+            chunk_pad_samples=int(round(chunk_pad_seconds * sample_rate)),
         )
     return output.squeeze(0).numpy()
 
