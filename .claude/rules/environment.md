@@ -32,10 +32,11 @@ uv run python scripts/run_experiments.py mps same-s same-l
 `run_experiments.py` skips any step whose output already exists, so it is safe to re-run and can pick up renders
 produced elsewhere — which is how GPU-rendered results get folded back in.
 
-## What does not run locally
+## RunPod by default
 
-The MacBook is 16 GB unified memory. These need a rented GPU — use the `runpod` skill without asking, then delete the
-pod:
+Model inference and anything GPU-shaped runs on a rented GPU by default — use the `runpod` skill without asking,
+then delete the pod. MPS hangs the machine while it runs, which blocks working; run locally only what is
+demonstrably trivial. The MacBook is 16 GB unified memory.
 
 | | local | rented |
 |---|---|---|
@@ -43,8 +44,8 @@ pod:
 | A2SB, full track | does not fit | A100 |
 | Any fine-tuning | no | yes |
 
-Everything else has run locally so far, but that is an observation, not a limit — measure before assuming either way.
-SAME-S is only known fast on short excerpts; a full track is untested.
+Past local timings are sizing data, not a recommendation. SAME-S is only known fast on short excerpts; a full
+track is untested.
 
 Outputs land in `artifacts/` (gitignored). Listening sets are named for the operation that produced them: `1_input_*`
 is before, `2_output_*` is after, `ref_*` are references.
