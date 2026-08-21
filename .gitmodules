@@ -1,3 +1,4 @@
 [submodule "third_party/apollo"]
 	path = third_party/apollo
-	url = https://github.com/JusperLee/Apollo.git
+	url = https://github.com/zbitouzakaria/Apollo.git
+	branch = midpoint-chunk-handoff
