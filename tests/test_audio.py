@@ -77,14 +77,7 @@ def test_normalize_loudness_hits_the_target(target):
     result = ga.normalize_loudness(sine, SR, target_lufs=target)
 
     assert ga.loudness(result, SR) == pytest.approx(target, abs=0.1)
-
-
-def test_normalize_loudness_preserves_shape():
-    audio = tone(amplitude=0.5, seconds=5.0)
-
-    result = ga.normalize_loudness(audio, SR)
-
-    assert result.shape == audio.shape
+    assert result.shape == sine.shape
 
 
 def test_peak_dbfs_reads_the_sine_amplitude():
