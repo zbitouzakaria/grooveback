@@ -21,10 +21,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--device", default="auto", choices=["auto", "cuda", "mps", "cpu"])
     parser.add_argument("--chunk-seconds", type=float, default=12.0, help="apollo only")
     parser.add_argument("--overlap-seconds", type=float, default=1.0, help="apollo only")
-    parser.add_argument(
-        "--chunk-pad-seconds", type=float, default=1.0,
-        help="apollo only: audio inferred beyond each chunk edge and discarded",
-    )
+    parser.add_argument("--chunk-pad-seconds", type=float, default=1.0, help="apollo only")
     parser.add_argument("--batch-size", type=int, default=1, help="apollo only")
     parser.add_argument("--steps", type=int, default=20, help="a2sb sampling steps")
     parser.add_argument(
