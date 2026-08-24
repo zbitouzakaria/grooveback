@@ -8,9 +8,10 @@ import numpy as np
 import pytest
 import torch
 
-from grooveback.baselines import APOLLO_MAX_SECONDS, APOLLO_SAMPLE_RATE, run_apollo
+from grooveback.baselines import run_apollo
 
-SR = APOLLO_SAMPLE_RATE
+SR = 44_100
+APOLLO_MAX_SECONDS = 100.0  # 10_000 rotary positions x 10 ms hop
 
 
 class IdentityModel(torch.nn.Module):
