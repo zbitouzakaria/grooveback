@@ -20,8 +20,9 @@ Audio breaks silently: no exception, nothing looks wrong, the output is merely w
 
 An identity model is coherent by construction, so none of these catch a model that invents content *differently on
 each call* — the case where two windows produce the same band at different phase and blending them loses power.
-`test_invented_content_survives_the_seams` covers it with a fixed-amplitude tone at random phase per call, asserting
-band power stays flat across seams. Extend that pattern before chunking anything else generative.
+Crossfaded chunking is safe only for models whose output is consistent given their input — measured true of Apollo,
+whose chunking and its tests live in the fork. No test covers an inconsistent model; add one before chunking
+anything stochastic.
 
 ## Findings live in ADRs
 

@@ -5,8 +5,6 @@ Standing baselines, not components — see ADR-0005.
 **Apollo** (Li & Luo, ICASSP 2025) targets codec artifacts. Vendored as a
 submodule at `third_party/apollo` because it ships no installable package, and
 imported directly: its model needs only torch, numpy and huggingface_hub.
-Chunking is ours, since their crossfade lives in a top-level `inference.py`
-script rather than in the `look2hear` package.
 
 **A2SB** (NVIDIA) targets missing bandwidth. It lives in a fork with its own
 environment and one-command entry point; this module shells out to it and
@@ -16,10 +14,10 @@ input's channels.
 
 from __future__ import annotations
 
+import importlib
 import subprocess
 import sys
 import tempfile
-from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
@@ -36,6 +34,11 @@ _APOLLO_REPO = _REPO / "third_party" / "apollo"
 # upstream inference script.
 _APOLLO_ARCH = {"sr": APOLLO_SAMPLE_RATE, "win": 20, "feature_dim": 256, "layer": 6}
 
+# Apollo's rotary tables cover 10_000 positions at 100 frames/s. Past that it
+# dies inside the model on a broadcast mismatch — architectural, not memory, so
+# no GPU raises it. Attention is also quadratic, so the practical limit is lower.
+APOLLO_MAX_SECONDS = 10_000 * (_APOLLO_ARCH["win"] // 2) / 1000
+
 
 def select_device(requested: str = "auto") -> torch.device:
     """Resolve a device, preferring CUDA, then MPS, then CPU."""
@@ -48,12 +51,13 @@ def select_device(requested: str = "auto") -> torch.device:
     return torch.device("cpu")
 
 
-def load_apollo(checkpoint: str | Path = APOLLO_CHECKPOINT, device: str = "auto"):
-    """Load the pretrained Apollo model.
+def _apollo_import(name: str):
+    """Import a module from the vendored Apollo repo.
 
-    The default downloads the official checkpoint from Hugging Face and loads it
-    with `torch.load`, which is arbitrary deserialization — the usual bargain
-    with research checkpoints.
+    Apollo ships no package — `inference` and `look2hear/` are top-level names
+    in its repo — so the repo root goes on `sys.path`, at the front so those
+    names resolve to Apollo's own modules. Lazy because `baselines` must stay
+    importable without the submodule: the A2SB path needs none of this.
     """
     if not (_APOLLO_REPO / "look2hear").is_dir():
         raise FileNotFoundError(
@@ -62,8 +66,17 @@ def load_apollo(checkpoint: str | Path = APOLLO_CHECKPOINT, device: str = "auto"
         )
     if str(_APOLLO_REPO) not in sys.path:
         sys.path.insert(0, str(_APOLLO_REPO))
+    return importlib.import_module(name)
 
-    import look2hear.models
+
+def load_apollo(checkpoint: str | Path = APOLLO_CHECKPOINT, device: str = "auto"):
+    """Load the pretrained Apollo model.
+
+    The default downloads the official checkpoint from Hugging Face and loads it
+    with `torch.load`, which is arbitrary deserialization — the usual bargain
+    with research checkpoints.
+    """
+    models = _apollo_import("look2hear.models")
 
     if str(checkpoint) == APOLLO_CHECKPOINT:
         from huggingface_hub import hf_hub_download
@@ -72,90 +85,8 @@ def load_apollo(checkpoint: str | Path = APOLLO_CHECKPOINT, device: str = "auto"
             repo_id=APOLLO_CHECKPOINT, filename="pytorch_model.bin"
         )
 
-    model = look2hear.models.BaseModel.from_pretrain(str(checkpoint), **_APOLLO_ARCH)
+    model = models.BaseModel.from_pretrain(str(checkpoint), **_APOLLO_ARCH)
     return model.to(select_device(device)).eval()
-
-
-def chunked(
-    fn: Callable[[torch.Tensor], torch.Tensor],
-    audio: torch.Tensor,
-    chunk_samples: int | None,
-    overlap_samples: int = 0,
-    batch_size: int = 1,
-) -> torch.Tensor:
-    """Apply `fn` over overlapping chunks and crossfade the results back.
-
-    `audio` is `(1, channels, samples)`. Output length always equals input
-    length: chunks are padded for the forward pass and cropped afterwards, and
-    the overlap-add is normalized by its own weights so the crossfade cannot
-    change the level. Tested against an identity `fn`, which is what catches the
-    off-by-one and windowing bugs this function exists to hide.
-    """
-    total = audio.shape[-1]
-    if chunk_samples is None or total <= chunk_samples:
-        return fn(audio)
-    if overlap_samples * 2 > chunk_samples:
-        raise ValueError("Overlap must not exceed half the chunk length.")
-
-    hop = chunk_samples - overlap_samples
-    starts = [0]
-    while starts[-1] + chunk_samples < total:
-        starts.append(starts[-1] + hop)
-
-    out_sum = torch.zeros_like(audio)
-    weight_sum = torch.zeros((1, 1, total), dtype=audio.dtype)
-
-    for i in range(0, len(starts), batch_size):
-        batch = starts[i : i + batch_size]
-        chunks, lengths = [], []
-        for start in batch:
-            end = min(start + chunk_samples, total)
-            chunk = audio[..., start:end]
-            lengths.append(end - start)
-            if chunk.shape[-1] < chunk_samples:
-                chunk = torch.nn.functional.pad(
-                    chunk, (0, chunk_samples - chunk.shape[-1])
-                )
-            chunks.append(chunk)
-
-        processed = fn(torch.cat(chunks, dim=0))
-
-        for offset, (start, length) in enumerate(zip(batch, lengths, strict=True)):
-            weights = _crossfade(
-                length,
-                overlap_samples,
-                fade_in=i + offset > 0,
-                fade_out=i + offset < len(starts) - 1,
-                dtype=audio.dtype,
-            )
-            out_sum[..., start : start + length] += (
-                processed[offset : offset + 1, ..., :length] * weights
-            )
-            weight_sum[..., start : start + length] += weights
-
-    return out_sum / weight_sum.clamp(min=1e-8)
-
-
-def _crossfade(
-    length: int, overlap: int, fade_in: bool, fade_out: bool, dtype: torch.dtype
-) -> torch.Tensor:
-    """Linear edge ramps for normalized overlap-add.
-
-    The ramp is open at both ends — `i/(fade+1)` for `i` in `1..fade`, never
-    reaching 0 or 1. A ramp starting at 0 zeroes the shared sample from both
-    sides when `overlap == 1`, leaving zero total weight and a hole in the
-    output. Upstream Apollo's `linspace(0, 1, fade)` has this bug; normalization
-    hides it for wider overlaps but still skews the crossfade at the seams.
-    """
-    weights = torch.ones(length, dtype=dtype)
-    fade = min(overlap, length)
-    if fade:
-        ramp = (torch.arange(fade, dtype=dtype) + 1.0) / (fade + 1.0)
-        if fade_in:
-            weights[:fade] = ramp
-        if fade_out:
-            weights[-fade:] = ramp.flip(0)
-    return weights.view(1, 1, -1)
 
 
 def run_apollo(
@@ -163,14 +94,23 @@ def run_apollo(
     sample_rate: int,
     model=None,
     device: str = "auto",
-    chunk_seconds: float | None = 10.0,
+    chunk_seconds: float | None = 12.0,
     overlap_seconds: float = 1.0,
+    chunk_pad_seconds: float = 1.0,
     batch_size: int = 1,
 ) -> np.ndarray:
     """Restore `(channels, samples)` audio with Apollo.
 
-    Chunking defaults to on. Apollo will happily try to process a seven-minute
-    track in one pass and exhaust 16 GB of unified memory doing it.
+    Each chunk is inferred with `chunk_pad_seconds` of surrounding audio per
+    side, discarded from the output, because the model's output is wrong near
+    the edges of its input.
+
+    `chunk_seconds + 2 * chunk_pad_seconds` must stay within
+    `APOLLO_MAX_SECONDS` — the rotary ceiling holds on every device, so real
+    tracks are always chunked. The defaults are sized for a 16 GB MPS laptop;
+    on CUDA, raise `chunk_seconds` toward the ceiling (90 is a round choice)
+    and `batch_size` as memory allows. `chunk_seconds=None` runs a single
+    pass, which only fits inputs shorter than `APOLLO_MAX_SECONDS`.
     """
     if sample_rate != APOLLO_SAMPLE_RATE:
         raise ValueError(
@@ -179,25 +119,37 @@ def run_apollo(
     if not np.isfinite(audio).all():
         raise ValueError("Input audio contains NaN or infinite values.")
 
+    span = (
+        chunk_seconds + 2 * chunk_pad_seconds
+        if chunk_seconds
+        else audio.shape[-1] / sample_rate
+    )
+    if span > APOLLO_MAX_SECONDS:
+        what = "chunk plus padding" if chunk_seconds else "input"
+        raise ValueError(
+            f"{what} is {span:.1f} s; Apollo's rotary embeddings only cover "
+            f"{APOLLO_MAX_SECONDS:.0f} s. Use chunk_seconds of at most "
+            f"{APOLLO_MAX_SECONDS - 2 * chunk_pad_seconds:.0f} s with this "
+            f"padding."
+        )
+
+    inference = _apollo_import("inference")
     if model is None:
         model = load_apollo(device=device)
     target = next(model.parameters()).device
 
     tensor = torch.from_numpy(np.ascontiguousarray(audio)).unsqueeze(0)
-    chunk_samples = (
-        int(round(chunk_seconds * sample_rate)) if chunk_seconds else None
-    )
-
-    def forward(batch: torch.Tensor) -> torch.Tensor:
-        return model(batch.to(target)).detach().to("cpu")
-
     with torch.inference_mode():
-        output = chunked(
-            forward,
+        output = inference.run_model(
+            model,
             tensor,
-            chunk_samples,
-            int(round(overlap_seconds * sample_rate)),
-            batch_size,
+            target,
+            chunk_samples=(
+                int(round(chunk_seconds * sample_rate)) if chunk_seconds else None
+            ),
+            overlap_samples=int(round(overlap_seconds * sample_rate)),
+            chunk_batch_size=batch_size,
+            chunk_pad_samples=int(round(chunk_pad_seconds * sample_rate)),
         )
     return output.squeeze(0).numpy()
 
