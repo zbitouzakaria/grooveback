@@ -5,8 +5,6 @@ Standing baselines, not components — see ADR-0005.
 **Apollo** (Li & Luo, ICASSP 2025) targets codec artifacts. Vendored as a
 submodule at `third_party/apollo` because it ships no installable package, and
 imported directly: its model needs only torch, numpy and huggingface_hub.
-Chunking is upstream's `run_model` with chunk padding — the seam fix lives in
-the Apollo fork, and grooveback carries no parallel implementation.
 
 **A2SB** (NVIDIA) targets missing bandwidth. It lives in a fork with its own
 environment and one-command entry point; this module shells out to it and
@@ -16,6 +14,7 @@ input's channels.
 
 from __future__ import annotations
 
+import importlib
 import subprocess
 import sys
 import tempfile
@@ -39,7 +38,6 @@ _APOLLO_ARCH = {"sr": APOLLO_SAMPLE_RATE, "win": 20, "feature_dim": 256, "layer"
 # dies inside the model on a broadcast mismatch — architectural, not memory, so
 # no GPU raises it. Attention is also quadratic, so the practical limit is lower.
 APOLLO_MAX_SECONDS = 10_000 * (_APOLLO_ARCH["win"] // 2) / 1000
-APOLLO_SAFE_CHUNK_SECONDS = 90.0
 
 
 def select_device(requested: str = "auto") -> torch.device:
@@ -53,12 +51,13 @@ def select_device(requested: str = "auto") -> torch.device:
     return torch.device("cpu")
 
 
-def load_apollo(checkpoint: str | Path = APOLLO_CHECKPOINT, device: str = "auto"):
-    """Load the pretrained Apollo model.
+def _apollo_import(name: str):
+    """Import a module from the vendored Apollo repo.
 
-    The default downloads the official checkpoint from Hugging Face and loads it
-    with `torch.load`, which is arbitrary deserialization — the usual bargain
-    with research checkpoints.
+    Apollo ships no package — `inference` and `look2hear/` are top-level names
+    in its repo — so the repo root goes on `sys.path`, at the front so those
+    names resolve to Apollo's own modules. Lazy because `baselines` must stay
+    importable without the submodule: the A2SB path needs none of this.
     """
     if not (_APOLLO_REPO / "look2hear").is_dir():
         raise FileNotFoundError(
@@ -67,8 +66,17 @@ def load_apollo(checkpoint: str | Path = APOLLO_CHECKPOINT, device: str = "auto"
         )
     if str(_APOLLO_REPO) not in sys.path:
         sys.path.insert(0, str(_APOLLO_REPO))
+    return importlib.import_module(name)
 
-    import look2hear.models
+
+def load_apollo(checkpoint: str | Path = APOLLO_CHECKPOINT, device: str = "auto"):
+    """Load the pretrained Apollo model.
+
+    The default downloads the official checkpoint from Hugging Face and loads it
+    with `torch.load`, which is arbitrary deserialization — the usual bargain
+    with research checkpoints.
+    """
+    models = _apollo_import("look2hear.models")
 
     if str(checkpoint) == APOLLO_CHECKPOINT:
         from huggingface_hub import hf_hub_download
@@ -77,22 +85,8 @@ def load_apollo(checkpoint: str | Path = APOLLO_CHECKPOINT, device: str = "auto"
             repo_id=APOLLO_CHECKPOINT, filename="pytorch_model.bin"
         )
 
-    model = look2hear.models.BaseModel.from_pretrain(str(checkpoint), **_APOLLO_ARCH)
+    model = models.BaseModel.from_pretrain(str(checkpoint), **_APOLLO_ARCH)
     return model.to(select_device(device)).eval()
-
-
-def _apollo_inference():
-    """Import the vendored Apollo's inference module (chunking lives there).
-
-    Chunking is upstream's since the chunk-padding fix; grooveback no longer
-    carries a parallel implementation. Requires the fork branch checked out in
-    the submodule — an older checkout fails loudly on the missing parameter.
-    """
-    if str(_APOLLO_REPO) not in sys.path:
-        sys.path.insert(0, str(_APOLLO_REPO))
-    import inference
-
-    return inference
 
 
 def run_apollo(
@@ -107,11 +101,16 @@ def run_apollo(
 ) -> np.ndarray:
     """Restore `(channels, samples)` audio with Apollo.
 
-    Chunking is mandatory for real tracks: Apollo cannot process more than
-    `APOLLO_MAX_SECONDS` at all, and runs out of memory well before that.
     Each chunk is inferred with `chunk_pad_seconds` of surrounding audio per
     side, discarded from the output, because the model's output is wrong near
     the edges of its input.
+
+    `chunk_seconds + 2 * chunk_pad_seconds` must stay within
+    `APOLLO_MAX_SECONDS` — the rotary ceiling holds on every device, so real
+    tracks are always chunked. The defaults are sized for a 16 GB MPS laptop;
+    on CUDA, raise `chunk_seconds` toward the ceiling (90 is a round choice)
+    and `batch_size` as memory allows. `chunk_seconds=None` runs a single
+    pass, which only fits inputs shorter than `APOLLO_MAX_SECONDS`.
     """
     if sample_rate != APOLLO_SAMPLE_RATE:
         raise ValueError(
@@ -129,12 +128,12 @@ def run_apollo(
         what = "chunk plus padding" if chunk_seconds else "input"
         raise ValueError(
             f"{what} is {span:.1f} s; Apollo's rotary embeddings only cover "
-            f"{APOLLO_MAX_SECONDS:.0f} s. Past that it fails inside the model "
-            f"on a shape mismatch. Use chunks of "
-            f"{APOLLO_SAFE_CHUNK_SECONDS:.0f} s or less."
+            f"{APOLLO_MAX_SECONDS:.0f} s. Use chunk_seconds of at most "
+            f"{APOLLO_MAX_SECONDS - 2 * chunk_pad_seconds:.0f} s with this "
+            f"padding."
         )
 
-    inference = _apollo_inference()
+    inference = _apollo_import("inference")
     if model is None:
         model = load_apollo(device=device)
     target = next(model.parameters()).device
