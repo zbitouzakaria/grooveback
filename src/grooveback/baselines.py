@@ -160,7 +160,6 @@ def run_apollo(
 
 A2SB_SAMPLE_RATE = 44_100
 A2SB_DIR = _REPO / "third_party" / "a2sb"
-A2SB_PYTHON = A2SB_DIR / ".venv" / "bin" / "python"
 
 
 def a2sb_fork_sha() -> str:
@@ -198,9 +197,10 @@ def run_a2sb(
             "  git clone -b runnable-anywhere "
             f"git@github.com:zbitouzakaria/diffusion-audio-restoration.git {A2SB_DIR}"
         )
-    if not A2SB_PYTHON.exists():
+    python = A2SB_DIR / ".venv" / "bin" / "python"
+    if not python.exists():
         raise FileNotFoundError(
-            f"A2SB environment missing at {A2SB_PYTHON}. Create it:\n"
+            f"A2SB environment missing at {python}. Create it:\n"
             f"  {A2SB_DIR}/setup.sh"
         )
     print(f"a2sb: fork @ {a2sb_fork_sha()}")
@@ -210,7 +210,7 @@ def run_a2sb(
         wav_in, wav_out = tmp / "in.wav", tmp / "out.wav"
         ga.save(wav_in, audio, sample_rate)
         cmd = [
-            str(A2SB_PYTHON), "restore.py", str(wav_in), str(wav_out),
+            str(python), "restore.py", str(wav_in), str(wav_out),
             f"--steps={n_steps}", f"--device={device}",
         ]
         if cutoff_hz is not None:
