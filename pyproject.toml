@@ -22,7 +22,33 @@ dependencies = [
     "hydra-core>=1.3",
     "omegaconf>=2.3",
     "huggingface-hub>=1.0",
+    # Pins torch/torchaudio to ==2.7.1 for the whole project.
+    "stable-audio-3",
 ]
+
+[tool.uv.sources]
+stable-audio-3 = { git = "https://github.com/Stability-AI/stable-audio-3.git", rev = "a0b57f5483c4588f827f3552b7d5c6ca2a9687be" }
+# stable-audio-3 routes linux-x86_64 torch to the cu126 index. Its marker'd
+# source must be repeated here verbatim (a differing root source conflicts
+# instead of winning), plus an explicit PyPI entry so the Mac split resolves
+# to the plain wheel.
+torch = [
+    { index = "pytorch-cu126", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" },
+    { index = "pypi", marker = "sys_platform != 'linux' or platform_machine != 'x86_64'" },
+]
+torchaudio = [
+    { index = "pytorch-cu126", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" },
+    { index = "pypi", marker = "sys_platform != 'linux' or platform_machine != 'x86_64'" },
+]
+
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
 
 [dependency-groups]
 dev = [
