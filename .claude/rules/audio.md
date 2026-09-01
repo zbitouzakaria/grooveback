@@ -41,3 +41,4 @@ the source of truth stays obvious.
 | 0004 | **Restoration with a generative prior** — the thesis: the prior is the artifact, the damage is handled at inference, output is plausible rather than faithful |
 | 0005 | Establish baselines and prior viability — what had to be measured before any method work, and the stopping point |
 | 0006 | **Baseline findings: Apollo and A2SB** — Apollo restores across the whole band and wins by ear; A2SB only fills above a cutoff and is heavy |
+| 0007 | Benchmark codec restoration — MP3 twins of clean chunks, SDR and SI-SNR against the original, SAME in-process |
