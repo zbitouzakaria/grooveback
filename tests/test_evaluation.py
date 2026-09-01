@@ -9,7 +9,13 @@ import numpy as np
 import pytest
 
 from grooveback import audio as ga
-from grooveback.evaluation import level_matched_set, write_listening_pack
+from grooveback.evaluation import (
+    best_lag,
+    level_matched_set,
+    sdr_db,
+    si_snr_db,
+    write_listening_pack,
+)
 
 SR = 44_100
 
@@ -21,6 +27,81 @@ def tone(
     t = np.arange(int(seconds * SR)) / SR
     mono = (amplitude * np.sin(2 * np.pi * freq * t)).astype(np.float32)
     return np.tile(mono, (channels, 1))
+
+
+def test_sdr_measures_orthogonal_error_below_reference():
+    """A 200 Hz error tone 40 dB under a 100 Hz reference.
+
+    Both tones complete whole cycles over the fixture, so they are orthogonal
+    and the SDR is exactly the amplitude ratio: 20·log10(1.0/0.01) = 40 dB.
+    abs=0.05 absorbs float32 sine-synthesis roundoff in the cross term.
+    """
+    reference = tone(amplitude=1.0, freq=100.0)
+    estimate = reference + tone(amplitude=0.01, freq=200.0)
+
+    assert sdr_db(reference, estimate) == pytest.approx(40.0, abs=0.05)
+
+
+def test_sdr_of_identical_signals_is_infinite():
+    reference = tone(amplitude=0.5)
+
+    assert sdr_db(reference, reference) == float("inf")
+
+
+def test_sdr_penalizes_pure_gain_error():
+    """Halving the signal leaves an error of half the signal: 20·log10(2) dB."""
+    reference = tone(amplitude=1.0)
+
+    assert sdr_db(reference, 0.5 * reference) == pytest.approx(6.021, abs=0.01)
+
+
+def test_sdr_requires_matching_shapes():
+    with pytest.raises(ValueError, match="same shape"):
+        sdr_db(tone(amplitude=1.0), tone(amplitude=1.0)[:, :100])
+
+
+def test_si_snr_ignores_pure_gain_error():
+    """The projection absorbs any gain, leaving zero residual."""
+    reference = tone(amplitude=1.0)
+
+    assert si_snr_db(reference, 0.5 * reference) == float("inf")
+
+
+def test_si_snr_measures_orthogonal_error_like_snr():
+    """With no gain error the projection is the reference itself, so the score
+    reduces to plain SNR: 20·log10(1.0/0.01) = 40 dB."""
+    reference = tone(amplitude=1.0, freq=100.0)
+    estimate = reference + tone(amplitude=0.01, freq=200.0)
+
+    assert si_snr_db(reference, estimate) == pytest.approx(40.0, abs=0.05)
+
+
+def test_si_snr_requires_matching_shapes():
+    with pytest.raises(ValueError, match="same shape"):
+        si_snr_db(tone(amplitude=1.0), tone(amplitude=1.0)[:, :100])
+
+
+def test_best_lag_finds_a_delayed_estimate():
+    """A codec-style delay: the estimate starts 100 samples late."""
+    rng = np.random.default_rng(0)
+    reference = rng.standard_normal((1, 3 * SR)).astype(np.float32)
+    delayed = np.concatenate(
+        [np.zeros((1, 100), dtype=np.float32), reference[:, :-100]], axis=1
+    )
+
+    assert best_lag(reference, delayed) == 100
+
+
+def test_best_lag_is_zero_when_aligned():
+    rng = np.random.default_rng(0)
+    reference = rng.standard_normal((2, 3 * SR)).astype(np.float32)
+
+    assert best_lag(reference, reference) == 0
+
+
+def test_best_lag_rejects_signals_shorter_than_the_probe():
+    with pytest.raises(ValueError, match="too short"):
+        best_lag(tone(amplitude=1.0, seconds=1.0), tone(amplitude=1.0, seconds=1.0))
 
 
 def test_items_are_matched_to_the_target_loudness():
