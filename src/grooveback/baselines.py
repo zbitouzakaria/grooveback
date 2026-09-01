@@ -8,8 +8,8 @@ imported directly: its model needs only torch, numpy and huggingface_hub.
 
 **A2SB** (NVIDIA) targets missing bandwidth. It lives in a fork with its own
 environment and one-command entry point; this module shells out to it and
-nothing more. It is a mono model, so its output is mono carried across the
-input's channels.
+nothing more. The model is mono; the fork restores a stereo file one channel
+at a time in a single inference run, so output keeps the input's channels.
 """
 
 from __future__ import annotations
@@ -182,10 +182,10 @@ def run_a2sb(
 ) -> np.ndarray:
     """Restore `(channels, samples)` audio with the A2SB fork.
 
-    The model is mono: output is the restored mono copied across the input's
-    channel count. Cutoff detection happens fork-side on the audio it is
-    handed, so when processing an excerpt of a longer file, pass the full
-    file's `cutoff_hz` explicitly.
+    Stereo is restored per channel fork-side (one model load, both channels),
+    so output keeps the input's channel count. Cutoff detection happens
+    fork-side on the audio it is handed, so when processing an excerpt of a
+    longer file, pass the full file's `cutoff_hz` explicitly.
     """
     from grooveback import audio as ga
 
@@ -229,5 +229,8 @@ def run_a2sb(
 
     out = np.zeros((audio.shape[0], audio.shape[1]), dtype=np.float32)
     n = min(audio.shape[1], restored.shape[1])
-    out[:, :n] = restored[0, :n]
+    if restored.shape[0] == audio.shape[0]:
+        out[:, :n] = restored[:, :n]
+    else:  # a mono render is copied across the input's channels
+        out[:, :n] = restored[0, :n]
     return out

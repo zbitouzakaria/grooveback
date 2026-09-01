@@ -33,9 +33,34 @@ def fake_fork(fork_dir: Path, script: str) -> Path:
     return fork_dir
 
 
-def test_mono_result_is_copied_across_input_channels(monkeypatch, tmp_path):
-    """The fake fork copies input to output: argv is (restore.py, in, out, ...)."""
+def test_stereo_render_comes_back_unmixed(monkeypatch, tmp_path):
+    """The fork restores stereo per channel, so distinct channels must survive.
+
+    The fake fork copies input to output: argv is (restore.py, in, out, ...).
+    """
     monkeypatch.setattr(baselines, "A2SB_DIR", fake_fork(tmp_path, '#!/bin/sh\ncp "$2" "$3"\n'))
+    stereo = np.stack(
+        [
+            np.linspace(-0.5, 0.5, SR, dtype=np.float32),
+            np.linspace(0.5, -0.5, SR, dtype=np.float32),
+        ]
+    )
+
+    out = baselines.run_a2sb(stereo, SR)
+
+    assert out.shape == stereo.shape
+    np.testing.assert_array_equal(out, stereo)
+
+
+def test_mono_render_is_copied_across_input_channels(monkeypatch, tmp_path):
+    """A mono render (an older fork) still comes back at the input's shape."""
+    script = (
+        "#!/bin/sh\n"
+        f'{sys.executable} -c "import soundfile as sf, sys; '
+        "a, sr = sf.read(sys.argv[1], always_2d=True); "
+        "sf.write(sys.argv[2], a[:, :1], sr, subtype='FLOAT')\" \"$2\" \"$3\"\n"
+    )
+    monkeypatch.setattr(baselines, "A2SB_DIR", fake_fork(tmp_path, script))
     stereo = np.stack(
         [
             np.linspace(-0.5, 0.5, SR, dtype=np.float32),
