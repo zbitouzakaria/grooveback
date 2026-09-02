@@ -24,6 +24,7 @@ dependencies = [
     "huggingface-hub>=1.0",
     # Pins torch/torchaudio to ==2.7.1 for the whole project.
     "stable-audio-3",
+    "fast-bss-eval>=0.1.4",
 ]
 
 [tool.uv.sources]

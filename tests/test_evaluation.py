@@ -11,6 +11,7 @@ import pytest
 from grooveback import audio as ga
 from grooveback.evaluation import (
     best_lag,
+    bss_sdr_db,
     codec_edge_hz,
     level_matched_set,
     sdr_db,
@@ -81,6 +82,46 @@ def test_si_snr_measures_orthogonal_error_like_snr():
 def test_si_snr_requires_matching_shapes():
     with pytest.raises(ValueError, match="same shape"):
         si_snr_db(tone(amplitude=1.0), tone(amplitude=1.0)[:, :100])
+
+
+def test_bss_sdr_of_identical_signals_is_effectively_infinite():
+    """A numerical least-squares fit, not symbolic: identity lands around
+    250–300 dB depending on roundoff. 60 dB is a loose floor no real
+    restoration approaches."""
+    rng = np.random.default_rng(0)
+    reference = rng.standard_normal((2, 2 * SR)).astype(np.float32)
+
+    assert bss_sdr_db(reference, reference) > 60.0
+
+
+def test_bss_sdr_absorbs_delays_inside_its_filter_only():
+    """The defining difference between the two SDRs: a delay inside the
+    512-tap distortion filter is mostly forgiven, while plain SDR sees
+    decorrelated noise (about −3 dB for white noise). Absorption is not exact
+    — fast_bss_eval's regularized solve leaves ~26 dB at a 100-sample shift,
+    measured — and past the filter length it collapses entirely. The shift is
+    circular because the filter is fitted with FFT convolution."""
+    rng = np.random.default_rng(0)
+    reference = rng.standard_normal((1, 2 * SR)).astype(np.float32)
+
+    assert bss_sdr_db(reference, np.roll(reference, 100, axis=1)) > 20.0
+    assert sdr_db(reference, np.roll(reference, 100, axis=1)) < 0.0
+    assert bss_sdr_db(reference, np.roll(reference, 600, axis=1)) < 0.0
+
+
+def test_bss_sdr_matches_plain_sdr_for_out_of_band_error():
+    """A filter of a 100 Hz reference can only produce 100 Hz content, so a
+    200 Hz error tone stays error for both metrics: 20·log10(1.0/0.01) =
+    40 dB. abs=0.5 covers the solver's regularization and frame edges."""
+    reference = tone(amplitude=1.0, freq=100.0)
+    estimate = reference + tone(amplitude=0.01, freq=200.0)
+
+    assert bss_sdr_db(reference, estimate) == pytest.approx(40.0, abs=0.5)
+
+
+def test_bss_sdr_requires_matching_shapes():
+    with pytest.raises(ValueError, match="same shape"):
+        bss_sdr_db(tone(amplitude=1.0), tone(amplitude=1.0)[:, :100])
 
 
 def test_spectral_snr_of_identical_signals_is_infinite():

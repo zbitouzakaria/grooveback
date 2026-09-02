@@ -1,7 +1,8 @@
 """Scoring restorations against a reference, and building comparison sets
 that are fair to listen to.
 
-No torch, no GPU, no network.
+Torch-free to import; `bss_sdr_db` loads torch (via fast_bss_eval) when
+called. No GPU, no network.
 """
 
 from __future__ import annotations
@@ -56,6 +57,32 @@ def si_snr_db(reference: np.ndarray, estimate: np.ndarray) -> float:
     if residual_energy == 0.0:
         return float("inf")
     return 10.0 * np.log10(float((target**2).sum()) / residual_energy)
+
+
+def bss_sdr_db(
+    reference: np.ndarray, estimate: np.ndarray, filter_length: int = 512
+) -> float:
+    """BSS-eval SDR — the field's published norm, via fast_bss_eval.
+
+    A `filter_length`-tap FIR filter of the reference is fitted to the
+    estimate first, so anything expressible as linear filtering of the truth
+    (gain, EQ, delays and phase rotation inside ~12 ms) counts as target
+    rather than error. Plain `sdr_db` charges all of it. Channels are scored
+    as separate sources and averaged, zero-mean — exactly the Apollo paper's
+    evaluation wrapper — so these numbers compare against published tables.
+    """
+    _as_matched_vectors(reference, estimate)  # shape check only
+    # Imported here so the module stays torch-free to import.
+    import fast_bss_eval
+    import torch
+
+    scores = fast_bss_eval.sdr(
+        torch.from_numpy(np.ascontiguousarray(reference)).double(),
+        torch.from_numpy(np.ascontiguousarray(estimate)).double(),
+        filter_length=filter_length,
+        zero_mean=True,
+    )
+    return float(scores.mean().item())
 
 
 def spectral_snr_db(
