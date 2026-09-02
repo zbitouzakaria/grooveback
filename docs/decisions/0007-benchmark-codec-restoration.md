@@ -55,6 +55,72 @@ notebook (`notebooks/xp.ipynb`) showing one source at a time.
 - Everything renders in one `run_xp.py` pass, on a GPU pod by default; every
   step is skipped when its output already exists.
 
+## Results (2026-09-02 run)
+
+Each table is one source at one bitrate; columns are the metrics, all in dB against the master. LSD is lower-is-better; the rest higher. **Bold green** = best in column, **bold red** = worst.
+
+**aerofunk @ 64k**
+
+| | BSS-SDR | SDR | SI-SNR | Spectral SNR | LSD ↓ |
+|---|---|---|---|---|---|
+| degraded input | **19.4** 🟢 | **17.6** 🟢 | **18.1** 🟢 | 19.2 | **17.1** 🔴 |
+| a2sb | 18.8 | 17.2 | 17.6 | 18.9 | 14.2 |
+| apollo | 15.9 | 15.3 | 15.2 | **20.1** 🟢 | **9.2** 🟢 |
+| same-l | 14.8 | 13.7 | 13.6 | 17.3 | 11.5 |
+| same-s | **13.4** 🔴 | **12.2** 🔴 | **12.0** 🔴 | **15.9** 🔴 | 11.1 |
+
+**aerofunk @ 128k**
+
+| | BSS-SDR | SDR | SI-SNR | Spectral SNR | LSD ↓ |
+|---|---|---|---|---|---|
+| degraded input | **24.2** 🟢 | **22.1** 🟢 | **24.1** 🟢 | 23.7 | 7.4 |
+| a2sb | 23.4 | 21.5 | 23.3 | 22.7 | 7.2 |
+| apollo | 21.1 | 20.6 | 20.8 | **24.6** 🟢 | **6.7** 🟢 |
+| same-l | 14.6 | 13.7 | 13.6 | 17.9 | **8.3** 🔴 |
+| same-s | **13.2** 🔴 | **12.2** 🔴 | **11.9** 🔴 | **16.2** 🔴 | 8.2 |
+
+**aerofunk @ 192k**
+
+| | BSS-SDR | SDR | SI-SNR | Spectral SNR | LSD ↓ |
+|---|---|---|---|---|---|
+| degraded input | **31.8** 🟢 | **28.1** 🟢 | **31.8** 🟢 | 29.0 | 5.2 |
+| a2sb | 28.5 | 26.0 | 28.3 | 26.4 | **5.1** 🟢 |
+| apollo | 27.9 | 27.7 | 27.8 | **29.8** 🟢 | 5.8 |
+| same-l | 14.8 | 13.9 | 13.8 | 18.5 | 8.1 |
+| same-s | **13.3** 🔴 | **12.3** 🔴 | **12.1** 🔴 | **16.5** 🔴 | **8.2** 🔴 |
+
+**codec @ 64k**
+
+| | BSS-SDR | SDR | SI-SNR | Spectral SNR | LSD ↓ |
+|---|---|---|---|---|---|
+| degraded input | **14.2** 🟢 | **12.6** 🟢 | **12.5** 🟢 | **14.0** 🟢 | **33.1** 🔴 |
+| a2sb | 13.9 | 12.4 | 12.2 | 14.0 | 29.9 |
+| apollo | 7.1 | 7.2 | 6.5 | 13.7 | **8.2** 🟢 |
+| same-l | 7.3 | 7.2 | 6.3 | 10.8 | 19.9 |
+| same-s | **5.9** 🔴 | **6.0** 🔴 | **4.9** 🔴 | **9.6** 🔴 | 21.6 |
+
+**codec @ 128k**
+
+| | BSS-SDR | SDR | SI-SNR | Spectral SNR | LSD ↓ |
+|---|---|---|---|---|---|
+| degraded input | **17.0** 🟢 | **16.3** 🟢 | **16.5** 🟢 | **18.6** 🟢 | **20.5** 🔴 |
+| a2sb | 16.5 | 15.9 | 16.1 | 18.6 | 14.6 |
+| apollo | 8.6 | 8.9 | 8.4 | 15.3 | **6.8** 🟢 |
+| same-l | 6.9 | 6.8 | 5.9 | 11.3 | 13.5 |
+| same-s | **5.5** 🔴 | **5.7** 🔴 | **4.5** 🔴 | **9.9** 🔴 | 13.9 |
+
+**codec @ 192k**
+
+| | BSS-SDR | SDR | SI-SNR | Spectral SNR | LSD ↓ |
+|---|---|---|---|---|---|
+| degraded input | **20.9** 🟢 | **20.1** 🟢 | **20.4** 🟢 | **22.5** 🟢 | **15.9** 🔴 |
+| a2sb | 20.0 | 19.4 | 19.6 | 22.1 | 12.3 |
+| apollo | 19.5 | 17.7 | 18.5 | 20.6 | **5.9** 🟢 |
+| same-l | 7.0 | 6.9 | 6.0 | 11.5 | 10.7 |
+| same-s | **5.5** 🔴 | **5.7** 🔴 | **4.6** 🔴 | **9.9** 🔴 | 11.5 |
+
+The fill-band decomposition lives in `results.json` and the notebook.
+
 ## Consequences
 
 - Waveform metrics punish phase re-realisation: SAME round-trips will score
