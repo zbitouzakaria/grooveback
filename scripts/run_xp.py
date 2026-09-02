@@ -172,6 +172,8 @@ def main() -> None:
                     "bss_sdr_db": round(bss_sdr_db(pack["original"], item), 2),
                     "sdr_db": round(sdr_db(pack["original"], item), 2),
                     "si_snr_db": round(si_snr_db(pack["original"], item), 2),
+                    "spectral_snr_db": round(
+                        spectral_snr_db(pack["original"], item), 2),
                     "lsd_db": round(
                         log_spectral_distance_db(pack["original"], item), 2),
                     # The band the codec removed, on its own. Silence scores
