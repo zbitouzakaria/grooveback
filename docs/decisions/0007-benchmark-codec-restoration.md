@@ -141,13 +141,15 @@ The fill-band decomposition lives in `results.json` and the notebook.
 - The torch pin follows stable-audio-3. Apollo runs on 2.7.1 — verified by
   the suite and a render — and anything that needs a newer torch conflicts
   with the prior's stack.
-- The cutoff is not the damage. The master cut at each twin's own edge
-  still scores 27 / 48 / 55 dB on aerofunk (18–32 on the brighter codec
-  source); the actual MP3s score 10–27 dB lower. The gap is quantization and
-  smearing inside the band the codec kept — which is why a perfect fill of
-  the removed band gains at most 0.5 dB (1.4 on codec at 64k), why pure
-  bandwidth extension is capped there with A2SB within a dB of that ceiling,
-  and why a model aiming to win the table must reinvent in-band content.
+- MP3 degrades the band it keeps, not just the band it cuts. The master cut
+  at each twin's own edge still scores 27 / 48 / 55 dB against the full
+  master on aerofunk (18–32 on the brighter codec source); the actual MP3s
+  score 17.6 / 22.1 / 28.1. If the cutoff were the whole damage those columns
+  would match — they do not, so most of the damage lives inside the kept
+  band. That is why a perfect fill of the removed band gains at most 0.5 dB,
+  why pure bandwidth extension is capped there with A2SB within a dB of the
+  ceiling, and why a model aiming to win the table must reinvent in-band
+  content.
 - Synthetic twins are cleaner than real rips: no re-encodes, no unknown
   encoder chain. Results bound the easy case, not the library case.
 
