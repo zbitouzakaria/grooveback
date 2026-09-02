@@ -36,6 +36,14 @@ notebook (`notebooks/xp.ipynb`) showing one source at a time.
   render — plus spectrograms and level-matched listening sets. Plain SDR
   rather than BSS-eval SDR: no distortion filter and no extra dependency, so
   the numbers compare within this table but not against published ones.
+- **The fill band is also scored on its own**, above the measured codec edge,
+  in waveform SDR and in phase-blind spectral SNR. Silence scores 0/0 there;
+  a fill with the right texture at unaligned phase is negative on the first
+  and positive on the second, which is the only way to see a generative fill
+  helping in numbers.
+- **A2SB is walled at the measured codec edge**, not at its own detected
+  knee. Knee detection exists for real rips with smeared rolloffs; on a sharp
+  synthetic edge it lands below the edge and deletes real content.
 - **SAME runs in-process.** `stable-audio-3` is a project dependency pinned
   to a commit, which pins torch to 2.7.1 for the whole project. The
   subprocess boundary remains only for A2SB, whose environment genuinely
