@@ -141,6 +141,13 @@ The fill-band decomposition lives in `results.json` and the notebook.
 - The torch pin follows stable-audio-3. Apollo runs on 2.7.1 — verified by
   the suite and a render — and anything that needs a newer torch conflicts
   with the prior's stack.
+- Nearly all the waveform damage is below the cutoff. Band-matched to each
+  twin's own bandwidth, the degraded input scores within 0.5 dB of its
+  full-band SDR, and a perfect fill of the removed band (the master's own top
+  end on the input's low band) gains at most 0.5 dB on aerofunk, 1.4 dB on
+  codec at 64k. Pure bandwidth extension is capped at that ceiling — A2SB
+  sits within a dB of it — so a model aiming to win the table must reinvent
+  in-band content.
 - Synthetic twins are cleaner than real rips: no re-encodes, no unknown
   encoder chain. Results bound the easy case, not the library case.
 
