@@ -25,5 +25,9 @@ multirun/
 # not code we import.
 third_party/a2sb/
 
+# A reference clone of Stability-AI/stable-audio-3. The project depends on
+# the pinned git dependency in pyproject.toml, not on this checkout.
+third_party/stable-audio-3/
+
 # Secrets
 .env

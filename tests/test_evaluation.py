@@ -9,7 +9,17 @@ import numpy as np
 import pytest
 
 from grooveback import audio as ga
-from grooveback.evaluation import level_matched_set, write_listening_pack
+from grooveback.evaluation import (
+    best_lag,
+    bss_sdr_db,
+    codec_edge_hz,
+    level_matched_set,
+    log_spectral_distance_db,
+    sdr_db,
+    si_snr_db,
+    spectral_snr_db,
+    write_listening_pack,
+)
 
 SR = 44_100
 
@@ -21,6 +31,170 @@ def tone(
     t = np.arange(int(seconds * SR)) / SR
     mono = (amplitude * np.sin(2 * np.pi * freq * t)).astype(np.float32)
     return np.tile(mono, (channels, 1))
+
+
+def test_sdr_measures_orthogonal_error_below_reference():
+    """A 200 Hz error tone 40 dB under a 100 Hz reference.
+
+    Both tones complete whole cycles over the fixture, so they are orthogonal
+    and the SDR is exactly the amplitude ratio: 20·log10(1.0/0.01) = 40 dB.
+    abs=0.05 absorbs float32 sine-synthesis roundoff in the cross term.
+    """
+    reference = tone(amplitude=1.0, freq=100.0)
+    estimate = reference + tone(amplitude=0.01, freq=200.0)
+
+    assert sdr_db(reference, estimate) == pytest.approx(40.0, abs=0.05)
+
+
+def test_sdr_of_identical_signals_is_infinite():
+    reference = tone(amplitude=0.5)
+
+    assert sdr_db(reference, reference) == float("inf")
+
+
+def test_sdr_penalizes_pure_gain_error():
+    """Halving the signal leaves an error of half the signal: 20·log10(2) dB."""
+    reference = tone(amplitude=1.0)
+
+    assert sdr_db(reference, 0.5 * reference) == pytest.approx(6.021, abs=0.01)
+
+
+def test_sdr_requires_matching_shapes():
+    """Every metric routes through the same shape guard; this test stands in
+    for the whole set."""
+    with pytest.raises(ValueError, match="same shape"):
+        sdr_db(tone(amplitude=1.0), tone(amplitude=1.0)[:, :100])
+
+
+def test_si_snr_ignores_pure_gain_error():
+    """The projection absorbs any gain, leaving zero residual."""
+    reference = tone(amplitude=1.0)
+
+    assert si_snr_db(reference, 0.5 * reference) == float("inf")
+
+
+def test_si_snr_measures_orthogonal_error_like_snr():
+    """With no gain error the projection is the reference itself, so the score
+    reduces to plain SNR: 20·log10(1.0/0.01) = 40 dB."""
+    reference = tone(amplitude=1.0, freq=100.0)
+    estimate = reference + tone(amplitude=0.01, freq=200.0)
+
+    assert si_snr_db(reference, estimate) == pytest.approx(40.0, abs=0.05)
+
+
+def test_bss_sdr_absorbs_delays_inside_its_filter_only():
+    """The defining difference between the two SDRs: a delay inside the
+    512-tap distortion filter is mostly forgiven, while plain SDR sees
+    decorrelated noise (about −3 dB for white noise). Absorption is not exact
+    — fast_bss_eval's regularized solve leaves ~26 dB at a 100-sample shift,
+    measured — and past the filter length it collapses entirely. The shift is
+    circular because the filter is fitted with FFT convolution."""
+    rng = np.random.default_rng(0)
+    reference = rng.standard_normal((1, 2 * SR)).astype(np.float32)
+
+    assert bss_sdr_db(reference, np.roll(reference, 100, axis=1)) > 20.0
+    assert sdr_db(reference, np.roll(reference, 100, axis=1)) < 0.0
+    assert bss_sdr_db(reference, np.roll(reference, 600, axis=1)) < 0.0
+
+
+def test_bss_sdr_matches_plain_sdr_for_out_of_band_error():
+    """A filter of a 100 Hz reference can only produce 100 Hz content, so a
+    200 Hz error tone stays error for both metrics: 20·log10(1.0/0.01) =
+    40 dB. abs=0.5 covers the solver's regularization and frame edges."""
+    reference = tone(amplitude=1.0, freq=100.0)
+    estimate = reference + tone(amplitude=0.01, freq=200.0)
+
+    assert bss_sdr_db(reference, estimate) == pytest.approx(40.0, abs=0.5)
+
+
+def test_spectral_snr_ignores_polarity_while_sdr_does_not():
+    """A polarity flip leaves every STFT magnitude untouched but makes the
+    waveforms anti-correlated: the error is 2·ref, so SDR is
+    10·log10(1/4) = −6.02 dB."""
+    reference = tone(amplitude=0.5)
+
+    assert spectral_snr_db(reference, -reference) == float("inf")
+    assert sdr_db(reference, -reference) == pytest.approx(-6.021, abs=0.01)
+
+
+def test_spectral_snr_of_silence_is_zero():
+    """Silence has zero magnitude everywhere, so the error is the reference
+    itself — the 0 dB baseline an informative fill must beat."""
+    reference = tone(amplitude=0.5)
+
+    assert spectral_snr_db(reference, np.zeros_like(reference)) == pytest.approx(
+        0.0, abs=1e-6
+    )
+
+
+def test_log_spectral_distance_ignores_polarity():
+    """Magnitudes are untouched by a polarity flip, so the distance is zero
+    where waveform SDR reads −6 dB."""
+    reference = tone(amplitude=0.5)
+
+    assert log_spectral_distance_db(reference, -reference) == 0.0
+
+
+def test_log_spectral_distance_of_a_pure_gain_is_the_gain():
+    """Halving a white-noise signal moves every populated cell by exactly
+    20·log10(2) ≈ 6.02 dB, and white noise keeps all cells far above the
+    −100 dB floor. abs=0.1 covers the few cells that do graze it."""
+    rng = np.random.default_rng(0)
+    reference = rng.standard_normal((2, 2 * SR)).astype(np.float32)
+
+    assert log_spectral_distance_db(reference, 0.5 * reference) == pytest.approx(
+        6.02, abs=0.1
+    )
+
+
+def band_limited_noise(cutoff_hz: float, seconds: float = 4.0) -> np.ndarray:
+    """`(1, samples)` white noise with everything at or above `cutoff_hz`
+    zeroed, from a fixed seed."""
+    rng = np.random.default_rng(0)
+    noise = rng.standard_normal((1, int(seconds * SR)))
+    spectrum = np.fft.rfft(noise, axis=1)
+    freqs = np.fft.rfftfreq(noise.shape[1], 1.0 / SR)
+    spectrum[:, freqs >= cutoff_hz] = 0.0
+    return np.fft.irfft(spectrum, n=noise.shape[1], axis=1).astype(np.float32)
+
+
+def test_codec_edge_reads_a_brickwall_within_one_band():
+    reference = band_limited_noise(cutoff_hz=22_050)
+    twin = band_limited_noise(cutoff_hz=11_000)
+
+    assert codec_edge_hz(reference, twin, SR) == pytest.approx(11_000, abs=250)
+
+
+def test_codec_edge_ignores_bands_where_the_reference_is_silent():
+    """Above 8 kHz both signals are silence and would 'track' spuriously; the
+    edge must still read the twin's own 5 kHz cutoff."""
+    reference = band_limited_noise(cutoff_hz=8_000)
+    twin = band_limited_noise(cutoff_hz=5_000)
+
+    assert codec_edge_hz(reference, twin, SR) == pytest.approx(5_000, abs=250)
+
+
+def test_best_lag_finds_a_delayed_estimate():
+    """A codec-style delay: the estimate starts 100 samples late."""
+    rng = np.random.default_rng(0)
+    reference = rng.standard_normal((1, 3 * SR)).astype(np.float32)
+    delayed = np.concatenate(
+        [np.zeros((1, 100), dtype=np.float32), reference[:, :-100]], axis=1
+    )
+
+    assert best_lag(reference, delayed) == 100
+
+
+def test_best_lag_is_zero_when_aligned():
+    rng = np.random.default_rng(0)
+    reference = rng.standard_normal((2, 3 * SR)).astype(np.float32)
+
+    assert best_lag(reference, reference) == 0
+
+
+def test_best_lag_rejects_signals_shorter_than_the_probe():
+    with pytest.raises(ValueError, match="too short"):
+        best_lag(tone(amplitude=1.0, seconds=1.0), tone(amplitude=1.0, seconds=1.0))
 
 
 def test_items_are_matched_to_the_target_loudness():
