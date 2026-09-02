@@ -68,7 +68,17 @@ def mp3_roundtrip(wav_in: Path, bitrate: str, wav_out: Path) -> np.ndarray:
     degraded = ga.load(wav_out)[0][:, : original.shape[1]]
     lag = best_lag(original[:, : degraded.shape[1]], degraded)
     if lag != 0:
-        raise RuntimeError(f"{wav_out} is {lag} samples off its original.")
+        # Dense noise-like or heavily periodic clips can fool the correlation
+        # probe (measured: an sfx-base clip read lag -2605 while correlating
+        # 0.9986 at zero). Alignment itself is what the gate protects, so
+        # judge the match at lag zero: aligned round-trips sit above 0.98,
+        # a real shift decorrelates far below 0.9.
+        ref = original.mean(axis=0)[: degraded.shape[1]]
+        est = degraded.mean(axis=0)[: ref.size]
+        at_zero = float(np.dot(ref, est)
+                        / (np.linalg.norm(ref) * np.linalg.norm(est) + 1e-12))
+        if at_zero < 0.9:
+            raise RuntimeError(f"{wav_out} is {lag} samples off its original.")
     return degraded
 
 
@@ -93,6 +103,45 @@ def render_variant(variant: str, device: str) -> None:
         ga.save(listen, clip, SR)
 
 
+def score_variant(variant: str, results: dict) -> None:
+    """Codec-cost every existing clip of one variant and write its pack."""
+    clips = [PROBE / variant / f"seed{seed}.wav" for seed in SEEDS]
+    clips = [wav for wav in clips if wav.exists()]
+    if not clips:
+        return
+    block = results["variants"].setdefault(variant, {})
+    for bitrate in BITRATES:
+        per_seed = []
+        for wav in clips:
+            clip = ga.load(wav)[0]
+            twin = mp3_roundtrip(wav, bitrate, PROBE / variant / bitrate / wav.name)
+            shortest = min(clip.shape[1], twin.shape[1])
+            clip, twin = clip[:, :shortest], twin[:, :shortest]
+            per_seed.append({
+                "bss_sdr_db": round(bss_sdr_db(clip, twin), 2),
+                "sdr_db": round(sdr_db(clip, twin), 2),
+                "si_snr_db": round(si_snr_db(clip, twin), 2),
+                "spectral_snr_db": round(spectral_snr_db(clip, twin), 2),
+                "lsd_db": round(log_spectral_distance_db(clip, twin), 2),
+            })
+        block[bitrate] = {
+            "mean": {key: round(float(np.mean([s[key] for s in per_seed])), 2)
+                     for key in METRIC_KEYS},
+            "seeds": per_seed,
+        }
+        print(variant, bitrate, block[bitrate]["mean"], flush=True)
+
+    listen = PROBE / variant / "listen_45s.wav"
+    if listen.exists():
+        clip = ga.load(listen)[0]
+        twin = mp3_roundtrip(listen, "64k",
+                             PROBE / variant / "64k" / "listen_45s.wav")
+        shortest = min(clip.shape[1], twin.shape[1])
+        write_listening_pack(
+            {"generated": clip[:, :shortest], "generated_64k": twin[:, :shortest]},
+            SR, PROBE / variant / "listen")
+
+
 def main() -> None:
     device = sys.argv[1] if len(sys.argv) > 1 else "auto"
     results: dict = {"prompt": PROMPT, "variants": {}, "anchors": {}}
@@ -109,41 +158,14 @@ def main() -> None:
 
     # Score whatever exists, whether rendered now or on an earlier pass.
     for variant in gp.PRIOR_VARIANTS:
-        clips = [PROBE / variant / f"seed{seed}.wav" for seed in SEEDS]
-        clips = [wav for wav in clips if wav.exists()]
-        if not clips:
-            continue
-        block = results["variants"].setdefault(variant, {})
-        for bitrate in BITRATES:
-            per_seed = []
-            for wav in clips:
-                clip = ga.load(wav)[0]
-                twin = mp3_roundtrip(wav, bitrate, PROBE / variant / bitrate / wav.name)
-                shortest = min(clip.shape[1], twin.shape[1])
-                clip, twin = clip[:, :shortest], twin[:, :shortest]
-                per_seed.append({
-                    "bss_sdr_db": round(bss_sdr_db(clip, twin), 2),
-                    "sdr_db": round(sdr_db(clip, twin), 2),
-                    "si_snr_db": round(si_snr_db(clip, twin), 2),
-                    "spectral_snr_db": round(spectral_snr_db(clip, twin), 2),
-                    "lsd_db": round(log_spectral_distance_db(clip, twin), 2),
-                })
-            block[bitrate] = {
-                "mean": {key: round(float(np.mean([s[key] for s in per_seed])), 2)
-                         for key in METRIC_KEYS},
-                "seeds": per_seed,
-            }
-            print(variant, bitrate, block[bitrate]["mean"], flush=True)
-
-        listen = PROBE / variant / "listen_45s.wav"
-        if listen.exists():
-            clip = ga.load(listen)[0]
-            twin = mp3_roundtrip(listen, "64k",
-                                 PROBE / variant / "64k" / "listen_45s.wav")
-            shortest = min(clip.shape[1], twin.shape[1])
-            write_listening_pack(
-                {"generated": clip[:, :shortest], "generated_64k": twin[:, :shortest]},
-                SR, PROBE / variant / "listen")
+        try:
+            score_variant(variant, results)
+        except Exception as error:
+            print(f"score {variant} FAILED: {error}", flush=True)
+            traceback.print_exc()
+            results["variants"].setdefault(variant, {})["error"] = (
+                f"{type(error).__name__}: {error}"
+            )
 
     # The master anchors: what MP3 removes from real masters, same metrics.
     if XP_RESULTS.exists():
