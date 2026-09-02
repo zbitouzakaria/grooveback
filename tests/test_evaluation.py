@@ -11,9 +11,11 @@ import pytest
 from grooveback import audio as ga
 from grooveback.evaluation import (
     best_lag,
+    codec_edge_hz,
     level_matched_set,
     sdr_db,
     si_snr_db,
+    spectral_snr_db,
     write_listening_pack,
 )
 
@@ -79,6 +81,59 @@ def test_si_snr_measures_orthogonal_error_like_snr():
 def test_si_snr_requires_matching_shapes():
     with pytest.raises(ValueError, match="same shape"):
         si_snr_db(tone(amplitude=1.0), tone(amplitude=1.0)[:, :100])
+
+
+def test_spectral_snr_of_identical_signals_is_infinite():
+    reference = tone(amplitude=0.5)
+
+    assert spectral_snr_db(reference, reference) == float("inf")
+
+
+def test_spectral_snr_ignores_polarity_while_sdr_does_not():
+    """A polarity flip leaves every STFT magnitude untouched but makes the
+    waveforms anti-correlated: the error is 2·ref, so SDR is
+    10·log10(1/4) = −6.02 dB."""
+    reference = tone(amplitude=0.5)
+
+    assert spectral_snr_db(reference, -reference) == float("inf")
+    assert sdr_db(reference, -reference) == pytest.approx(-6.021, abs=0.01)
+
+
+def test_spectral_snr_of_silence_is_zero():
+    """Silence has zero magnitude everywhere, so the error is the reference
+    itself — the 0 dB baseline an informative fill must beat."""
+    reference = tone(amplitude=0.5)
+
+    assert spectral_snr_db(reference, np.zeros_like(reference)) == pytest.approx(
+        0.0, abs=1e-6
+    )
+
+
+def band_limited_noise(cutoff_hz: float, seconds: float = 4.0) -> np.ndarray:
+    """`(1, samples)` white noise with everything at or above `cutoff_hz`
+    zeroed, from a fixed seed."""
+    rng = np.random.default_rng(0)
+    noise = rng.standard_normal((1, int(seconds * SR)))
+    spectrum = np.fft.rfft(noise, axis=1)
+    freqs = np.fft.rfftfreq(noise.shape[1], 1.0 / SR)
+    spectrum[:, freqs >= cutoff_hz] = 0.0
+    return np.fft.irfft(spectrum, n=noise.shape[1], axis=1).astype(np.float32)
+
+
+def test_codec_edge_reads_a_brickwall_within_one_band():
+    reference = band_limited_noise(cutoff_hz=22_050)
+    twin = band_limited_noise(cutoff_hz=11_000)
+
+    assert codec_edge_hz(reference, twin, SR) == pytest.approx(11_000, abs=250)
+
+
+def test_codec_edge_ignores_bands_where_the_reference_is_silent():
+    """Above 8 kHz both signals are silence and would 'track' spuriously; the
+    edge must still read the twin's own 5 kHz cutoff."""
+    reference = band_limited_noise(cutoff_hz=8_000)
+    twin = band_limited_noise(cutoff_hz=5_000)
+
+    assert codec_edge_hz(reference, twin, SR) == pytest.approx(5_000, abs=250)
 
 
 def test_best_lag_finds_a_delayed_estimate():
