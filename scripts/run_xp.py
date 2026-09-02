@@ -28,7 +28,14 @@ import numpy as np
 from grooveback import audio as ga
 from grooveback import latents as gl
 from grooveback.baselines import load_apollo, run_a2sb, run_apollo
-from grooveback.evaluation import best_lag, sdr_db, si_snr_db, write_listening_pack
+from grooveback.evaluation import (
+    best_lag,
+    codec_edge_hz,
+    sdr_db,
+    si_snr_db,
+    spectral_snr_db,
+    write_listening_pack,
+)
 
 SR = 44_100
 SOURCES = {
@@ -44,6 +51,14 @@ XP = Path("artifacts/xp")
 
 def render_path(name: str, bitrate: str, method: str) -> Path:
     return XP / name / bitrate / f"{method}.wav"
+
+
+def band_above(x: np.ndarray, lo_hz: float) -> np.ndarray:
+    """The content of `x` at and above `lo_hz` — the codec's fill zone."""
+    spectrum = np.fft.rfft(x, axis=-1)
+    freqs = np.fft.rfftfreq(x.shape[-1], 1.0 / SR)
+    spectrum[..., freqs < lo_hz] = 0
+    return np.fft.irfft(spectrum, n=x.shape[-1], axis=-1).astype(np.float32)
 
 
 def cached(wav: Path) -> np.ndarray | None:
@@ -92,6 +107,12 @@ def main() -> None:
     chunks = {name: cut_chunk(name) for name in SOURCES}
     twins = {(name, bitrate): build_twin(name, bitrate, chunks[name])
              for name in SOURCES for bitrate in BITRATES}
+    # The frequency the codec actually kept, exact on synthetic twins. A2SB is
+    # walled here rather than at its own detected knee: the knee detector
+    # exists for real rips with smeared rolloffs, and on a sharp LAME edge it
+    # lands below the edge and deletes real content.
+    edges = {key: codec_edge_hz(chunks[key[0]], twins[key], sample_rate=SR)
+             for key in twins}
 
     # Render whatever is missing, loading each model at most once.
     for variant in ("same-s", "same-l"):
@@ -116,9 +137,13 @@ def main() -> None:
 
     for name, bitrate in twins:
         if not render_path(name, bitrate, "a2sb").exists():
-            print(f"render a2sb: {name} {bitrate}", flush=True)
+            print(f"render a2sb: {name} {bitrate} "
+                  f"(wall at {edges[(name, bitrate)] - 250:.0f} Hz)", flush=True)
             # 50 steps is the paper's default; ADR-0006 uses it as canonical.
+            # The wall sits one band under the measured edge so the model sees
+            # full-level content right up to a sharp, training-matched edge.
             out = run_a2sb(twins[(name, bitrate)], SR, n_steps=50,
+                           cutoff_hz=edges[(name, bitrate)] - 250,
                            device="mps" if device == "auto" else device)
             ga.save(render_path(name, bitrate, "a2sb"), out, SR)
 
@@ -134,11 +159,23 @@ def main() -> None:
                     pack[method] = render
             shortest = min(item.shape[1] for item in pack.values())
             pack = {label: item[:, :shortest] for label, item in pack.items()}
-            results[name][bitrate] = {
-                label: {"sdr_db": round(sdr_db(pack["original"], item), 2),
-                        "si_snr_db": round(si_snr_db(pack["original"], item), 2)}
-                for label, item in pack.items() if label != "original"
-            }
+            edge = edges[(name, bitrate)]
+            fill_master = band_above(pack["original"], edge)
+            results[name][bitrate] = {"edge_hz": edge}
+            for label, item in pack.items():
+                if label == "original":
+                    continue
+                fill = band_above(item, edge)
+                results[name][bitrate][label] = {
+                    "sdr_db": round(sdr_db(pack["original"], item), 2),
+                    "si_snr_db": round(si_snr_db(pack["original"], item), 2),
+                    # The band the codec removed, on its own. Silence scores
+                    # 0/0; a fill with the right texture but unaligned phase
+                    # is negative on the first and positive on the second.
+                    "fill_sdr_db": round(sdr_db(fill_master, fill), 2),
+                    "fill_spectral_snr_db": round(
+                        spectral_snr_db(fill_master, fill), 2),
+                }
             write_listening_pack(pack, SR, XP / name / bitrate / "listen")
             print(name, bitrate, results[name][bitrate], flush=True)
 
