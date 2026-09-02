@@ -10,11 +10,14 @@ Accepted
 
 The project's goal is to restore old MP3 rips with a generative model — a
 prior over clean music of the same genre (ADR-0004), generating inside the
-SAME autoencoder's latent space. When that prior exists, its renders will be
-scored on this same benchmark, and the goal is for them to beat everything
-here: the existing tools, and the SAME round-trip rows, which show what the
-latent space costs before any model does work. Beating the round-trip is
-possible because the encoder is not the decoder's inverse — better latents
+SAME autoencoder's latent space. Scoring `decode(encode(x))` on degraded
+input answers the first question of that plan: is the encode/decode chain by
+itself already enough to generalise a degraded signal into a plausible one?
+The decoder invents content where the input has none, so the bare chain is
+the cheapest restoration the space offers. When the prior exists, its renders
+will be scored on this same benchmark, and the goal is for them to beat
+everything here — the existing tools and that bare chain. Beating it is
+possible because the encoder is not the decoder's inverse: better latents
 exist to be found. ADR-0005 requires these numbers before any model work.
 
 All of that needs one scoreboard. Real rips have no clean reference to score
