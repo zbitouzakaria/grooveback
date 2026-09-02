@@ -8,14 +8,14 @@ Accepted
 
 ## Context
 
-The project's goal is to restore old MP3 rips with a generative model trained
-on clean music of the same genre (ADR-0004). That model would generate inside
-the SAME autoencoder's latent space, so everything it produces comes out of
-the SAME decoder. The round-trip `decode(encode(x))` measures what that path
-costs on known signals — a calibration for the space's losses, not a hard
-ceiling, because the encoder is not the decoder's inverse and a better latent
-than `encode(x)` can exist. Before any model work, ADR-0005 requires knowing
-what the existing tools already achieve and what that round-trip costs.
+The project's goal is to restore old MP3 rips with a generative model — a
+prior over clean music of the same genre (ADR-0004), generating inside the
+SAME autoencoder's latent space. When that prior exists, its renders will be
+scored on this same benchmark, and the goal is for them to beat everything
+here: the existing tools, and the SAME round-trip rows, which show what the
+latent space costs before any model does work. Beating the round-trip is
+possible because the encoder is not the decoder's inverse — better latents
+exist to be found. ADR-0005 requires these numbers before any model work.
 
 All of that needs one scoreboard. Real rips have no clean reference to score
 against, so the benchmark makes its own damage: compress clean chunks to MP3
