@@ -56,6 +56,13 @@ notebook (`notebooks/xp.ipynb`) showing one source at a time.
 - Waveform metrics punish phase re-realisation: SAME round-trips will score
   far below Apollo however they sound. The table ranks waveform fidelity,
   not perceived quality; listening stays the judge (audio.md).
+- Apollo scoring under the input floor is not a harness defect and does not
+  contradict its paper. Our wrapper reproduces the authors' released demo
+  renders to 75–81 dB SDR, and on their own 24–96 kbps demo grid their own
+  outputs also score at or below their unprocessed inputs under their own
+  metric (BSS-eval SDR via fast_bss_eval, mean −0.7 dB over 15 samples). The
+  paper's tables report absolute output SDR, never the unprocessed-input row;
+  Apollo's advantage is perceptual (ViSQOL, and our ADR-0006 listening).
 - The torch pin follows stable-audio-3. Apollo runs on 2.7.1 — verified by
   the suite and a render — and anything that needs a newer torch now
   conflicts with the prior's stack.
