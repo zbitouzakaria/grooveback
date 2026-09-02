@@ -32,6 +32,7 @@ from grooveback.evaluation import (
     best_lag,
     bss_sdr_db,
     codec_edge_hz,
+    log_spectral_distance_db,
     sdr_db,
     si_snr_db,
     spectral_snr_db,
@@ -171,12 +172,17 @@ def main() -> None:
                     "bss_sdr_db": round(bss_sdr_db(pack["original"], item), 2),
                     "sdr_db": round(sdr_db(pack["original"], item), 2),
                     "si_snr_db": round(si_snr_db(pack["original"], item), 2),
+                    "lsd_db": round(
+                        log_spectral_distance_db(pack["original"], item), 2),
                     # The band the codec removed, on its own. Silence scores
-                    # 0/0; a fill with the right texture but unaligned phase
-                    # is negative on the first and positive on the second.
+                    # 0/0 on the first two; a fill with the right texture but
+                    # unaligned phase is negative on waveform SDR, positive on
+                    # spectral SNR, and far below silence on the distance.
                     "fill_sdr_db": round(sdr_db(fill_master, fill), 2),
                     "fill_spectral_snr_db": round(
                         spectral_snr_db(fill_master, fill), 2),
+                    "fill_lsd_db": round(
+                        log_spectral_distance_db(fill_master, fill), 2),
                 }
             write_listening_pack(pack, SR, XP / name / bitrate / "listen")
             print(name, bitrate, results[name][bitrate], flush=True)

@@ -38,10 +38,13 @@ notebook (`notebooks/xp.ipynb`) showing one source at a time.
   plus spectrograms and level-matched listening sets. BSS-SDR compares
   against published tables; plain SDR shows what the filter forgave.
 - **The fill band is also scored on its own**, above the measured codec edge,
-  in waveform SDR and in phase-blind spectral SNR. Silence scores 0/0 there;
-  a fill with the right texture at unaligned phase is negative on the first
-  and positive on the second, which is the only way to see a generative fill
-  helping in numbers.
+  in waveform SDR, phase-blind spectral SNR, and log-spectral distance.
+  Silence scores 0/0 on the first two; a fill with the right texture at
+  unaligned phase is negative on waveform SDR and positive on the others.
+  The two spectral views punish opposite sins — linear magnitude punishes
+  over-filling, the log distance punishes under-filling — and LSD is what
+  bandwidth-extension papers publish. Full-band LSD is scored too; it is the
+  one standard metric here where restoration beats the untouched input.
 - **A2SB is walled at the measured codec edge**, not at its own detected
   knee. Knee detection exists for real rips with smeared rolloffs; on a sharp
   synthetic edge it lands below the edge and deletes real content.
@@ -73,5 +76,3 @@ notebook (`notebooks/xp.ipynb`) showing one source at a time.
 ## Revisit triggers
 
 - Later work needs a torch newer than the stable-audio-3 pin.
-- A metric that is fair to phase re-realisation becomes necessary →
-  log-spectral distance is the standard next step.
