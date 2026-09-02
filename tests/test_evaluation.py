@@ -14,6 +14,7 @@ from grooveback.evaluation import (
     bss_sdr_db,
     codec_edge_hz,
     level_matched_set,
+    log_spectral_distance_db,
     sdr_db,
     si_snr_db,
     spectral_snr_db,
@@ -148,6 +149,37 @@ def test_spectral_snr_of_silence_is_zero():
     assert spectral_snr_db(reference, np.zeros_like(reference)) == pytest.approx(
         0.0, abs=1e-6
     )
+
+
+def test_log_spectral_distance_of_identical_signals_is_zero():
+    reference = tone(amplitude=0.5)
+
+    assert log_spectral_distance_db(reference, reference) == 0.0
+
+
+def test_log_spectral_distance_ignores_polarity():
+    """Magnitudes are untouched by a polarity flip, so the distance is zero
+    where waveform SDR reads −6 dB."""
+    reference = tone(amplitude=0.5)
+
+    assert log_spectral_distance_db(reference, -reference) == 0.0
+
+
+def test_log_spectral_distance_of_a_pure_gain_is_the_gain():
+    """Halving a white-noise signal moves every populated cell by exactly
+    20·log10(2) ≈ 6.02 dB, and white noise keeps all cells far above the
+    −100 dB floor. abs=0.1 covers the few cells that do graze it."""
+    rng = np.random.default_rng(0)
+    reference = rng.standard_normal((2, 2 * SR)).astype(np.float32)
+
+    assert log_spectral_distance_db(reference, 0.5 * reference) == pytest.approx(
+        6.02, abs=0.1
+    )
+
+
+def test_log_spectral_distance_requires_matching_shapes():
+    with pytest.raises(ValueError, match="same shape"):
+        log_spectral_distance_db(tone(amplitude=1.0), tone(amplitude=1.0)[:, :100])
 
 
 def band_limited_noise(cutoff_hz: float, seconds: float = 4.0) -> np.ndarray:

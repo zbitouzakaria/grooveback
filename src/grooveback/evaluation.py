@@ -85,6 +85,17 @@ def bss_sdr_db(
     return float(scores.mean().item())
 
 
+def _stft_magnitudes(x: np.ndarray, n_fft: int, hop: int) -> np.ndarray:
+    """Hann-windowed magnitude spectrogram, `(frames, bins)`."""
+    if x.size < n_fft:
+        x = np.pad(x, (0, n_fft - x.size))
+    n_frames = 1 + (x.size - n_fft) // hop
+    frames = np.lib.stride_tricks.as_strided(
+        x, shape=(n_frames, n_fft), strides=(x.strides[0] * hop, x.strides[0])
+    )
+    return np.abs(np.fft.rfft(frames * np.hanning(n_fft), axis=1))
+
+
 def spectral_snr_db(
     reference: np.ndarray,
     estimate: np.ndarray,
@@ -101,21 +112,39 @@ def spectral_snr_db(
     about the reference's spectrum.
     """
     ref, est = _as_matched_vectors(reference, estimate)
-
-    def magnitudes(x: np.ndarray) -> np.ndarray:
-        if x.size < n_fft:
-            x = np.pad(x, (0, n_fft - x.size))
-        n_frames = 1 + (x.size - n_fft) // hop
-        frames = np.lib.stride_tricks.as_strided(
-            x, shape=(n_frames, n_fft), strides=(x.strides[0] * hop, x.strides[0])
-        )
-        return np.abs(np.fft.rfft(frames * np.hanning(n_fft), axis=1))
-
-    ref_mag, est_mag = magnitudes(ref), magnitudes(est)
+    ref_mag = _stft_magnitudes(ref, n_fft, hop)
+    est_mag = _stft_magnitudes(est, n_fft, hop)
     error_energy = float(((ref_mag - est_mag) ** 2).sum())
     if error_energy == 0.0:
         return float("inf")
     return 10.0 * np.log10(float((ref_mag**2).sum()) / error_energy)
+
+
+def log_spectral_distance_db(
+    reference: np.ndarray,
+    estimate: np.ndarray,
+    n_fft: int = 2048,
+    hop: int = 512,
+    floor_db: float = -100.0,
+) -> float:
+    """Log-spectral distance — the bandwidth-extension literature's standard.
+
+    Per frame, the RMS difference between the two log-power spectrograms
+    across bins; averaged over frames. In dB, lower is better, identical
+    signals score 0. The log domain weights quiet cells like loud ones, which
+    makes it the closest of these metrics to comparing spectrograms by eye —
+    spectrogram colours are log magnitudes. Both spectrograms are floored at
+    `floor_db` below the reference's loudest cell so silence stays finite.
+    """
+    ref, est = _as_matched_vectors(reference, estimate)
+    ref_mag = _stft_magnitudes(ref, n_fft, hop)
+    est_mag = _stft_magnitudes(est, n_fft, hop)
+    floor = ref_mag.max() * 10.0 ** (floor_db / 20.0)
+    if floor == 0.0:
+        raise ValueError("The reference is digital silence; nothing to compare.")
+    ref_db = 20.0 * np.log10(np.maximum(ref_mag, floor))
+    est_db = 20.0 * np.log10(np.maximum(est_mag, floor))
+    return float(np.sqrt(((ref_db - est_db) ** 2).mean(axis=1)).mean())
 
 
 def codec_edge_hz(
