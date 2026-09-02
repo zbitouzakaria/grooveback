@@ -131,8 +131,11 @@ The fill-band decomposition lives in `results.json` and the notebook.
 
 - On the three waveform metrics nothing beats the do-nothing floor: restored
   audio is never closer to the master, sample by sample, than the MP3 it
-  started from. Only the phase-blind metrics reward restoration. The tables
-  rank fidelity; listening judges how it sounds (audio.md).
+  started from. Only the phase-blind metrics reward restoration. That says
+  as much about the metrics as about the methods: by ear, Apollo clearly
+  improves heavily degraded rips (ADR-0006) — an improvement no waveform
+  column registers. The tables rank fidelity; listening judges how it
+  sounds (audio.md).
 - Apollo sitting under the floor matches its own paper, which reports
   absolute output scores and never the unprocessed input's. On the authors'
   released demo files their outputs also score at or below their inputs
