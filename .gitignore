@@ -25,8 +25,8 @@ multirun/
 # not code we import.
 third_party/a2sb/
 
-# Stable Audio 3 (github.com/Stability-AI/stable-audio-3); a tool we shell out
-# to for SAME encode/decode, not code we import.
+# A reference clone of Stability-AI/stable-audio-3. The project depends on
+# the pinned git dependency in pyproject.toml, not on this checkout.
 third_party/stable-audio-3/
 
 # Secrets

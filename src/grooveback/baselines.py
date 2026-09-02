@@ -229,8 +229,6 @@ def run_a2sb(
 
     out = np.zeros((audio.shape[0], audio.shape[1]), dtype=np.float32)
     n = min(audio.shape[1], restored.shape[1])
-    if restored.shape[0] == audio.shape[0]:
-        out[:, :n] = restored[:, :n]
-    else:  # a mono render is copied across the input's channels
-        out[:, :n] = restored[0, :n]
+    # Broadcasting copies a mono render across the input's channels.
+    out[:, :n] = restored[:, :n]
     return out
