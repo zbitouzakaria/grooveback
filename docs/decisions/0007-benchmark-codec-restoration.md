@@ -32,10 +32,11 @@ notebook (`notebooks/xp.ipynb`) showing one source at a time.
 - **Methods**: `decode(encode(x))` through SAME-S and SAME-L, Apollo, and
   A2SB. The untouched MP3 is scored too — the do-nothing floor every method
   must beat.
-- **Metrics**: plain SDR and SI-SNR against the original — one scalar per
-  render — plus spectrograms and level-matched listening sets. Plain SDR
-  rather than BSS-eval SDR: no distortion filter and no extra dependency, so
-  the numbers compare within this table but not against published ones.
+- **Metrics**: BSS-eval SDR (via fast_bss_eval, the published norm — a
+  512-tap distortion filter of the reference is fitted first, forgiving
+  gain, EQ and small delays), plain SDR, and SI-SNR against the original,
+  plus spectrograms and level-matched listening sets. BSS-SDR compares
+  against published tables; plain SDR shows what the filter forgave.
 - **The fill band is also scored on its own**, above the measured codec edge,
   in waveform SDR and in phase-blind spectral SNR. Silence scores 0/0 there;
   a fill with the right texture at unaligned phase is negative on the first
@@ -71,7 +72,6 @@ notebook (`notebooks/xp.ipynb`) showing one source at a time.
 
 ## Revisit triggers
 
-- Numbers need to be compared against a published table → add BSS-eval SDR.
 - Later work needs a torch newer than the stable-audio-3 pin.
 - A metric that is fair to phase re-realisation becomes necessary →
   log-spectral distance is the standard next step.

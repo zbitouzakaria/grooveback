@@ -9,7 +9,7 @@ with every method, and score everything against the original chunk:
   artifacts/xp/{source}/{bitrate}/input.wav      the MP3 round-trip
   artifacts/xp/{source}/{bitrate}/{method}.wav   one render per method
   artifacts/xp/{source}/{bitrate}/listen/        level-matched copies to A/B
-  artifacts/xp/results.json                      SDR and SI-SNR per render
+  artifacts/xp/results.json                      BSS-SDR, SDR, SI-SNR per render
 
 A render is skipped when its file exists, so re-running is safe and renders
 produced on a GPU pod are picked up as-is. Scoring always re-runs, over
@@ -30,6 +30,7 @@ from grooveback import latents as gl
 from grooveback.baselines import load_apollo, run_a2sb, run_apollo
 from grooveback.evaluation import (
     best_lag,
+    bss_sdr_db,
     codec_edge_hz,
     sdr_db,
     si_snr_db,
@@ -167,6 +168,7 @@ def main() -> None:
                     continue
                 fill = band_above(item, edge)
                 results[name][bitrate][label] = {
+                    "bss_sdr_db": round(bss_sdr_db(pack["original"], item), 2),
                     "sdr_db": round(sdr_db(pack["original"], item), 2),
                     "si_snr_db": round(si_snr_db(pack["original"], item), 2),
                     # The band the codec removed, on its own. Silence scores
