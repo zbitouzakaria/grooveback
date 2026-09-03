@@ -54,18 +54,19 @@ anchor = master-like top end.
 
 The same ordering holds at 128 and 192 kbps (`artifacts/probe/results.json`).
 
-Three observations:
+Three observations, weighted for what three seeds of one prompt can carry:
 
-- **No variant matches the master on both metric families.** `medium` tracks
-  the master's waveform cost almost exactly (16.9 vs 17.6 at 64k, 27.3 vs
-  28.1 at 192k) but pays far less LSD (7.6 vs 17.1) — master-like in-band
-  density, much less content above the cutoff. `small-music` is the opposite:
-  its LSD cost matches the master (19.0 vs 17.1 — real top-end energy) while
-  its waveform cost overshoots (12.6 vs 17.6 — content more codec-fragile
-  than a master's, which noise-like texture would explain).
+- **The music models' output loses about as much to MP3 as a real master
+  does** — 10–22 dB against the master's 17.6 at 64k. There is
+  codec-relevant substance in what they generate. This is the robust
+  reading.
 - **The sfx types compress far too easily** (23.3 / 13.8 vs 17.6) — the
-  confound in action on genuinely sparse or degenerate output; they are
-  controls, not candidates.
+  confound demonstrated on genuinely sparse output; they are controls, not
+  candidates.
+- The finer patterns — `small-music` losing more than the master, `medium`
+  paying far less LSD — are single numbers from minimalist clips, and SDR is
+  relative to each clip's own content, which differs per variant. Recorded,
+  not concluded from; the listening packs decide.
 - All 24 generations rendered without failure — the six checkpoints load and
   sample through `grooveback.priors` on CUDA with the flash-attn wheel.
 
@@ -73,9 +74,10 @@ Three observations:
 
 - The generation plumbing the prior work needs exists and is exercised:
   every released checkpoint, in-process, seeded, numpy out.
-- SA3's music checkpoints are not master-grade out of the box in either
-  direction this probe can see — which is what ADR-0004 expected fine-tuning
-  to supply. The probe closes ADR-0005's checklist.
+- The probe alone does not establish master-grade output either way; what
+  it establishes is the pipeline and a repeatable yardstick, with the master
+  anchor as the behaviour a fine-tuned prior should approach. It closes
+  ADR-0005's checklist.
 - Three seeds and one prompt bound how far these numbers generalise; the
   listening packs under `artifacts/probe/*/listen/` carry the perceptual
   verdict.
