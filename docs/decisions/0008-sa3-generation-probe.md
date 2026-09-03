@@ -93,6 +93,31 @@ musical continuity across windows is: consecutive windows are independent
 draws, and chaining them coherently (the API's `inpaint_audio` /
 `init_audio` are the available tools) is untested here.
 
+### The length cap, and two ways past it
+
+The cap is soft. `generate()` clamps the requested duration to its
+`sample_size` argument (`min()` in `_adapt_sample_size`), whose default is
+120 s; the checkpoint's `model_config.json` carries the trained length
+(120 s small, 380 s medium) but nothing enforces it in-process — pass a
+larger `sample_size=` and the model runs past it. The remaining trained
+envelope is the `seconds_total` conditioner, calibrated 0–384 s on every
+checkpoint. Note the clamp is silent: any call past 120 s without an
+explicit `sample_size` quietly returns a shorter clip.
+
+Both routes to 8 minutes work mechanically on `medium` (A100, measured):
+
+- **Forced single call** — `duration=480, sample_size=490*SR`: 480 s in
+  3.3 s of compute, 26% past the trained length, energy and top band stable
+  across the whole track.
+- **Continuation by inpainting** — 380 s, then a second window keeping the
+  last 60 s as context (`inpaint_audio`, mask regenerating everything after
+  it — continuation was a training task) and 100 s new, crossfaded inside
+  the context: 480 s in 4.2 s total, equally stable.
+
+Which one sounds right is a listening question —
+`artifacts/probe/eight/listen/` holds both, level-matched. The winning
+route is what a `generate_long` in `grooveback.priors` should implement.
+
 ## Consequences
 
 - The generation plumbing the prior work needs exists and is exercised:
