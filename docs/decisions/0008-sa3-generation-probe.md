@@ -70,6 +70,29 @@ Three observations, weighted for what three seeds of one prompt can carry:
 - All 24 generations rendered without failure — the six checkpoints load and
   sample through `grooveback.priors` on CUDA with the flash-attn wheel.
 
+### Timing (NVIDIA A100-SXM4-80GB, measured)
+
+Load is download + load on a cold cache; generation is timed after a warmup
+call. Sampling is nearly duration-independent — the model produces the whole
+sequence in one pass — so a clip's length barely matters:
+
+| | load (cold) | 12 s clip | longest clip | max length |
+|---|---|---|---|---|
+| small-music | 62 s | 0.53 s | 0.66 s (110 s) | 120 s |
+| small-music-base | 44 s | 3.15 s | 3.24 s (110 s) | 120 s |
+| small-sfx | 46 s | 0.52 s | — | 120 s |
+| small-sfx-base | 45 s | 3.17 s | — | 120 s |
+| medium | 82 s | 0.80 s | 1.12 s (370 s) | 380 s |
+| medium-base | 79 s | 4.80 s | 5.94 s (370 s) | 380 s |
+
+A full 7-minute track (420 s) exceeds every checkpoint's maximum length, so
+it takes at least two calls: `medium` in two windows costs about 2 s of
+compute after the 80 s load (base: ~12 s); the small models need four
+~110 s windows for under 3 s (base: ~13 s). Compute is not the obstacle —
+musical continuity across windows is: consecutive windows are independent
+draws, and chaining them coherently (the API's `inpaint_audio` /
+`init_audio` are the available tools) is untested here.
+
 ## Consequences
 
 - The generation plumbing the prior work needs exists and is exercised:
