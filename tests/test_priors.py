@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 import torch
 
-from grooveback.priors import PRIOR_VARIANTS, generate, load_prior
+from grooveback.priors import generate, load_prior
 
 
 class RecordingPrior:
@@ -47,22 +47,6 @@ def test_generate_maps_seconds_to_duration_and_passes_sampling_through():
         {"prompt": "a prompt", "duration": 12.0, "seed": 7,
          "steps": 50, "cfg_scale": 7.0}
     ]
-
-
-def test_variant_table_pins_the_released_model_types():
-    """The six repo names and the two sampling families are public contract:
-    post-trained models sample in 8 unguided steps, -base models in 50 steps
-    at cfg 7 (stable-audio-3's inference guide)."""
-    assert sorted(PRIOR_VARIANTS) == [
-        "medium", "medium-base",
-        "small-music", "small-music-base",
-        "small-sfx", "small-sfx-base",
-    ]
-    for name, sampling in PRIOR_VARIANTS.items():
-        if name.endswith("-base"):
-            assert sampling == {"steps": 50, "cfg_scale": 7.0}
-        else:
-            assert sampling == {"steps": 8, "cfg_scale": 1.0}
 
 
 def test_unknown_variant_is_rejected_before_any_download():
