@@ -1,0 +1,11 @@
+# SDEdit (Meng et al. 2022): encode the input, mix in noise at noise_level,
+# denoise with the prior from there. noise_level is the whole method — 0 keeps
+# the input (the bare autoencoder round-trip), 1 regenerates everything.
+
+name: sdedit
+variant: small-music   # SA3 checkpoint the solver samples with (grooveback.priors)
+steps: null            # null -> the variant's default in PRIOR_VARIANTS
+cfg_scale: null        # null -> same
+noise_level: 0.5
+prompt: ""
+seed: 0

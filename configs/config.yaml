@@ -1,11 +1,19 @@
-# Minimal by design. ADR-0005 has one run type — run a frozen model over a set of
-# tracks and produce a level-matched comparison — so group composition would be
-# scaffolding for runs that do not exist. See ADR-0002, "Configuration", for the
-# pending restructure (data / autoencoder / prior / solver / degradation / eval).
+# One run type exists: mode inference — restore a file or a folder of files
+# with the selected model. `model` composes the method's defaults from
+# configs/model/ and is how methods will be switched later (`model=dps` once
+# such a yaml exists). See ADR-0002, "Configuration".
 
 defaults:
+  - model: sdedit
   - _self_
+
+mode: inference
+device: auto
+input: ???        # a degraded audio file, or a folder of them
+output_dir: ???   # restored copies land here as {stem}_{model.name}_{noise_level}.wav
 
 hydra:
   run:
     dir: artifacts/runs/${now:%Y-%m-%d_%H-%M-%S}
+  sweep:
+    dir: artifacts/multiruns/${now:%Y-%m-%d_%H-%M-%S}
