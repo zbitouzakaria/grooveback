@@ -18,7 +18,7 @@ purpose-built player already exists).
 ## Decision
 
 Vendor trackswitch.js v2.0.1 (AudioLabs Erlangen, MIT) into `demo/` and generate one static page per hand-edited
-config: `demo/{base,sdedit}/config.yaml` → `scripts/build_demo.py` → `index.html`, one player JSON per section, and
+config: `demo/{base,sdedit}/config.yaml` → `scripts/build_demo.py` → `index.html` (player configs inline), and
 excerpts cut from `artifacts/*/listen` packs — re-level-matched after cutting (a 90 s window of a full-length-matched
 pack can drift between tracks by fractions of a dB), written as flac with one spectrogram strip each.
 
@@ -31,7 +31,6 @@ pack can drift between tracks by fractions of a dB), written as flac with one sp
 
 - Local for now, served with `python3 -m http.server 8880 -d demo`. Publishing `base` to GitHub Pages is a later,
   explicit step; a README cannot run the players, so it will link the page.
-- Generated media (flac excerpts and spectrogram PNGs) stays out of git; page code, configs and player JSONs are
-  committed.
+- Generated media (flac excerpts and spectrogram PNGs) stays out of git; page code and configs are committed.
 - The excerpts are what the pages compare: the −14 LUFS gate holds for exactly what is heard, but a verdict about a
   track's ending needs the window moved in the config first.

@@ -6,8 +6,8 @@ No arguments: every demo/*/config.yaml. For each config, cut the configured
 window from every track of every pack, re-level-match the excerpts as one set
 (the packs were matched over their full length; a window can drift between
 tracks by fractions of a dB), write them as flac with one spectrogram PNG
-each, and generate index.html plus one trackswitch player JSON per section —
-all next to the config file. Everything is regenerated on every run.
+each, and generate index.html — each section's trackswitch player config
+inline — next to the config file. Everything is regenerated on every run.
 
 A `tracks` mapping (label -> filename) makes one player per pack. `tracks: all`
 takes every flac in the pack and makes one player per variant family
@@ -121,14 +121,14 @@ def variant_families(pack_dir: Path) -> dict[str, list[tuple[str, str]]]:
     }
 
 
-def players_of(pack_name: str, spec: dict, pack_dir: Path) -> list[tuple[str, str, list]]:
-    """(section id, section title, [(label, filename)]) per player of one pack."""
+def players_of(pack_name: str, spec: dict, pack_dir: Path) -> list[tuple[str, list]]:
+    """(section title, [(label, filename)]) per player of one pack."""
     if spec["tracks"] == "all":
         return [
-            (f"{pack_name}--{family}", family, ANCHORS + sweep)
+            (family, ANCHORS + sweep)
             for family, sweep in variant_families(pack_dir).items()
         ]
-    return [(pack_name, pack_name, list(spec["tracks"].items()))]
+    return [(pack_name, list(spec["tracks"].items()))]
 
 
 def player_config(pack_name: str, tracks: list[tuple[str, str]]) -> dict:
@@ -226,15 +226,27 @@ if (!customElements.get(TrackSwitch.TRACKSWITCH_DEFAULT_ELEMENT_NAME)) {
   TrackSwitch.defineTrackswitchDefaultElement();
 }
 
-// Collapsed sections hold only a config path; the player element is created
-// the first time its section is opened, and audio decodes on first play —
-// memory follows what is actually listened to.
-document.querySelectorAll("details[data-config]").forEach((section) => {
+// The bundle's own declarative boot never completes for parser-inserted
+// players carrying an inline config (dynamically created ones boot fine),
+// so kick each one explicitly; the element's config-load generation counter
+// makes this later call the one that wins.
+document.querySelectorAll("trackswitch-player").forEach((player) => {
+  if (!player.currentConfig) player.loadDeclarativeConfig();
+});
+
+// Collapsed sections hold their player config as an inline JSON script; the
+// player element is created around it the first time the section is opened,
+// and audio decodes on first play — memory follows what is actually
+// listened to. The config script must be inside the element before it
+// connects, so it is moved in first.
+document.querySelectorAll("details").forEach((section) => {
+  const config = section.querySelector("script[data-player-config]");
+  if (!config) return;
   section.addEventListener("toggle", () => {
     if (!section.open || section.dataset.loaded) return;
     section.dataset.loaded = "1";
     const player = document.createElement("trackswitch-player");
-    player.setAttribute("config-src", section.dataset.config);
+    player.appendChild(config);
     section.appendChild(player);
   });
 });
@@ -284,7 +296,7 @@ def build_page(config_path: Path) -> None:
             pack_dir = REPO / pack_dir
         players = players_of(pack_name, spec, pack_dir)
 
-        filenames = {filename for _, _, tracks in players for _, filename in tracks}
+        filenames = {filename for _, tracks in players for _, filename in tracks}
         print(f"{config_dir.name}: {pack_name} — {len(filenames)} tracks,"
               f" {len(players)} player(s)", flush=True)
         build_media(config_dir, pack_name, spec, filenames)
@@ -292,19 +304,23 @@ def build_page(config_path: Path) -> None:
         lazy = spec["tracks"] == "all"
         if lazy:
             sections.append(f"<h2>{escape(pack_name)}</h2>")
-        for section_id, title, tracks in players:
-            (config_dir / f"{section_id}.json").write_text(
-                json.dumps(player_config(pack_name, tracks), indent=1)
-            )
+        for title, tracks in players:
+            # "</" cannot appear inside a script block; "<\/" is the same JSON value.
+            config_json = json.dumps(
+                player_config(pack_name, tracks), indent=1
+            ).replace("</", "<\\/")
             if lazy:
                 sections.append(
-                    f'<details data-config="{section_id}.json">'
-                    f"<summary>{escape(title)} ({len(tracks)} tracks)</summary></details>"
+                    f"<details><summary>{escape(title)} ({len(tracks)} tracks)</summary>\n"
+                    f'<script type="application/json" data-player-config>{config_json}</script>\n'
+                    "</details>"
                 )
             else:
                 sections.append(
                     f"<h2>{escape(title)}</h2>\n"
-                    f'<trackswitch-player config-src="{section_id}.json"></trackswitch-player>'
+                    "<trackswitch-player>\n"
+                    f'<script type="application/json">{config_json}</script>\n'
+                    "</trackswitch-player>"
                 )
 
     (config_dir / "index.html").write_text(

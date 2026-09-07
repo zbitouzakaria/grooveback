@@ -21,31 +21,559 @@
 player, master included. Solo is exclusive: keys 1–9 or a click switch tracks in place.
 Space plays, R toggles repeat, loop a section with the loop controls or A/B/L.</p>
 <h2>aerofunk_64k</h2>
-<trackswitch-player config-src="aerofunk_64k.json"></trackswitch-player>
+<trackswitch-player>
+<script type="application/json">{
+ "media": {
+  "t0": {
+   "type": "audio",
+   "title": "input",
+   "src": "media/aerofunk_64k/input.flac",
+   "imageID": "t0Plot",
+   "solo": true
+  },
+  "t0Plot": {
+   "type": "image",
+   "src": "media/aerofunk_64k/input.png"
+  },
+  "t1": {
+   "type": "audio",
+   "title": "master",
+   "src": "media/aerofunk_64k/original.flac",
+   "imageID": "t1Plot"
+  },
+  "t1Plot": {
+   "type": "image",
+   "src": "media/aerofunk_64k/original.png"
+  },
+  "t2": {
+   "type": "audio",
+   "title": "apollo",
+   "src": "media/aerofunk_64k/apollo.flac",
+   "imageID": "t2Plot"
+  },
+  "t2Plot": {
+   "type": "image",
+   "src": "media/aerofunk_64k/apollo.png"
+  },
+  "t3": {
+   "type": "audio",
+   "title": "sdedit small s8 0.16",
+   "src": "media/aerofunk_64k/small-music_s8_0.16.flac",
+   "imageID": "t3Plot"
+  },
+  "t3Plot": {
+   "type": "image",
+   "src": "media/aerofunk_64k/small-music_s8_0.16.png"
+  },
+  "t4": {
+   "type": "audio",
+   "title": "sdedit medium s8 0.16",
+   "src": "media/aerofunk_64k/medium_s8_0.16.flac",
+   "imageID": "t4Plot"
+  },
+  "t4Plot": {
+   "type": "image",
+   "src": "media/aerofunk_64k/medium_s8_0.16.png"
+  }
+ },
+ "views": [
+  {
+   "type": "navigationBar",
+   "controls": [
+    "playback",
+    "globalVolume",
+    "looping",
+    "seekBar",
+    "timer"
+   ],
+   "repeatEnabled": true
+  },
+  {
+   "type": "perTrackImage",
+   "seekable": true,
+   "seekMarginLeft": 5.0,
+   "seekMarginRight": 7.9999999999999964
+  },
+  {
+   "type": "trackList",
+   "tracks": [
+    "t0",
+    "t1",
+    "t2",
+    "t3",
+    "t4"
+   ],
+   "soloGroup": 0
+  }
+ ]
+}</script>
+</trackswitch-player>
 <h2>aerofunk_128k</h2>
-<trackswitch-player config-src="aerofunk_128k.json"></trackswitch-player>
+<trackswitch-player>
+<script type="application/json">{
+ "media": {
+  "t0": {
+   "type": "audio",
+   "title": "input",
+   "src": "media/aerofunk_128k/input.flac",
+   "imageID": "t0Plot",
+   "solo": true
+  },
+  "t0Plot": {
+   "type": "image",
+   "src": "media/aerofunk_128k/input.png"
+  },
+  "t1": {
+   "type": "audio",
+   "title": "master",
+   "src": "media/aerofunk_128k/original.flac",
+   "imageID": "t1Plot"
+  },
+  "t1Plot": {
+   "type": "image",
+   "src": "media/aerofunk_128k/original.png"
+  },
+  "t2": {
+   "type": "audio",
+   "title": "apollo",
+   "src": "media/aerofunk_128k/apollo.flac",
+   "imageID": "t2Plot"
+  },
+  "t2Plot": {
+   "type": "image",
+   "src": "media/aerofunk_128k/apollo.png"
+  },
+  "t3": {
+   "type": "audio",
+   "title": "sdedit small s8 0.16",
+   "src": "media/aerofunk_128k/small-music_s8_0.16.flac",
+   "imageID": "t3Plot"
+  },
+  "t3Plot": {
+   "type": "image",
+   "src": "media/aerofunk_128k/small-music_s8_0.16.png"
+  },
+  "t4": {
+   "type": "audio",
+   "title": "sdedit medium s8 0.16",
+   "src": "media/aerofunk_128k/medium_s8_0.16.flac",
+   "imageID": "t4Plot"
+  },
+  "t4Plot": {
+   "type": "image",
+   "src": "media/aerofunk_128k/medium_s8_0.16.png"
+  }
+ },
+ "views": [
+  {
+   "type": "navigationBar",
+   "controls": [
+    "playback",
+    "globalVolume",
+    "looping",
+    "seekBar",
+    "timer"
+   ],
+   "repeatEnabled": true
+  },
+  {
+   "type": "perTrackImage",
+   "seekable": true,
+   "seekMarginLeft": 5.0,
+   "seekMarginRight": 7.9999999999999964
+  },
+  {
+   "type": "trackList",
+   "tracks": [
+    "t0",
+    "t1",
+    "t2",
+    "t3",
+    "t4"
+   ],
+   "soloGroup": 0
+  }
+ ]
+}</script>
+</trackswitch-player>
 <h2>aerofunk_192k</h2>
-<trackswitch-player config-src="aerofunk_192k.json"></trackswitch-player>
+<trackswitch-player>
+<script type="application/json">{
+ "media": {
+  "t0": {
+   "type": "audio",
+   "title": "input",
+   "src": "media/aerofunk_192k/input.flac",
+   "imageID": "t0Plot",
+   "solo": true
+  },
+  "t0Plot": {
+   "type": "image",
+   "src": "media/aerofunk_192k/input.png"
+  },
+  "t1": {
+   "type": "audio",
+   "title": "master",
+   "src": "media/aerofunk_192k/original.flac",
+   "imageID": "t1Plot"
+  },
+  "t1Plot": {
+   "type": "image",
+   "src": "media/aerofunk_192k/original.png"
+  },
+  "t2": {
+   "type": "audio",
+   "title": "apollo",
+   "src": "media/aerofunk_192k/apollo.flac",
+   "imageID": "t2Plot"
+  },
+  "t2Plot": {
+   "type": "image",
+   "src": "media/aerofunk_192k/apollo.png"
+  },
+  "t3": {
+   "type": "audio",
+   "title": "sdedit small s8 0.16",
+   "src": "media/aerofunk_192k/small-music_s8_0.16.flac",
+   "imageID": "t3Plot"
+  },
+  "t3Plot": {
+   "type": "image",
+   "src": "media/aerofunk_192k/small-music_s8_0.16.png"
+  },
+  "t4": {
+   "type": "audio",
+   "title": "sdedit medium s8 0.16",
+   "src": "media/aerofunk_192k/medium_s8_0.16.flac",
+   "imageID": "t4Plot"
+  },
+  "t4Plot": {
+   "type": "image",
+   "src": "media/aerofunk_192k/medium_s8_0.16.png"
+  }
+ },
+ "views": [
+  {
+   "type": "navigationBar",
+   "controls": [
+    "playback",
+    "globalVolume",
+    "looping",
+    "seekBar",
+    "timer"
+   ],
+   "repeatEnabled": true
+  },
+  {
+   "type": "perTrackImage",
+   "seekable": true,
+   "seekMarginLeft": 5.0,
+   "seekMarginRight": 7.9999999999999964
+  },
+  {
+   "type": "trackList",
+   "tracks": [
+    "t0",
+    "t1",
+    "t2",
+    "t3",
+    "t4"
+   ],
+   "soloGroup": 0
+  }
+ ]
+}</script>
+</trackswitch-player>
 <h2>codec_64k</h2>
-<trackswitch-player config-src="codec_64k.json"></trackswitch-player>
+<trackswitch-player>
+<script type="application/json">{
+ "media": {
+  "t0": {
+   "type": "audio",
+   "title": "input",
+   "src": "media/codec_64k/input.flac",
+   "imageID": "t0Plot",
+   "solo": true
+  },
+  "t0Plot": {
+   "type": "image",
+   "src": "media/codec_64k/input.png"
+  },
+  "t1": {
+   "type": "audio",
+   "title": "master",
+   "src": "media/codec_64k/original.flac",
+   "imageID": "t1Plot"
+  },
+  "t1Plot": {
+   "type": "image",
+   "src": "media/codec_64k/original.png"
+  },
+  "t2": {
+   "type": "audio",
+   "title": "apollo",
+   "src": "media/codec_64k/apollo.flac",
+   "imageID": "t2Plot"
+  },
+  "t2Plot": {
+   "type": "image",
+   "src": "media/codec_64k/apollo.png"
+  },
+  "t3": {
+   "type": "audio",
+   "title": "sdedit small s8 0.16",
+   "src": "media/codec_64k/small-music_s8_0.16.flac",
+   "imageID": "t3Plot"
+  },
+  "t3Plot": {
+   "type": "image",
+   "src": "media/codec_64k/small-music_s8_0.16.png"
+  },
+  "t4": {
+   "type": "audio",
+   "title": "sdedit medium s8 0.16",
+   "src": "media/codec_64k/medium_s8_0.16.flac",
+   "imageID": "t4Plot"
+  },
+  "t4Plot": {
+   "type": "image",
+   "src": "media/codec_64k/medium_s8_0.16.png"
+  }
+ },
+ "views": [
+  {
+   "type": "navigationBar",
+   "controls": [
+    "playback",
+    "globalVolume",
+    "looping",
+    "seekBar",
+    "timer"
+   ],
+   "repeatEnabled": true
+  },
+  {
+   "type": "perTrackImage",
+   "seekable": true,
+   "seekMarginLeft": 5.0,
+   "seekMarginRight": 7.9999999999999964
+  },
+  {
+   "type": "trackList",
+   "tracks": [
+    "t0",
+    "t1",
+    "t2",
+    "t3",
+    "t4"
+   ],
+   "soloGroup": 0
+  }
+ ]
+}</script>
+</trackswitch-player>
 <h2>codec_128k</h2>
-<trackswitch-player config-src="codec_128k.json"></trackswitch-player>
+<trackswitch-player>
+<script type="application/json">{
+ "media": {
+  "t0": {
+   "type": "audio",
+   "title": "input",
+   "src": "media/codec_128k/input.flac",
+   "imageID": "t0Plot",
+   "solo": true
+  },
+  "t0Plot": {
+   "type": "image",
+   "src": "media/codec_128k/input.png"
+  },
+  "t1": {
+   "type": "audio",
+   "title": "master",
+   "src": "media/codec_128k/original.flac",
+   "imageID": "t1Plot"
+  },
+  "t1Plot": {
+   "type": "image",
+   "src": "media/codec_128k/original.png"
+  },
+  "t2": {
+   "type": "audio",
+   "title": "apollo",
+   "src": "media/codec_128k/apollo.flac",
+   "imageID": "t2Plot"
+  },
+  "t2Plot": {
+   "type": "image",
+   "src": "media/codec_128k/apollo.png"
+  },
+  "t3": {
+   "type": "audio",
+   "title": "sdedit small s8 0.16",
+   "src": "media/codec_128k/small-music_s8_0.16.flac",
+   "imageID": "t3Plot"
+  },
+  "t3Plot": {
+   "type": "image",
+   "src": "media/codec_128k/small-music_s8_0.16.png"
+  },
+  "t4": {
+   "type": "audio",
+   "title": "sdedit medium s8 0.16",
+   "src": "media/codec_128k/medium_s8_0.16.flac",
+   "imageID": "t4Plot"
+  },
+  "t4Plot": {
+   "type": "image",
+   "src": "media/codec_128k/medium_s8_0.16.png"
+  }
+ },
+ "views": [
+  {
+   "type": "navigationBar",
+   "controls": [
+    "playback",
+    "globalVolume",
+    "looping",
+    "seekBar",
+    "timer"
+   ],
+   "repeatEnabled": true
+  },
+  {
+   "type": "perTrackImage",
+   "seekable": true,
+   "seekMarginLeft": 5.0,
+   "seekMarginRight": 7.9999999999999964
+  },
+  {
+   "type": "trackList",
+   "tracks": [
+    "t0",
+    "t1",
+    "t2",
+    "t3",
+    "t4"
+   ],
+   "soloGroup": 0
+  }
+ ]
+}</script>
+</trackswitch-player>
 <h2>codec_192k</h2>
-<trackswitch-player config-src="codec_192k.json"></trackswitch-player>
+<trackswitch-player>
+<script type="application/json">{
+ "media": {
+  "t0": {
+   "type": "audio",
+   "title": "input",
+   "src": "media/codec_192k/input.flac",
+   "imageID": "t0Plot",
+   "solo": true
+  },
+  "t0Plot": {
+   "type": "image",
+   "src": "media/codec_192k/input.png"
+  },
+  "t1": {
+   "type": "audio",
+   "title": "master",
+   "src": "media/codec_192k/original.flac",
+   "imageID": "t1Plot"
+  },
+  "t1Plot": {
+   "type": "image",
+   "src": "media/codec_192k/original.png"
+  },
+  "t2": {
+   "type": "audio",
+   "title": "apollo",
+   "src": "media/codec_192k/apollo.flac",
+   "imageID": "t2Plot"
+  },
+  "t2Plot": {
+   "type": "image",
+   "src": "media/codec_192k/apollo.png"
+  },
+  "t3": {
+   "type": "audio",
+   "title": "sdedit small s8 0.16",
+   "src": "media/codec_192k/small-music_s8_0.16.flac",
+   "imageID": "t3Plot"
+  },
+  "t3Plot": {
+   "type": "image",
+   "src": "media/codec_192k/small-music_s8_0.16.png"
+  },
+  "t4": {
+   "type": "audio",
+   "title": "sdedit medium s8 0.16",
+   "src": "media/codec_192k/medium_s8_0.16.flac",
+   "imageID": "t4Plot"
+  },
+  "t4Plot": {
+   "type": "image",
+   "src": "media/codec_192k/medium_s8_0.16.png"
+  }
+ },
+ "views": [
+  {
+   "type": "navigationBar",
+   "controls": [
+    "playback",
+    "globalVolume",
+    "looping",
+    "seekBar",
+    "timer"
+   ],
+   "repeatEnabled": true
+  },
+  {
+   "type": "perTrackImage",
+   "seekable": true,
+   "seekMarginLeft": 5.0,
+   "seekMarginRight": 7.9999999999999964
+  },
+  {
+   "type": "trackList",
+   "tracks": [
+    "t0",
+    "t1",
+    "t2",
+    "t3",
+    "t4"
+   ],
+   "soloGroup": 0
+  }
+ ]
+}</script>
+</trackswitch-player>
 <script>
 if (!customElements.get(TrackSwitch.TRACKSWITCH_DEFAULT_ELEMENT_NAME)) {
   TrackSwitch.defineTrackswitchDefaultElement();
 }
 
-// Collapsed sections hold only a config path; the player element is created
-// the first time its section is opened, and audio decodes on first play —
-// memory follows what is actually listened to.
-document.querySelectorAll("details[data-config]").forEach((section) => {
+// The bundle's own declarative boot never completes for parser-inserted
+// players carrying an inline config (dynamically created ones boot fine),
+// so kick each one explicitly; the element's config-load generation counter
+// makes this later call the one that wins.
+document.querySelectorAll("trackswitch-player").forEach((player) => {
+  if (!player.currentConfig) player.loadDeclarativeConfig();
+});
+
+// Collapsed sections hold their player config as an inline JSON script; the
+// player element is created around it the first time the section is opened,
+// and audio decodes on first play — memory follows what is actually
+// listened to. The config script must be inside the element before it
+// connects, so it is moved in first.
+document.querySelectorAll("details").forEach((section) => {
+  const config = section.querySelector("script[data-player-config]");
+  if (!config) return;
   section.addEventListener("toggle", () => {
     if (!section.open || section.dataset.loaded) return;
     section.dataset.loaded = "1";
     const player = document.createElement("trackswitch-player");
-    player.setAttribute("config-src", section.dataset.config);
+    player.appendChild(config);
     section.appendChild(player);
   });
 });
