@@ -2,12 +2,13 @@
 
   uv run --group notebooks python scripts/build_demo.py [demo/base/config.yaml ...]
 
-No arguments: every demo/*/config.yaml. For each config, cut the configured
-window from every track of every pack, re-level-match the excerpts as one set
-(the packs were matched over their full length; a window can drift between
-tracks by fractions of a dB), write them as flac with one spectrogram PNG
-each, and generate index.html — each section's trackswitch player config
-inline — next to the config file. Everything is regenerated on every run.
+No arguments: every demo/*/config.yaml. For each config: a pack with a
+`window_s` is cut and re-level-matched as one set, then written as flac; a
+pack without one serves its full tracks, symlinked straight from the
+artifacts pack behind a verified level-match gate. Every track gets one
+spectrogram PNG, and index.html — each section's trackswitch player config
+inline — lands next to the config file. Everything is regenerated on every
+run.
 
 A `tracks` mapping (label -> filename) makes one player per pack. `tracks: all`
 takes every flac in the pack and makes one player per variant family
@@ -19,6 +20,7 @@ expanded, so a page over hundreds of files stays openable.
 from __future__ import annotations
 
 import json
+import os
 import sys
 from html import escape
 from pathlib import Path
@@ -168,27 +170,60 @@ def player_config(pack_name: str, tracks: list[tuple[str, str]]) -> dict:
 
 
 def build_media(config_dir: Path, pack_name: str, spec: dict, filenames: set[str]) -> None:
-    """Cut, re-level-match and write one pack's excerpts and spectrograms."""
+    """One pack's media under media/{pack}: audio plus one spectrogram each.
+
+    A configured window is cut from every track and the excerpts re-level-
+    matched as one set with `evaluation.level_matched_set` — the packs were
+    matched over their full length, so a window can drift between tracks by
+    fractions of a dB. Without a window the pack files already are the
+    matched set, so they are symlinked instead of re-encoded, behind a gate
+    that proves it (every track within 0.1 LU of the others); this mode also
+    streams one track at a time, because a full-length 43-track pack does
+    not fit in memory as one set.
+    """
     pack_dir = Path(spec["dir"])
     if not pack_dir.is_absolute():
         pack_dir = REPO / pack_dir
     window_s = tuple(spec["window_s"]) if "window_s" in spec else None
+    media_dir = config_dir / "media" / pack_name
+    media_dir.mkdir(parents=True, exist_ok=True)
 
-    excerpts, rates = {}, set()
-    for filename in sorted(filenames):
-        excerpts[filename], rate = load_window(pack_dir / filename, window_s)
-        rates.add(rate)
+    if window_s is None:
+        loudness_by_file, rates, lengths = {}, set(), set()
+        for filename in sorted(filenames):
+            audio, rate = load_window(pack_dir / filename, None)
+            rates.add(rate)
+            lengths.add(audio.shape[1])
+            loudness_by_file[filename] = ga.loudness(audio, rate)
+            save_spectrogram((media_dir / filename).with_suffix(".png"), audio, rate)
+            link = media_dir / filename
+            link.unlink(missing_ok=True)
+            link.symlink_to(os.path.relpath(pack_dir / filename, media_dir))
+        spread = max(loudness_by_file.values()) - min(loudness_by_file.values())
+        if spread > 0.1:
+            raise ValueError(
+                f"{pack_dir} is not one level-matched set (loudness spans "
+                f"{spread:.2f} LU) — regenerate the listen pack before serving it."
+            )
+    else:
+        excerpts, rates = {}, set()
+        for filename in sorted(filenames):
+            excerpts[filename], rate = load_window(pack_dir / filename, window_s)
+            rates.add(rate)
+        lengths = {audio.shape[1] for audio in excerpts.values()}
+        matched = level_matched_set(excerpts, rate)
+        for filename, audio in matched.items():
+            out = media_dir / filename
+            # A symlink left by an earlier no-window build must not redirect
+            # this write into the artifacts pack.
+            out.unlink(missing_ok=True)
+            save_flac(out, audio, rate)
+            save_spectrogram(out.with_suffix(".png"), audio, rate)
+
     if len(rates) != 1:
         raise ValueError(f"{pack_dir} mixes sample rates {sorted(rates)}.")
-    lengths = {audio.shape[1] for audio in excerpts.values()}
     if len(lengths) != 1:
-        raise ValueError(f"{pack_dir} excerpts differ in length: {sorted(lengths)} samples.")
-
-    matched = level_matched_set(excerpts, rate)
-    for filename, audio in matched.items():
-        out = config_dir / "media" / pack_name / filename
-        save_flac(out, audio, rate)
-        save_spectrogram(out.with_suffix(".png"), audio, rate)
+        raise ValueError(f"{pack_dir} tracks differ in length: {sorted(lengths)} samples.")
 
 
 PAGE = """<!doctype html>
