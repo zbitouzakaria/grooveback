@@ -1,6 +1,11 @@
 data/
 artifacts/
 
+# Listening pages: the flac excerpts and spectrogram PNGs rebuild from
+# artifacts/ via scripts/build_demo.py; page code and configs are committed.
+demo/**/*.flac
+demo/**/*.png
+
 # Python
 __pycache__/
 *.py[cod]

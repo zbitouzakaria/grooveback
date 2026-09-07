@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>grooveback listening — base</title>
+<style>
+  body { font: 15px/1.5 system-ui, sans-serif; margin: 2rem auto; max-width: 1100px;
+         padding: 0 1rem; background: #fafafa; color: #222; }
+  h2 { margin: 2rem 0 .5rem; }
+  details { margin: .4rem 0; }
+  summary { cursor: pointer; font-weight: 600; }
+  trackswitch-player { display: block; margin: .5rem 0 1.5rem; }
+  .note { color: #555; }
+</style>
+<script src="../trackswitch.js"></script>
+</head>
+<body>
+<h1>grooveback listening — base</h1>
+<p class="note">Every track is level-matched to −14 LUFS with one common headroom gain per
+player, master included. Solo is exclusive: keys 1–9 or a click switch tracks in place.
+Space plays, R toggles repeat, loop a section with the loop controls or A/B/L.</p>
+<h2>aerofunk_64k</h2>
+<trackswitch-player config-src="aerofunk_64k.json"></trackswitch-player>
+<h2>aerofunk_128k</h2>
+<trackswitch-player config-src="aerofunk_128k.json"></trackswitch-player>
+<h2>aerofunk_192k</h2>
+<trackswitch-player config-src="aerofunk_192k.json"></trackswitch-player>
+<h2>codec_64k</h2>
+<trackswitch-player config-src="codec_64k.json"></trackswitch-player>
+<h2>codec_128k</h2>
+<trackswitch-player config-src="codec_128k.json"></trackswitch-player>
+<h2>codec_192k</h2>
+<trackswitch-player config-src="codec_192k.json"></trackswitch-player>
+<script>
+if (!customElements.get(TrackSwitch.TRACKSWITCH_DEFAULT_ELEMENT_NAME)) {
+  TrackSwitch.defineTrackswitchDefaultElement();
+}
+
+// Collapsed sections hold only a config path; the player element is created
+// the first time its section is opened, and audio decodes on first play —
+// memory follows what is actually listened to.
+document.querySelectorAll("details[data-config]").forEach((section) => {
+  section.addEventListener("toggle", () => {
+    if (!section.open || section.dataset.loaded) return;
+    section.dataset.loaded = "1";
+    const player = document.createElement("trackswitch-player");
+    player.setAttribute("config-src", section.dataset.config);
+    section.appendChild(player);
+  });
+});
+
+// At most one decoded player per page, torn down as soon as another one
+// STARTS loading — the freed audio does not wait for the new decode to
+// finish, so the memory peak is one decoded player plus the file currently
+// decoding, never two full players. destroyController drops the audio;
+// applyCurrentConfig re-mounts the idle UI (power button) from the same
+// config. A re-mounted player gets a fresh controller, so arming re-runs
+// from the sweep below; the "loaded" listener covers decodes faster than
+// one sweep tick.
+const unloadOtherPlayers = (active) => {
+  document.querySelectorAll("trackswitch-player").forEach((other) => {
+    if (other === active || !other.controller) return;
+    if (!other.controller.getState().isLoaded) return;
+    other.destroyController();
+    other.applyCurrentConfig();
+    delete other.dataset.soleLoadedArmed;
+  });
+};
+const armSoleLoadedPlayer = (player) => {
+  const controller = player.controller;
+  if (!controller || player.dataset.soleLoadedArmed) return;
+  player.dataset.soleLoadedArmed = "1";
+  controller.on("loaded", () => unloadOtherPlayers(player));
+};
+setInterval(() => {
+  const players = [...document.querySelectorAll("trackswitch-player")];
+  players.forEach(armSoleLoadedPlayer);
+  const loading = players.find(
+    (p) => p.controller && p.controller.getState().isLoading
+  );
+  if (loading) unloadOtherPlayers(loading);
+}, 500);
+
+</script>
+</body>
+</html>
