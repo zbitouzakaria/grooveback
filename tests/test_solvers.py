@@ -8,25 +8,27 @@ import numpy as np
 import pytest
 import torch
 
+from grooveback.audio import loudness
 from grooveback.solvers import SDEDIT_MAX_SECONDS, sdedit
 
 SR = 44_100
 
 
 class RecordingPrior:
-    """Records every generate() call; returns a fixed stereo batch whose two
-    channels are distinguishable."""
+    """Records every generate() call; returns `batch`, or by default a fixed
+    stereo batch whose two channels are distinguishable."""
 
-    def __init__(self, samples: int = 2_000):
+    def __init__(self, samples: int = 2_000, batch: torch.Tensor | None = None):
         self.calls = []
-        self._samples = samples
+        if batch is None:
+            batch = torch.zeros((1, 2, samples))
+            batch[0, 0] = 0.25
+            batch[0, 1] = -0.5
+        self._batch = batch
 
     def generate(self, **kwargs):
         self.calls.append(kwargs)
-        batch = torch.zeros((1, 2, self._samples))
-        batch[0, 0] = 0.25
-        batch[0, 1] = -0.5
-        return batch
+        return self._batch
 
 
 def test_sdedit_returns_channels_by_samples_float32_trimmed_to_input():
@@ -89,6 +91,23 @@ def test_sdedit_requests_the_inputs_full_length_past_the_default_clamp():
     call = model.calls[0]
     assert call["sample_size"] >= n + 6 * SR
     assert call["duration"] * SR >= n
+
+
+def test_sdedit_matches_output_loudness_to_the_input():
+    """The waveform baselines' output tracks the input's level by
+    construction; the decoder's native level drifts with noise_level, so the
+    solver scales its output to the input's integrated loudness. One second
+    of tone, because loudness needs at least the meter's 400 ms block."""
+    t = np.arange(SR, dtype=np.float32) / SR
+    tone = np.sin(2 * np.pi * 997.0 * t, dtype=np.float32)
+    loud_input = np.tile(0.5 * tone, (2, 1))
+    quiet_render = torch.from_numpy(np.tile(0.05 * tone, (2, 1))).unsqueeze(0)
+    model = RecordingPrior(batch=quiet_render)
+
+    out = sdedit(model, loud_input, SR, noise_level=0.5, steps=8, cfg_scale=1.0)
+
+    # Gain-only matching is exact; the tolerance covers float32 roundoff.
+    assert loudness(out, SR) == pytest.approx(loudness(loud_input, SR), abs=0.01)
 
 
 @pytest.mark.parametrize("noise_level", [0.0, -0.2, 1.5])

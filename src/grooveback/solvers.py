@@ -10,6 +10,7 @@ from __future__ import annotations
 import numpy as np
 import torch
 
+from grooveback import audio as ga
 from grooveback.priors import PRIOR_SAMPLE_RATE
 
 SDEDIT_MAX_SECONDS = 360.0
@@ -37,6 +38,11 @@ def sdedit(
     there in `steps` iterations. 1.0 regenerates everything (the input is
     ignored); small values keep the input and reduce to the bare autoencoder
     round-trip.
+
+    Output comes back at the input's integrated loudness (gain only, so peaks
+    can pass full scale) — the waveform baselines' output tracks the input's
+    level by construction, while the decoder's native level drifts with
+    `noise_level`.
     """
     if sample_rate != PRIOR_SAMPLE_RATE:
         raise ValueError(
@@ -74,4 +80,13 @@ def sdedit(
         sample_size=audio.shape[-1] + 10 * sample_rate,
     )
     out = batch.squeeze(0).float().cpu().numpy().astype(np.float32)
-    return np.ascontiguousarray(out[:, : audio.shape[-1]])
+    out = np.ascontiguousarray(out[:, : audio.shape[-1]])
+    # Integrated loudness needs at least the meter's 400 ms block, and
+    # digital silence (or DC) measures -inf; in both cases the output stays
+    # at its native level instead of scaling by infinity.
+    if out.shape[-1] > int(0.4 * sample_rate):
+        target = ga.loudness(audio, sample_rate)
+        level = ga.loudness(out, sample_rate)
+        if np.isfinite(target) and np.isfinite(level):
+            out = out * np.float32(10.0 ** ((target - level) / 20.0))
+    return out
