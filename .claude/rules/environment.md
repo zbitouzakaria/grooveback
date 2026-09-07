@@ -24,6 +24,8 @@ cd third_party/a2sb && ./setup.sh
 ```bash
 uv run python scripts/run_xp.py cuda     # the whole benchmark, one pass
 uv run python -m grooveback.cli.baseline --method apollo <track>
+uv run --group notebooks python scripts/build_demo.py   # listening pages from artifacts/*/listen
+python3 -m http.server 8880 -d demo      # then open /base/ or /sdedit/ (ADR-0010)
 ```
 
 `run_xp.py` skips any step whose output already exists, so it is safe to

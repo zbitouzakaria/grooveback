@@ -15,6 +15,12 @@
         "--ServerApp.root_dir=."
       ],
       "port": 8888
+    },
+    {
+      "name": "listen",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8880", "-d", "demo"],
+      "port": 8880
     }
   ]
 }

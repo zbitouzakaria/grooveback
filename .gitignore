@@ -1,6 +1,11 @@
 data/
 artifacts/
 
+# Listening pages: the audio plays straight from the artifacts packs (via
+# the demo/artifacts symlink) and the spectrograms rebuild from them with
+# scripts/build_demo.py; page code and configs are committed.
+demo/**/*.png
+
 # Python
 __pycache__/
 *.py[cod]

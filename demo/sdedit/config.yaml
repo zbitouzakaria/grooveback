@@ -1,0 +1,30 @@
+# The working instrument: every sdedit variant in each pack, plus the
+# input / apollo / master anchors, grouped into one player per variant
+# family — the full tracks, straight from the listen packs. Players load
+# on expand and only one stays decoded at a time — open only what you are
+# comparing.
+#   uv run --group notebooks python scripts/build_demo.py demo/sdedit/config.yaml
+
+aerofunk_64k:
+  dir: artifacts/sdedit/listen/aerofunk_64k
+  tracks: all
+
+aerofunk_128k:
+  dir: artifacts/sdedit/listen/aerofunk_128k
+  tracks: all
+
+aerofunk_192k:
+  dir: artifacts/sdedit/listen/aerofunk_192k
+  tracks: all
+
+codec_64k:
+  dir: artifacts/sdedit/listen/codec_64k
+  tracks: all
+
+codec_128k:
+  dir: artifacts/sdedit/listen/codec_128k
+  tracks: all
+
+codec_192k:
+  dir: artifacts/sdedit/listen/codec_192k
+  tracks: all
