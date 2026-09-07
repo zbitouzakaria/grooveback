@@ -23,14 +23,16 @@ import sys
 from html import escape
 from pathlib import Path
 
+import matplotlib
 import numpy as np
 import soundfile as sf
-from matplotlib import colormaps
 from omegaconf import OmegaConf
-from PIL import Image
 
-from grooveback import audio as ga
-from grooveback.evaluation import level_matched_set
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt  # noqa: E402
+
+from grooveback import audio as ga  # noqa: E402
+from grooveback.evaluation import level_matched_set  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[1]
 ANCHORS = [("input", "input.flac"), ("master", "original.flac"), ("apollo", "apollo.flac")]
@@ -61,21 +63,43 @@ def save_flac(path: Path, audio: np.ndarray, sample_rate: int) -> None:
     sf.write(str(path), audio.T, sample_rate, subtype="PCM_24")
 
 
-def save_spectrogram(path: Path, audio: np.ndarray) -> None:
-    """A compact seek-strip spectrogram: 256 x <=1600 px, one px per cell.
+AX_RECT = (0.050, 0.20, 0.870, 0.72)
+"""The plot box inside the figure, as fractions: left, bottom, width, height.
 
-    Absolute color range across every image — the -100 dB floor of
-    `spectrogram_db` up to full scale — so tracks and packs are comparable by
-    eye. Written as a 256-color palette PNG (a colormap is a palette), which
-    keeps the committed images a fraction of full-color size.
+The player's seek margins below are derived from it, so the playhead and
+click-to-seek span exactly the plotted time axis.
+"""
+CBAR_RECT = (0.930, 0.20, 0.011, 0.72)
+SEEK_MARGIN_LEFT = AX_RECT[0] * 100.0
+SEEK_MARGIN_RIGHT = (1.0 - AX_RECT[0] - AX_RECT[2]) * 100.0
+
+
+def save_spectrogram(path: Path, audio: np.ndarray, sample_rate: int) -> None:
+    """A labeled spectrogram figure: time and frequency axes plus a level bar.
+
+    Absolute color range on every image — the -100 dB floor of
+    `spectrogram_db` up to full scale — so tracks and packs are comparable
+    by eye and against the shared colorbar.
     """
     spec = ga.spectrogram_db(audio, n_fft=1024, max_frames=1600)
-    spec = spec[:512].reshape(256, 2, -1).mean(axis=1)
-    index = np.clip((spec + 100.0) * (255.0 / 100.0), 0.0, 255.0).astype(np.uint8)
-    palette = (colormaps["magma"](np.arange(256) / 255.0)[:, :3] * 255).astype(np.uint8)
-    image = Image.fromarray(index[::-1], mode="P")  # flip: low frequencies at the bottom
-    image.putpalette(palette.tobytes())
-    image.save(path, optimize=True)
+    duration_s = audio.shape[1] / sample_rate
+
+    fig = plt.figure(figsize=(16, 2.8), dpi=100)
+    ax = fig.add_axes(AX_RECT)
+    image = ax.imshow(
+        spec,
+        origin="lower",
+        aspect="auto",
+        cmap="magma",
+        vmin=-100.0,
+        vmax=0.0,
+        extent=(0.0, duration_s, 0.0, sample_rate / 2000.0),
+    )
+    ax.set_xlabel("Time [s]")
+    ax.set_ylabel("Frequency [kHz]")
+    fig.colorbar(image, cax=fig.add_axes(CBAR_RECT), label="[dBFS]")
+    fig.savefig(path)
+    plt.close(fig)
 
 
 def variant_families(pack_dir: Path) -> dict[str, list[tuple[str, str]]]:
@@ -132,7 +156,12 @@ def player_config(pack_name: str, tracks: list[tuple[str, str]]) -> dict:
                 "controls": ["playback", "globalVolume", "looping", "seekBar", "timer"],
                 "repeatEnabled": True,
             },
-            {"type": "perTrackImage", "seekable": True, "seekMarginLeft": 0, "seekMarginRight": 0},
+            {
+                "type": "perTrackImage",
+                "seekable": True,
+                "seekMarginLeft": SEEK_MARGIN_LEFT,
+                "seekMarginRight": SEEK_MARGIN_RIGHT,
+            },
             {"type": "trackList", "tracks": track_ids, "soloGroup": 0},
         ],
     }
@@ -159,7 +188,7 @@ def build_media(config_dir: Path, pack_name: str, spec: dict, filenames: set[str
     for filename, audio in matched.items():
         out = config_dir / "media" / pack_name / filename
         save_flac(out, audio, rate)
-        save_spectrogram(out.with_suffix(".png"), audio)
+        save_spectrogram(out.with_suffix(".png"), audio, rate)
 
 
 PAGE = """<!doctype html>

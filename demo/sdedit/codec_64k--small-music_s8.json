@@ -157,8 +157,8 @@
   {
    "type": "perTrackImage",
    "seekable": true,
-   "seekMarginLeft": 0,
-   "seekMarginRight": 0
+   "seekMarginLeft": 5.0,
+   "seekMarginRight": 7.9999999999999964
   },
   {
    "type": "trackList",
