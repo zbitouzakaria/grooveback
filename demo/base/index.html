@@ -1,0 +1,615 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>grooveback listening — base</title>
+<style>
+  body { font: 15px/1.5 system-ui, sans-serif; margin: 2rem auto; max-width: 1100px;
+         padding: 0 1rem; background: #fafafa; color: #222; }
+  h2 { margin: 2rem 0 .5rem; }
+  details { margin: .4rem 0; }
+  summary { cursor: pointer; font-weight: 600; }
+  trackswitch-player { display: block; margin: .5rem 0 1.5rem; }
+  .note { color: #555; }
+</style>
+<script src="../trackswitch.js"></script>
+</head>
+<body>
+<h1>grooveback listening — base</h1>
+<p class="note">Every track is level-matched to −14 LUFS with one common headroom gain per
+player, master included. Solo is exclusive: keys 1–9 or a click switch tracks in place.
+Space plays, R toggles repeat, loop a section with the loop controls or A/B/L.</p>
+<h2>aerofunk_64k</h2>
+<trackswitch-player>
+<script type="application/json">{
+ "media": {
+  "t0": {
+   "type": "audio",
+   "title": "input",
+   "src": "../artifacts/sdedit/listen/aerofunk_64k/input.flac",
+   "imageID": "t0Plot",
+   "solo": true
+  },
+  "t0Plot": {
+   "type": "image",
+   "src": "media/aerofunk_64k/input.png"
+  },
+  "t1": {
+   "type": "audio",
+   "title": "master",
+   "src": "../artifacts/sdedit/listen/aerofunk_64k/original.flac",
+   "imageID": "t1Plot"
+  },
+  "t1Plot": {
+   "type": "image",
+   "src": "media/aerofunk_64k/original.png"
+  },
+  "t2": {
+   "type": "audio",
+   "title": "apollo",
+   "src": "../artifacts/sdedit/listen/aerofunk_64k/apollo.flac",
+   "imageID": "t2Plot"
+  },
+  "t2Plot": {
+   "type": "image",
+   "src": "media/aerofunk_64k/apollo.png"
+  },
+  "t3": {
+   "type": "audio",
+   "title": "sdedit small s8 0.16",
+   "src": "../artifacts/sdedit/listen/aerofunk_64k/small-music_s8_0.16.flac",
+   "imageID": "t3Plot"
+  },
+  "t3Plot": {
+   "type": "image",
+   "src": "media/aerofunk_64k/small-music_s8_0.16.png"
+  },
+  "t4": {
+   "type": "audio",
+   "title": "sdedit medium s8 0.16",
+   "src": "../artifacts/sdedit/listen/aerofunk_64k/medium_s8_0.16.flac",
+   "imageID": "t4Plot"
+  },
+  "t4Plot": {
+   "type": "image",
+   "src": "media/aerofunk_64k/medium_s8_0.16.png"
+  }
+ },
+ "views": [
+  {
+   "type": "navigationBar",
+   "controls": [
+    "playback",
+    "globalVolume",
+    "looping",
+    "seekBar",
+    "timer"
+   ],
+   "repeatEnabled": true
+  },
+  {
+   "type": "perTrackImage",
+   "seekable": true,
+   "seekMarginLeft": 5.0,
+   "seekMarginRight": 7.9999999999999964
+  },
+  {
+   "type": "trackList",
+   "tracks": [
+    "t0",
+    "t1",
+    "t2",
+    "t3",
+    "t4"
+   ],
+   "soloGroup": 0
+  }
+ ]
+}</script>
+</trackswitch-player>
+<h2>aerofunk_128k</h2>
+<trackswitch-player>
+<script type="application/json">{
+ "media": {
+  "t0": {
+   "type": "audio",
+   "title": "input",
+   "src": "../artifacts/sdedit/listen/aerofunk_128k/input.flac",
+   "imageID": "t0Plot",
+   "solo": true
+  },
+  "t0Plot": {
+   "type": "image",
+   "src": "media/aerofunk_128k/input.png"
+  },
+  "t1": {
+   "type": "audio",
+   "title": "master",
+   "src": "../artifacts/sdedit/listen/aerofunk_128k/original.flac",
+   "imageID": "t1Plot"
+  },
+  "t1Plot": {
+   "type": "image",
+   "src": "media/aerofunk_128k/original.png"
+  },
+  "t2": {
+   "type": "audio",
+   "title": "apollo",
+   "src": "../artifacts/sdedit/listen/aerofunk_128k/apollo.flac",
+   "imageID": "t2Plot"
+  },
+  "t2Plot": {
+   "type": "image",
+   "src": "media/aerofunk_128k/apollo.png"
+  },
+  "t3": {
+   "type": "audio",
+   "title": "sdedit small s8 0.16",
+   "src": "../artifacts/sdedit/listen/aerofunk_128k/small-music_s8_0.16.flac",
+   "imageID": "t3Plot"
+  },
+  "t3Plot": {
+   "type": "image",
+   "src": "media/aerofunk_128k/small-music_s8_0.16.png"
+  },
+  "t4": {
+   "type": "audio",
+   "title": "sdedit medium s8 0.16",
+   "src": "../artifacts/sdedit/listen/aerofunk_128k/medium_s8_0.16.flac",
+   "imageID": "t4Plot"
+  },
+  "t4Plot": {
+   "type": "image",
+   "src": "media/aerofunk_128k/medium_s8_0.16.png"
+  }
+ },
+ "views": [
+  {
+   "type": "navigationBar",
+   "controls": [
+    "playback",
+    "globalVolume",
+    "looping",
+    "seekBar",
+    "timer"
+   ],
+   "repeatEnabled": true
+  },
+  {
+   "type": "perTrackImage",
+   "seekable": true,
+   "seekMarginLeft": 5.0,
+   "seekMarginRight": 7.9999999999999964
+  },
+  {
+   "type": "trackList",
+   "tracks": [
+    "t0",
+    "t1",
+    "t2",
+    "t3",
+    "t4"
+   ],
+   "soloGroup": 0
+  }
+ ]
+}</script>
+</trackswitch-player>
+<h2>aerofunk_192k</h2>
+<trackswitch-player>
+<script type="application/json">{
+ "media": {
+  "t0": {
+   "type": "audio",
+   "title": "input",
+   "src": "../artifacts/sdedit/listen/aerofunk_192k/input.flac",
+   "imageID": "t0Plot",
+   "solo": true
+  },
+  "t0Plot": {
+   "type": "image",
+   "src": "media/aerofunk_192k/input.png"
+  },
+  "t1": {
+   "type": "audio",
+   "title": "master",
+   "src": "../artifacts/sdedit/listen/aerofunk_192k/original.flac",
+   "imageID": "t1Plot"
+  },
+  "t1Plot": {
+   "type": "image",
+   "src": "media/aerofunk_192k/original.png"
+  },
+  "t2": {
+   "type": "audio",
+   "title": "apollo",
+   "src": "../artifacts/sdedit/listen/aerofunk_192k/apollo.flac",
+   "imageID": "t2Plot"
+  },
+  "t2Plot": {
+   "type": "image",
+   "src": "media/aerofunk_192k/apollo.png"
+  },
+  "t3": {
+   "type": "audio",
+   "title": "sdedit small s8 0.16",
+   "src": "../artifacts/sdedit/listen/aerofunk_192k/small-music_s8_0.16.flac",
+   "imageID": "t3Plot"
+  },
+  "t3Plot": {
+   "type": "image",
+   "src": "media/aerofunk_192k/small-music_s8_0.16.png"
+  },
+  "t4": {
+   "type": "audio",
+   "title": "sdedit medium s8 0.16",
+   "src": "../artifacts/sdedit/listen/aerofunk_192k/medium_s8_0.16.flac",
+   "imageID": "t4Plot"
+  },
+  "t4Plot": {
+   "type": "image",
+   "src": "media/aerofunk_192k/medium_s8_0.16.png"
+  }
+ },
+ "views": [
+  {
+   "type": "navigationBar",
+   "controls": [
+    "playback",
+    "globalVolume",
+    "looping",
+    "seekBar",
+    "timer"
+   ],
+   "repeatEnabled": true
+  },
+  {
+   "type": "perTrackImage",
+   "seekable": true,
+   "seekMarginLeft": 5.0,
+   "seekMarginRight": 7.9999999999999964
+  },
+  {
+   "type": "trackList",
+   "tracks": [
+    "t0",
+    "t1",
+    "t2",
+    "t3",
+    "t4"
+   ],
+   "soloGroup": 0
+  }
+ ]
+}</script>
+</trackswitch-player>
+<h2>codec_64k</h2>
+<trackswitch-player>
+<script type="application/json">{
+ "media": {
+  "t0": {
+   "type": "audio",
+   "title": "input",
+   "src": "../artifacts/sdedit/listen/codec_64k/input.flac",
+   "imageID": "t0Plot",
+   "solo": true
+  },
+  "t0Plot": {
+   "type": "image",
+   "src": "media/codec_64k/input.png"
+  },
+  "t1": {
+   "type": "audio",
+   "title": "master",
+   "src": "../artifacts/sdedit/listen/codec_64k/original.flac",
+   "imageID": "t1Plot"
+  },
+  "t1Plot": {
+   "type": "image",
+   "src": "media/codec_64k/original.png"
+  },
+  "t2": {
+   "type": "audio",
+   "title": "apollo",
+   "src": "../artifacts/sdedit/listen/codec_64k/apollo.flac",
+   "imageID": "t2Plot"
+  },
+  "t2Plot": {
+   "type": "image",
+   "src": "media/codec_64k/apollo.png"
+  },
+  "t3": {
+   "type": "audio",
+   "title": "sdedit small s8 0.16",
+   "src": "../artifacts/sdedit/listen/codec_64k/small-music_s8_0.16.flac",
+   "imageID": "t3Plot"
+  },
+  "t3Plot": {
+   "type": "image",
+   "src": "media/codec_64k/small-music_s8_0.16.png"
+  },
+  "t4": {
+   "type": "audio",
+   "title": "sdedit medium s8 0.16",
+   "src": "../artifacts/sdedit/listen/codec_64k/medium_s8_0.16.flac",
+   "imageID": "t4Plot"
+  },
+  "t4Plot": {
+   "type": "image",
+   "src": "media/codec_64k/medium_s8_0.16.png"
+  }
+ },
+ "views": [
+  {
+   "type": "navigationBar",
+   "controls": [
+    "playback",
+    "globalVolume",
+    "looping",
+    "seekBar",
+    "timer"
+   ],
+   "repeatEnabled": true
+  },
+  {
+   "type": "perTrackImage",
+   "seekable": true,
+   "seekMarginLeft": 5.0,
+   "seekMarginRight": 7.9999999999999964
+  },
+  {
+   "type": "trackList",
+   "tracks": [
+    "t0",
+    "t1",
+    "t2",
+    "t3",
+    "t4"
+   ],
+   "soloGroup": 0
+  }
+ ]
+}</script>
+</trackswitch-player>
+<h2>codec_128k</h2>
+<trackswitch-player>
+<script type="application/json">{
+ "media": {
+  "t0": {
+   "type": "audio",
+   "title": "input",
+   "src": "../artifacts/sdedit/listen/codec_128k/input.flac",
+   "imageID": "t0Plot",
+   "solo": true
+  },
+  "t0Plot": {
+   "type": "image",
+   "src": "media/codec_128k/input.png"
+  },
+  "t1": {
+   "type": "audio",
+   "title": "master",
+   "src": "../artifacts/sdedit/listen/codec_128k/original.flac",
+   "imageID": "t1Plot"
+  },
+  "t1Plot": {
+   "type": "image",
+   "src": "media/codec_128k/original.png"
+  },
+  "t2": {
+   "type": "audio",
+   "title": "apollo",
+   "src": "../artifacts/sdedit/listen/codec_128k/apollo.flac",
+   "imageID": "t2Plot"
+  },
+  "t2Plot": {
+   "type": "image",
+   "src": "media/codec_128k/apollo.png"
+  },
+  "t3": {
+   "type": "audio",
+   "title": "sdedit small s8 0.16",
+   "src": "../artifacts/sdedit/listen/codec_128k/small-music_s8_0.16.flac",
+   "imageID": "t3Plot"
+  },
+  "t3Plot": {
+   "type": "image",
+   "src": "media/codec_128k/small-music_s8_0.16.png"
+  },
+  "t4": {
+   "type": "audio",
+   "title": "sdedit medium s8 0.16",
+   "src": "../artifacts/sdedit/listen/codec_128k/medium_s8_0.16.flac",
+   "imageID": "t4Plot"
+  },
+  "t4Plot": {
+   "type": "image",
+   "src": "media/codec_128k/medium_s8_0.16.png"
+  }
+ },
+ "views": [
+  {
+   "type": "navigationBar",
+   "controls": [
+    "playback",
+    "globalVolume",
+    "looping",
+    "seekBar",
+    "timer"
+   ],
+   "repeatEnabled": true
+  },
+  {
+   "type": "perTrackImage",
+   "seekable": true,
+   "seekMarginLeft": 5.0,
+   "seekMarginRight": 7.9999999999999964
+  },
+  {
+   "type": "trackList",
+   "tracks": [
+    "t0",
+    "t1",
+    "t2",
+    "t3",
+    "t4"
+   ],
+   "soloGroup": 0
+  }
+ ]
+}</script>
+</trackswitch-player>
+<h2>codec_192k</h2>
+<trackswitch-player>
+<script type="application/json">{
+ "media": {
+  "t0": {
+   "type": "audio",
+   "title": "input",
+   "src": "../artifacts/sdedit/listen/codec_192k/input.flac",
+   "imageID": "t0Plot",
+   "solo": true
+  },
+  "t0Plot": {
+   "type": "image",
+   "src": "media/codec_192k/input.png"
+  },
+  "t1": {
+   "type": "audio",
+   "title": "master",
+   "src": "../artifacts/sdedit/listen/codec_192k/original.flac",
+   "imageID": "t1Plot"
+  },
+  "t1Plot": {
+   "type": "image",
+   "src": "media/codec_192k/original.png"
+  },
+  "t2": {
+   "type": "audio",
+   "title": "apollo",
+   "src": "../artifacts/sdedit/listen/codec_192k/apollo.flac",
+   "imageID": "t2Plot"
+  },
+  "t2Plot": {
+   "type": "image",
+   "src": "media/codec_192k/apollo.png"
+  },
+  "t3": {
+   "type": "audio",
+   "title": "sdedit small s8 0.16",
+   "src": "../artifacts/sdedit/listen/codec_192k/small-music_s8_0.16.flac",
+   "imageID": "t3Plot"
+  },
+  "t3Plot": {
+   "type": "image",
+   "src": "media/codec_192k/small-music_s8_0.16.png"
+  },
+  "t4": {
+   "type": "audio",
+   "title": "sdedit medium s8 0.16",
+   "src": "../artifacts/sdedit/listen/codec_192k/medium_s8_0.16.flac",
+   "imageID": "t4Plot"
+  },
+  "t4Plot": {
+   "type": "image",
+   "src": "media/codec_192k/medium_s8_0.16.png"
+  }
+ },
+ "views": [
+  {
+   "type": "navigationBar",
+   "controls": [
+    "playback",
+    "globalVolume",
+    "looping",
+    "seekBar",
+    "timer"
+   ],
+   "repeatEnabled": true
+  },
+  {
+   "type": "perTrackImage",
+   "seekable": true,
+   "seekMarginLeft": 5.0,
+   "seekMarginRight": 7.9999999999999964
+  },
+  {
+   "type": "trackList",
+   "tracks": [
+    "t0",
+    "t1",
+    "t2",
+    "t3",
+    "t4"
+   ],
+   "soloGroup": 0
+  }
+ ]
+}</script>
+</trackswitch-player>
+<script>
+if (!customElements.get(TrackSwitch.TRACKSWITCH_DEFAULT_ELEMENT_NAME)) {
+  TrackSwitch.defineTrackswitchDefaultElement();
+}
+
+// The bundle's own declarative boot never completes for parser-inserted
+// players carrying an inline config (dynamically created ones boot fine),
+// so kick each one explicitly; the element's config-load generation counter
+// makes this later call the one that wins.
+document.querySelectorAll("trackswitch-player").forEach((player) => {
+  if (!player.currentConfig) player.loadDeclarativeConfig();
+});
+
+// Collapsed sections hold their player config as an inline JSON script; the
+// player element is created around it the first time the section is opened,
+// and audio decodes on first play — memory follows what is actually
+// listened to. The config script must be inside the element before it
+// connects, so it is moved in first.
+document.querySelectorAll("details").forEach((section) => {
+  const config = section.querySelector("script[data-player-config]");
+  if (!config) return;
+  section.addEventListener("toggle", () => {
+    if (!section.open || section.dataset.loaded) return;
+    section.dataset.loaded = "1";
+    const player = document.createElement("trackswitch-player");
+    player.appendChild(config);
+    section.appendChild(player);
+  });
+});
+
+// At most one decoded player per page, torn down as soon as another one
+// STARTS loading — the freed audio does not wait for the new decode to
+// finish, so the memory peak is one decoded player plus the file currently
+// decoding, never two full players. destroyController drops the audio;
+// applyCurrentConfig re-mounts the idle UI (power button) from the same
+// config. A re-mounted player gets a fresh controller, so arming re-runs
+// from the sweep below; the "loaded" listener covers decodes faster than
+// one sweep tick.
+const unloadOtherPlayers = (active) => {
+  document.querySelectorAll("trackswitch-player").forEach((other) => {
+    if (other === active || !other.controller) return;
+    if (!other.controller.getState().isLoaded) return;
+    other.destroyController();
+    other.applyCurrentConfig();
+    delete other.dataset.soleLoadedArmed;
+  });
+};
+const armSoleLoadedPlayer = (player) => {
+  const controller = player.controller;
+  if (!controller || player.dataset.soleLoadedArmed) return;
+  player.dataset.soleLoadedArmed = "1";
+  controller.on("loaded", () => unloadOtherPlayers(player));
+};
+setInterval(() => {
+  const players = [...document.querySelectorAll("trackswitch-player")];
+  players.forEach(armSoleLoadedPlayer);
+  const loading = players.find(
+    (p) => p.controller && p.controller.getState().isLoading
+  );
+  if (loading) unloadOtherPlayers(loading);
+}, 500);
+
+</script>
+</body>
+</html>
