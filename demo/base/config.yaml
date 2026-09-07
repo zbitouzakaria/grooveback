@@ -1,11 +1,10 @@
 # The curated comparison: input / master / apollo / picked sdedits, per
-# (source x bitrate). Edit the picks as the listening verdict forms; new
-# methods get added here. Rebuild with
+# (source x bitrate) — the full tracks, straight from the listen packs.
+# Edit the picks as the listening verdict forms; new methods get added here.
 #   uv run --group notebooks python scripts/build_demo.py demo/base/config.yaml
 
 aerofunk_64k:
   dir: artifacts/sdedit/listen/aerofunk_64k
-  window_s: [0.0, 90.0]
   tracks:
     input: input.flac
     master: original.flac
@@ -15,7 +14,6 @@ aerofunk_64k:
 
 aerofunk_128k:
   dir: artifacts/sdedit/listen/aerofunk_128k
-  window_s: [0.0, 90.0]
   tracks:
     input: input.flac
     master: original.flac
@@ -25,7 +23,6 @@ aerofunk_128k:
 
 aerofunk_192k:
   dir: artifacts/sdedit/listen/aerofunk_192k
-  window_s: [0.0, 90.0]
   tracks:
     input: input.flac
     master: original.flac

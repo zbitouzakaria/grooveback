@@ -1,8 +1,8 @@
 # The working instrument: every sdedit variant in each pack, plus the
 # input / apollo / master anchors, grouped into one player per variant
-# family. No window: the full tracks, symlinked straight from the pack
-# (verified level-matched). Players load on expand and only one stays
-# decoded at a time — open only what you are comparing.
+# family — the full tracks, straight from the listen packs. Players load
+# on expand and only one stays decoded at a time — open only what you are
+# comparing.
 #   uv run --group notebooks python scripts/build_demo.py demo/sdedit/config.yaml
 
 aerofunk_64k:

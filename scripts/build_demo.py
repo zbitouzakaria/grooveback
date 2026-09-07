@@ -2,68 +2,43 @@
 
   uv run --group notebooks python scripts/build_demo.py [demo/base/config.yaml ...]
 
-No arguments: every demo/*/config.yaml. For each config: a pack with a
-`window_s` is cut and re-level-matched as one set, then written as flac; a
-pack without one serves its full tracks, symlinked straight from the
-artifacts pack behind a verified level-match gate. Every track gets one
-spectrogram PNG, and index.html — each section's trackswitch player config
-inline — lands next to the config file. Everything is regenerated on every
-run.
+No arguments: every demo/*/config.yaml. The audio is served from where the
+experiment wrote it: `demo/artifacts` is a symlink to the repo's artifacts
+directory, players reference each pack's files through it by relative URL,
+and the site root stays demo/ (`python3 -m http.server 8880 -d demo`).
+
+The script writes only pages and spectrogram PNGs — each config's media/
+directory is wiped and rebuilt from the linked pack files on every run.
+Before a pack is served, a gate proves it is one level-matched set — every
+track's integrated loudness within 0.1 LU of the others' — which is what the
+page's loudness note promises.
 
 A `tracks` mapping (label -> filename) makes one player per pack. `tracks: all`
 takes every flac in the pack and makes one player per variant family
 (`small-music_s8`, `medium-base_s50`, ...), each a noise-level sweep behind the
-input / master / apollo anchors; those players load only when their section is
-expanded, so a page over hundreds of files stays openable.
+input / master / apollo anchors; those players are created only when their
+section is expanded, and at most one keeps decoded audio at a time.
 """
 
 from __future__ import annotations
 
 import json
-import os
+import shutil
 import sys
 from html import escape
 from pathlib import Path
 
 import matplotlib
-import numpy as np
-import soundfile as sf
 from omegaconf import OmegaConf
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
 from grooveback import audio as ga  # noqa: E402
-from grooveback.evaluation import level_matched_set  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[1]
 ANCHORS = [("input", "input.flac"), ("master", "original.flac"), ("apollo", "apollo.flac")]
 """Label -> filename of the non-sdedit tracks every `tracks: all` player carries."""
-
-
-def load_window(path: Path, window_s: tuple[float, float] | None) -> tuple[np.ndarray, int]:
-    """Read `(channels, samples)` float32, only the configured window.
-
-    Reads the window directly rather than through `ga.load` so a 90 s excerpt
-    of a 360 s render does not decode the other 270 s.
-    """
-    with sf.SoundFile(str(path)) as f:
-        rate = f.samplerate
-        start, frames = 0, -1
-        if window_s is not None:
-            start_s, duration_s = window_s
-            start = int(start_s * rate)
-            frames = min(int(duration_s * rate), f.frames - start)
-        f.seek(start)
-        audio = f.read(frames=frames, dtype="float32", always_2d=True)
-    return np.ascontiguousarray(audio.T), rate
-
-
-def save_flac(path: Path, audio: np.ndarray, sample_rate: int) -> None:
-    """Write `(channels, samples)` as 24-bit flac (flac has no float subtype)."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    sf.write(str(path), audio.T, sample_rate, subtype="PCM_24")
-
 
 AX_RECT = (0.050, 0.20, 0.870, 0.72)
 """The plot box inside the figure, as fractions: left, bottom, width, height.
@@ -76,7 +51,7 @@ SEEK_MARGIN_LEFT = AX_RECT[0] * 100.0
 SEEK_MARGIN_RIGHT = (1.0 - AX_RECT[0] - AX_RECT[2]) * 100.0
 
 
-def save_spectrogram(path: Path, audio: np.ndarray, sample_rate: int) -> None:
+def save_spectrogram(path: Path, audio, sample_rate: int) -> None:
     """A labeled spectrogram figure: time and frequency axes plus a level bar.
 
     Absolute color range on every image — the -100 dB floor of
@@ -133,7 +108,7 @@ def players_of(pack_name: str, spec: dict, pack_dir: Path) -> list[tuple[str, li
     return [(pack_name, list(spec["tracks"].items()))]
 
 
-def player_config(pack_name: str, tracks: list[tuple[str, str]]) -> dict:
+def player_config(pack_name: str, tracks: list[tuple[str, str]], audio_base: str) -> dict:
     """The trackswitch player JSON: solo the first track, one image per track."""
     media, track_ids = {}, []
     for i, (label, filename) in enumerate(tracks):
@@ -141,7 +116,7 @@ def player_config(pack_name: str, tracks: list[tuple[str, str]]) -> dict:
         media[track_id] = {
             "type": "audio",
             "title": label,
-            "src": f"media/{pack_name}/{filename}",
+            "src": f"{audio_base}/{filename}",
             "imageID": f"{track_id}Plot",
             **({"solo": True} if i == 0 else {}),
         }
@@ -169,61 +144,33 @@ def player_config(pack_name: str, tracks: list[tuple[str, str]]) -> dict:
     }
 
 
-def build_media(config_dir: Path, pack_name: str, spec: dict, filenames: set[str]) -> None:
-    """One pack's media under media/{pack}: audio plus one spectrogram each.
+def build_media(config_dir: Path, pack_name: str, pack_dir: Path, filenames: set[str]) -> None:
+    """One spectrogram per track under media/{pack}, and the level gate.
 
-    A configured window is cut from every track and the excerpts re-level-
-    matched as one set with `evaluation.level_matched_set` — the packs were
-    matched over their full length, so a window can drift between tracks by
-    fractions of a dB. Without a window the pack files already are the
-    matched set, so they are symlinked instead of re-encoded, behind a gate
-    that proves it (every track within 0.1 LU of the others); this mode also
-    streams one track at a time, because a full-length 43-track pack does
-    not fit in memory as one set.
+    The audio itself is never copied or rewritten — players reference the
+    pack files where the experiment wrote them.
     """
-    pack_dir = Path(spec["dir"])
-    if not pack_dir.is_absolute():
-        pack_dir = REPO / pack_dir
-    window_s = tuple(spec["window_s"]) if "window_s" in spec else None
     media_dir = config_dir / "media" / pack_name
     media_dir.mkdir(parents=True, exist_ok=True)
 
-    if window_s is None:
-        loudness_by_file, rates, lengths = {}, set(), set()
-        for filename in sorted(filenames):
-            audio, rate = load_window(pack_dir / filename, None)
-            rates.add(rate)
-            lengths.add(audio.shape[1])
-            loudness_by_file[filename] = ga.loudness(audio, rate)
-            save_spectrogram((media_dir / filename).with_suffix(".png"), audio, rate)
-            link = media_dir / filename
-            link.unlink(missing_ok=True)
-            link.symlink_to(os.path.relpath(pack_dir / filename, media_dir))
-        spread = max(loudness_by_file.values()) - min(loudness_by_file.values())
-        if spread > 0.1:
-            raise ValueError(
-                f"{pack_dir} is not one level-matched set (loudness spans "
-                f"{spread:.2f} LU) — regenerate the listen pack before serving it."
-            )
-    else:
-        excerpts, rates = {}, set()
-        for filename in sorted(filenames):
-            excerpts[filename], rate = load_window(pack_dir / filename, window_s)
-            rates.add(rate)
-        lengths = {audio.shape[1] for audio in excerpts.values()}
-        matched = level_matched_set(excerpts, rate)
-        for filename, audio in matched.items():
-            out = media_dir / filename
-            # A symlink left by an earlier no-window build must not redirect
-            # this write into the artifacts pack.
-            out.unlink(missing_ok=True)
-            save_flac(out, audio, rate)
-            save_spectrogram(out.with_suffix(".png"), audio, rate)
+    loudness_by_file, rates, lengths = {}, set(), set()
+    for filename in sorted(filenames):
+        audio, rate = ga.load(pack_dir / filename)
+        rates.add(rate)
+        lengths.add(audio.shape[1])
+        loudness_by_file[filename] = ga.loudness(audio, rate)
+        save_spectrogram((media_dir / filename).with_suffix(".png"), audio, rate)
 
     if len(rates) != 1:
         raise ValueError(f"{pack_dir} mixes sample rates {sorted(rates)}.")
     if len(lengths) != 1:
         raise ValueError(f"{pack_dir} tracks differ in length: {sorted(lengths)} samples.")
+    spread = max(loudness_by_file.values()) - min(loudness_by_file.values())
+    if spread > 0.1:
+        raise ValueError(
+            f"{pack_dir} is not one level-matched set (loudness spans "
+            f"{spread:.2f} LU) — regenerate the listen pack before serving it."
+        )
 
 
 PAGE = """<!doctype html>
@@ -323,18 +270,28 @@ setInterval(() => {
 def build_page(config_path: Path) -> None:
     config_dir = config_path.parent
     config = OmegaConf.to_container(OmegaConf.load(config_path))
+    shutil.rmtree(config_dir / "media", ignore_errors=True)
 
     sections = []
     for pack_name, spec in config.items():
-        pack_dir = Path(spec["dir"])
-        if not pack_dir.is_absolute():
-            pack_dir = REPO / pack_dir
+        rel_dir = Path(spec["dir"])
+        if rel_dir.is_absolute():
+            if not rel_dir.is_relative_to(REPO):
+                raise ValueError(f"{rel_dir} is outside the repo; the page cannot reach it.")
+            rel_dir = rel_dir.relative_to(REPO)
+        if rel_dir.parts[0] != "artifacts":
+            raise ValueError(
+                f"{rel_dir} is not under artifacts/ — the pages reach audio only "
+                "through the demo/artifacts symlink."
+            )
+        pack_dir = REPO / rel_dir
+        audio_base = f"../{rel_dir.as_posix()}"
         players = players_of(pack_name, spec, pack_dir)
 
         filenames = {filename for _, tracks in players for _, filename in tracks}
         print(f"{config_dir.name}: {pack_name} — {len(filenames)} tracks,"
               f" {len(players)} player(s)", flush=True)
-        build_media(config_dir, pack_name, spec, filenames)
+        build_media(config_dir, pack_name, pack_dir, filenames)
 
         lazy = spec["tracks"] == "all"
         if lazy:
@@ -342,7 +299,7 @@ def build_page(config_path: Path) -> None:
         for title, tracks in players:
             # "</" cannot appear inside a script block; "<\/" is the same JSON value.
             config_json = json.dumps(
-                player_config(pack_name, tracks), indent=1
+                player_config(pack_name, tracks, audio_base), indent=1
             ).replace("</", "<\\/")
             if lazy:
                 sections.append(
@@ -365,6 +322,10 @@ def build_page(config_path: Path) -> None:
 
 
 def main() -> None:
+    link = REPO / "demo" / "artifacts"
+    if not link.is_symlink():
+        link.symlink_to(Path("..") / "artifacts")
+
     configs = [Path(arg) for arg in sys.argv[1:]] or sorted(REPO.glob("demo/*/config.yaml"))
     if not configs:
         raise SystemExit("no demo/*/config.yaml found")

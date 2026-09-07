@@ -1,9 +1,9 @@
 data/
 artifacts/
 
-# Listening pages: the flac excerpts and spectrogram PNGs rebuild from
-# artifacts/ via scripts/build_demo.py; page code and configs are committed.
-demo/**/*.flac
+# Listening pages: the audio plays straight from the artifacts packs (via
+# the demo/artifacts symlink) and the spectrograms rebuild from them with
+# scripts/build_demo.py; page code and configs are committed.
 demo/**/*.png
 
 # Python
