@@ -42,6 +42,15 @@ packs and demo content entirely.
   t ∈ {0.06, 0.10, 0.15, 0.20} at mix 0. θ is calibratable: encoding a
   master and its twin gives σ\* = RMS(Δlatents), the damage's own size on
   the schedule's scale, measured per bitrate before sweeping.
+
+  Measured (medium-base autoencoder, A100 run of 2026-09-08): σ\* = 0.80 /
+  0.54 on aerofunk 32k/64k and 0.71 / 0.57 on codec 32k/64k, against master
+  latent RMS 1.15 / 1.02 — the damage sits far above the planned θ ceiling
+  of 0.20, so the θ sweep was extended with calibrated points
+  {0.35, 0.55, 0.80} in the same run. σ\* reads the encoder's whole latent
+  displacement, which includes round-trip idiosyncrasy on top of audible
+  damage, so it is an upper bound on the θ that matters; where between 0.20
+  and σ\* the useful correction lives is what the extended sweep asks.
 - **One prompted variant**, cfg 7 (its trained regime), at n ∈ {0.15, 0.25}:
   positive prompt biased to electronic production and top-end energy,
   negative prompt naming the damage ("muffled, dull, low quality, low
