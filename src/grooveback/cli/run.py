@@ -51,7 +51,12 @@ def inference(cfg: DictConfig) -> None:
     )
 
     output_dir = Path(cfg.output_dir)
-    suffix = f"_{cfg.model.name}_{cfg.model.noise_level:.2f}.wav"
+    # t-runs are named by theta, n-runs by noise level; a run that sets both
+    # (e.g. a prompted variant) gets its own output_dir instead.
+    if cfg.model.theta is not None:
+        suffix = f"_{cfg.model.name}_t{cfg.model.theta:.2f}.wav"
+    else:
+        suffix = f"_{cfg.model.name}_n{cfg.model.noise_level:.2f}.wav"
     pending = []
     for source in audio_files(Path(cfg.input)):
         target = output_dir / (source.stem + suffix)
@@ -72,7 +77,9 @@ def inference(cfg: DictConfig) -> None:
             noise_level=cfg.model.noise_level,
             steps=steps,
             cfg_scale=cfg_scale,
+            theta=cfg.model.theta,
             prompt=cfg.model.prompt,
+            negative_prompt=cfg.model.negative_prompt,
             seed=cfg.model.seed,
         )
         ga.save(target, restored, sample_rate)

@@ -61,20 +61,38 @@ def test_sdedit_passes_input_as_channels_by_samples_tensor():
 
 
 def test_sdedit_maps_noise_level_and_sampling_settings_onto_generate():
+    """Classic SDEdit (theta unset): the schedule start and the mix are both
+    noise_level."""
     model = RecordingPrior()
     audio = np.zeros((2, 1_000), dtype=np.float32)
 
     sdedit(
         model, audio, SR,
-        noise_level=0.3, steps=50, cfg_scale=7.0, prompt="a prompt", seed=7,
+        noise_level=0.3, steps=50, cfg_scale=7.0,
+        prompt="a prompt", negative_prompt="muffled", seed=7,
     )
 
     call = model.calls[0]
     assert call["init_noise_level"] == 0.3
+    assert call["init_mix_level"] == 0.3
     assert call["steps"] == 50
     assert call["cfg_scale"] == 7.0
     assert call["prompt"] == "a prompt"
+    assert call["negative_prompt"] == "muffled"
     assert call["seed"] == 7
+
+
+def test_sdedit_theta_decouples_schedule_start_from_the_mix():
+    """theta claims the schedule time; noise_level is what actually gets
+    mixed in — noise_level 0 spends the whole budget on the damage itself."""
+    model = RecordingPrior()
+    audio = np.zeros((2, 1_000), dtype=np.float32)
+
+    sdedit(model, audio, SR, noise_level=0.0, theta=0.1, steps=50, cfg_scale=1.0)
+
+    call = model.calls[0]
+    assert call["init_noise_level"] == 0.1
+    assert call["init_mix_level"] == 0.0
 
 
 def test_sdedit_requests_the_inputs_full_length_past_the_default_clamp():
@@ -117,6 +135,29 @@ def test_noise_level_outside_unit_interval_is_rejected_before_generation(noise_l
 
     with pytest.raises(ValueError, match="noise_level"):
         sdedit(model, audio, SR, noise_level=noise_level, steps=8, cfg_scale=1.0)
+    assert model.calls == []
+
+
+@pytest.mark.parametrize("theta", [0.0, -0.1, 1.5])
+def test_theta_outside_unit_interval_is_rejected_before_generation(theta):
+    model = RecordingPrior()
+    audio = np.zeros((2, 1_000), dtype=np.float32)
+
+    with pytest.raises(ValueError, match="theta"):
+        sdedit(model, audio, SR, noise_level=0.0, theta=theta, steps=8, cfg_scale=1.0)
+    assert model.calls == []
+
+
+@pytest.mark.parametrize("noise_level", [-0.2, 1.5])
+def test_noise_level_outside_zero_one_is_rejected_when_theta_is_set(noise_level):
+    model = RecordingPrior()
+    audio = np.zeros((2, 1_000), dtype=np.float32)
+
+    with pytest.raises(ValueError, match="noise_level"):
+        sdedit(
+            model, audio, SR,
+            noise_level=noise_level, theta=0.1, steps=8, cfg_scale=1.0,
+        )
     assert model.calls == []
 
 

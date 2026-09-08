@@ -27,17 +27,26 @@ def sdedit(
     noise_level: float,
     steps: int,
     cfg_scale: float,
+    theta: float | None = None,
     prompt: str = "",
+    negative_prompt: str | None = None,
     seed: int = 0,
 ) -> np.ndarray:
     """Restore `(channels, samples)` audio by partial regeneration (SDEdit).
 
     The model encodes the input into SAME latents, mixes in noise at
-    `noise_level` — the schedule's starting sigma, so latents begin at
+    `noise_level` — latents begin at
     `input * (1 - noise_level) + noise * noise_level` — and denoises from
-    there in `steps` iterations. 1.0 regenerates everything (the input is
-    ignored); small values keep the input and reduce to the bare autoencoder
+    the schedule time `theta` down to 0 in `steps` iterations. With `theta`
+    unset (classic SDEdit) the schedule starts at `noise_level` itself:
+    1.0 regenerates everything, small values reduce to the bare autoencoder
     round-trip.
+
+    Setting `theta` above `noise_level` makes the model remove more than was
+    added — with `noise_level=0` nothing is added at all, and the θ of
+    denoising budget is spent on what already deviates from clean music: the
+    damage itself (ADR-0011). Deterministic on the -base checkpoints, whose
+    euler sampler draws no noise of its own.
 
     Output comes back at the input's integrated loudness (gain only, so peaks
     can pass full scale) — the waveform baselines' output tracks the input's
@@ -48,8 +57,17 @@ def sdedit(
         raise ValueError(
             f"SDEdit expects {PRIOR_SAMPLE_RATE} Hz, got {sample_rate} Hz."
         )
-    if not 0.0 < noise_level <= 1.0:
-        raise ValueError(f"noise_level must be in (0, 1], got {noise_level}.")
+    if theta is None:
+        if not 0.0 < noise_level <= 1.0:
+            raise ValueError(
+                f"noise_level must be in (0, 1] when theta is not set, "
+                f"got {noise_level}."
+            )
+    else:
+        if not 0.0 < theta <= 1.0:
+            raise ValueError(f"theta must be in (0, 1], got {theta}.")
+        if not 0.0 <= noise_level <= 1.0:
+            raise ValueError(f"noise_level must be in [0, 1], got {noise_level}.")
     if steps < 1:
         raise ValueError(f"steps must be a positive integer, got {steps}.")
     if not np.isfinite(audio).all():
@@ -66,6 +84,7 @@ def sdedit(
     tensor = torch.from_numpy(np.ascontiguousarray(audio))
     batch = model.generate(
         prompt=prompt,
+        negative_prompt=negative_prompt,
         # One extra sample so the output truncation's int() floor cannot
         # shave the input's last sample.
         duration=(audio.shape[-1] + 1) / sample_rate,
@@ -73,7 +92,8 @@ def sdedit(
         steps=steps,
         cfg_scale=cfg_scale,
         init_audio=(sample_rate, tensor),
-        init_noise_level=noise_level,
+        init_noise_level=theta if theta is not None else noise_level,
+        init_mix_level=noise_level,
         # The default sample_size silently truncates anything past 120 s
         # (ADR-0008). 10 s of headroom covers the schedule's 6 s duration
         # padding plus alignment rounding; the model itself takes the min.
