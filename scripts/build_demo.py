@@ -48,7 +48,8 @@ ANCHORS = [
 SWEEP_FAMILIES = {
     "n": "sdedit noise sweep",
     "t": "sdedit theta sweep",
-    "p": "sdedit prompted (cfg 7)",
+    "p": "sdedit prompted, cfg sweep at n 0.25",
+    "q": "sdedit prompted positive-only, cfg sweep at n 0.25",
 }
 """Sweep-letter of a `sdedit_{letter}{value}.flac` render -> its player section."""
 

@@ -51,12 +51,22 @@ packs and demo content entirely.
   displacement, which includes round-trip idiosyncrasy on top of audible
   damage, so it is an upper bound on the θ that matters; where between 0.20
   and σ\* the useful correction lives is what the extended sweep asks.
-- **One prompted variant**, cfg 7 (its trained regime), at n ∈ {0.15, 0.25}:
-  positive prompt biased to electronic production and top-end energy,
-  negative prompt naming the damage ("muffled, dull, low quality, low
-  bitrate mp3, bandlimited") so guidance points from the damage toward the
-  target sound. Judged mainly on aerofunk — the codec asset is not
-  electronic material.
+- **One prompted variant**, at n 0.25: positive prompt biased to electronic
+  production and top-end energy, optionally a negative prompt naming the
+  damage. Judged mainly on aerofunk — the codec asset is not electronic
+  material.
+
+  The first pass at cfg 7 failed, and the failure is a finding: guidance
+  strength is calibrated for a full schedule from pure noise, and on a
+  truncated [0.25, 0] tail the same per-step push is a several-fold
+  overdose — correlation with the input collapsed to 0.32 (unprompted at
+  the same noise: 0.96) while the top band overshot the master. Corrected
+  to a cfg sweep {2, 3.5}, with (`p`) and without (`q`) the negative
+  prompt. At cfg 2 fidelity returns (0.94–0.96) but the prompt then adds
+  almost no top-band energy; cfg 3.5 with the negative prompt still costs
+  fidelity (0.75). Prompt guidance does not buy missing high-frequency
+  energy at fidelity-safe doses on this material — the ears decide whether
+  what little it does is worth keeping.
 - **Damage**: 32 and 64 kbps LAME twins of the two sources (codec 6 s,
   aerofunk 360 s cut). The subtle tiers taught little by ear.
 - **Anchors in every listening pack**: input, master, apollo, and a2sb
