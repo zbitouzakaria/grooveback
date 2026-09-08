@@ -37,8 +37,20 @@ import matplotlib.pyplot as plt  # noqa: E402
 from grooveback import audio as ga  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[1]
-ANCHORS = [("input", "input.flac"), ("master", "original.flac"), ("apollo", "apollo.flac")]
+ANCHORS = [
+    ("input", "input.flac"),
+    ("master", "original.flac"),
+    ("apollo", "apollo.flac"),
+    ("a2sb", "a2sb.flac"),
+]
 """Label -> filename of the non-sdedit tracks every `tracks: all` player carries."""
+
+SWEEP_FAMILIES = {
+    "n": "sdedit noise sweep",
+    "t": "sdedit theta sweep",
+    "p": "sdedit prompted (cfg 7)",
+}
+"""Sweep-letter of a `sdedit_{letter}{value}.flac` render -> its player section."""
 
 AX_RECT = (0.050, 0.20, 0.870, 0.72)
 """The plot box inside the figure, as fractions: left, bottom, width, height.
@@ -80,21 +92,27 @@ def save_spectrogram(path: Path, audio, sample_rate: int) -> None:
 
 
 def variant_families(pack_dir: Path) -> dict[str, list[tuple[str, str]]]:
-    """Family -> [(label, filename)] for every non-anchor flac, by noise level.
+    """Family -> [(label, filename)] for every non-anchor flac, by sweep value.
 
-    `small-music_s8_0.16.flac` belongs to family `small-music_s8` and gets the
-    label `noise 0.16`.
+    `sdedit_n0.15.flac` belongs to the noise-sweep family with label `n 0.15`;
+    `t` is the theta sweep and `p` the prompted variant (SWEEP_FAMILIES).
     """
     anchor_files = {filename for _, filename in ANCHORS}
     families: dict[str, list[tuple[float, str, str]]] = {}
     for f in sorted(pack_dir.glob("*.flac")):
         if f.name in anchor_files:
             continue
-        family, noise = f.stem.rsplit("_", 1)
-        families.setdefault(family, []).append((float(noise), f"noise {noise}", f.name))
+        sweep = f.stem.rsplit("_", 1)[1]
+        letter, value = sweep[0], sweep[1:]
+        families.setdefault(SWEEP_FAMILIES[letter], []).append(
+            (float(value), f"{letter} {value}", f.name)
+        )
+    section_order = list(SWEEP_FAMILIES.values())
     return {
         family: [(label, name) for _, label, name in sorted(entries)]
-        for family, entries in sorted(families.items())
+        for family, entries in sorted(
+            families.items(), key=lambda item: section_order.index(item[0])
+        )
     }
 
 
