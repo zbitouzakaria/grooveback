@@ -57,6 +57,52 @@ def test_load_returns_2d_even_for_mono(tmp_path):
     assert loaded.shape == audio.shape
 
 
+def test_save_flac_pcm24_round_trip_is_transparent(tmp_path):
+    """24-bit FLAC is the benchmark's storage format. The quantization step at
+    full scale is 2^-23 ≈ 1.2e-7, so an atol of 1e-6 leaves an order of
+    magnitude of headroom while still proving nothing else changed."""
+    audio = tone(amplitude=0.5, freq=440.0, seconds=1.0)
+
+    ga.save(tmp_path / "out.flac", audio, SR, subtype="PCM_24")
+    loaded, sample_rate = ga.load(tmp_path / "out.flac")
+
+    assert sample_rate == SR
+    np.testing.assert_allclose(loaded, audio, atol=1e-6)
+
+
+def test_resample_scales_length_by_the_rate_ratio():
+    audio = tone(amplitude=0.5, seconds=1.0)
+
+    out = ga.resample(audio, sr_in=SR, sr_out=48_000)
+
+    assert out.shape == (2, 48_000)
+    assert out.dtype == np.float32
+
+
+def test_resample_returns_the_input_unchanged_when_rates_match():
+    audio = tone(amplitude=0.5, seconds=0.5)
+
+    out = ga.resample(audio, sr_in=SR, sr_out=SR)
+
+    assert out is audio
+
+
+def test_resample_round_trip_preserves_a_mid_band_tone():
+    """44.1 → 48 → 44.1 kHz through soxr VHQ leaves error around −140 dBFS on
+    an in-band tone; atol 1e-4 (−80 dBFS) is loose against that but far below
+    any codec damage being measured. The edges carry filter transients, so the
+    first and last 1000 samples stay out of the comparison."""
+    audio = tone(amplitude=0.5, freq=997.0, seconds=1.0)
+
+    up = ga.resample(audio, sr_in=SR, sr_out=48_000)
+    back = ga.resample(up, sr_in=48_000, sr_out=SR)
+
+    assert back.shape == audio.shape
+    np.testing.assert_allclose(
+        back[:, 1_000:-1_000], audio[:, 1_000:-1_000], atol=1e-4
+    )
+
+
 def test_loudness_matches_the_bs1770_sine_reference():
     """ITU-R BS.1770 documents the anchor: a 0 dBFS 997 Hz sine in a single
     channel reads -3.01 LKFS. This pins `loudness` to an oracle outside the

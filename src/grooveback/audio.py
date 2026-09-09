@@ -10,6 +10,7 @@ from pathlib import Path
 import numpy as np
 import pyloudnorm as pyln
 import soundfile as sf
+import soxr
 
 TARGET_LUFS = -14.0
 """Everything is level-matched here before any comparison. See ADR-0005."""
@@ -24,11 +25,30 @@ def load(path: str | Path) -> tuple[np.ndarray, int]:
     return np.ascontiguousarray(audio.T), sample_rate
 
 
-def save(path: str | Path, audio: np.ndarray, sample_rate: int) -> None:
-    """Write `(channels, samples)` audio, creating parent directories."""
+def save(
+    path: str | Path, audio: np.ndarray, sample_rate: int, subtype: str = "FLOAT"
+) -> None:
+    """Write `(channels, samples)` audio, creating parent directories.
+
+    The default float WAV keeps renders bit-exact; benchmark artifacts pass
+    `subtype="PCM_24"` with a `.flac` path — the 24-bit floor sits ~130 dB
+    below program level, far under anything scored or heard.
+    """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    sf.write(str(path), audio.T, sample_rate, subtype="FLOAT")
+    sf.write(str(path), audio.T, sample_rate, subtype=subtype)
+
+
+def resample(audio: np.ndarray, sr_in: int, sr_out: int) -> np.ndarray:
+    """Resample `(channels, samples)` audio with soxr at VHQ quality.
+
+    Identity when the rates already match. Torch-free, deterministic across
+    runs — this module stays importable with no GPU stack.
+    """
+    if sr_in == sr_out:
+        return audio
+    out = soxr.resample(audio.T, sr_in, sr_out, quality="VHQ").T
+    return np.ascontiguousarray(out.astype(np.float32))
 
 
 def loudness(audio: np.ndarray, sample_rate: int) -> float:

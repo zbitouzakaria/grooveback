@@ -246,14 +246,20 @@ def write_listening_pack(
     items: dict[str, np.ndarray],
     sample_rate: int,
     out_dir: str | Path,
+    suffix: str = ".wav",
     **kwargs,
 ) -> dict[str, Path]:
-    """Write a level-matched, headroom-safe set for listening."""
+    """Write a level-matched, headroom-safe set for listening.
+
+    `suffix=".flac"` writes 24-bit FLAC — at −14 LUFS the quantization floor
+    sits ~130 dB under program level, far below anything audible.
+    """
     out_dir = Path(out_dir)
     prepared = level_matched_set(items, sample_rate, **kwargs)
     written = {}
     for name, audio in prepared.items():
-        path = out_dir / f"{'mono_' if audio.shape[0] == 1 else ''}{name}.wav"
-        ga.save(path, audio, sample_rate)
+        path = out_dir / f"{'mono_' if audio.shape[0] == 1 else ''}{name}{suffix}"
+        ga.save(path, audio, sample_rate,
+                subtype="PCM_24" if suffix == ".flac" else "FLOAT")
         written[name] = path
     return written
