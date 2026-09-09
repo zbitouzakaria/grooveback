@@ -12,6 +12,9 @@ by stable-audio-3** — see ADR-0007.
 | Apollo | `third_party/apollo` (git submodule) | imported directly; chunking and its tests live in the fork |
 | A2SB | `third_party/a2sb` (gitignored clone, fork branch `runnable-anywhere`, own venv) | `baselines.run_a2sb` → its `restore.py`, behind a subprocess — its pins genuinely conflict |
 | SAME | `stable-audio-3`, a git dependency pinned by commit in `pyproject.toml` | `grooveback.latents`, in-process |
+| εar-VAE | `third_party/earvae` (git submodule; deps in group `aes`) | `grooveback.latents` registry, in-process |
+| εar-VAE2 | `third_party/earvae2` (git submodule) | `grooveback.latents` registry, in-process |
+| CoDiCodec | pip package `codicodec` (group `aes`) | `grooveback.latents` registry, in-process |
 
 ```bash
 git submodule update --init --recursive
