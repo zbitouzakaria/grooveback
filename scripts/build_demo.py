@@ -48,10 +48,16 @@ ANCHORS = [
 SWEEP_FAMILIES = {
     "n": "sdedit noise sweep",
     "t": "sdedit theta sweep",
+    "hf05t": "sdedit HF-noised 5%, theta sweep",
+    "hf10t": "sdedit HF-noised 10%, theta sweep",
+    "hf20t": "sdedit HF-noised 20%, theta sweep",
+    "hf40t": "sdedit HF-noised 40%, theta sweep",
+    "hf10n": "sdedit HF-noised 10%, noise sweep",
+    "hf20n": "sdedit HF-noised 20%, noise sweep",
     "p": "sdedit prompted, cfg sweep at n 0.25",
     "q": "sdedit prompted positive-only, cfg sweep at n 0.25",
 }
-"""Sweep-letter of a `sdedit_{letter}{value}.flac` render -> its player section."""
+"""Family of a `sdedit_{family}_{value}.flac` render -> its player section."""
 
 AX_RECT = (0.050, 0.20, 0.870, 0.72)
 """The plot box inside the figure, as fractions: left, bottom, width, height.
@@ -95,18 +101,18 @@ def save_spectrogram(path: Path, audio, sample_rate: int) -> None:
 def variant_families(pack_dir: Path) -> dict[str, list[tuple[str, str]]]:
     """Family -> [(label, filename)] for every non-anchor flac, by sweep value.
 
-    `sdedit_n0.15.flac` belongs to the noise-sweep family with label `n 0.15`;
-    `t` is the theta sweep and `p` the prompted variant (SWEEP_FAMILIES).
+    A render is named `sdedit_{family}_{value}.flac`: `sdedit_n_0.15.flac`
+    belongs to the noise sweep with label `n 0.15`; SWEEP_FAMILIES lists the
+    families and fixes the section order.
     """
     anchor_files = {filename for _, filename in ANCHORS}
     families: dict[str, list[tuple[float, str, str]]] = {}
     for f in sorted(pack_dir.glob("*.flac")):
         if f.name in anchor_files:
             continue
-        sweep = f.stem.rsplit("_", 1)[1]
-        letter, value = sweep[0], sweep[1:]
-        families.setdefault(SWEEP_FAMILIES[letter], []).append(
-            (float(value), f"{letter} {value}", f.name)
+        _, family, value = f.stem.split("_")
+        families.setdefault(SWEEP_FAMILIES[family], []).append(
+            (float(value), f"{family} {value}", f.name)
         )
     section_order = list(SWEEP_FAMILIES.values())
     return {

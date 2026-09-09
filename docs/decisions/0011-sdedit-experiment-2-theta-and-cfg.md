@@ -73,6 +73,22 @@ packs and demo content entirely.
   (cutoff pinned at the measured codec edge, run_xp convention), all
   level-matched in one set.
 
+### Band-noised inputs (added overnight, 2026-09-09, user's idea)
+
+Listening found that both sweeps preserve the codec cutoff: a bandlimited
+track is a plausible clean signal to the prior, so nothing above the edge
+reads as damage. The fix is to destroy that evidence — seeded white noise
+high-passed above the cutoff (5 kHz for 32k, 12 kHz for 64k), scaled to
+{5, 10, 20, 40}% of the track's RMS, added to the input before the θ
+variant ({0.15 … 0.70}) and a classic-n arm. Measured on aerofunk_32k at
+θ 0.35: the plain variant leaves the 11–20 kHz band at −74 dB; 10% band
+noise brings it to −40.1 dB against the master's −41.4 at correlation 0.97
+— the injected level calibrates the filled energy almost linearly. The mid
+band (5.5–11 kHz) stays several dB shy at 10% and closer at 20%, which
+suggests shaping the injected noise to the master's spectral tilt instead
+of white as the next refinement. Whether the filled band is musical
+content or polished noise is the listening question.
+
 ## Consequences
 
 - The project now depends on its own stable-audio-3 fork; the pin moves with
