@@ -4,6 +4,8 @@
 # spends the whole denoising budget on the damage itself (ADR-0011).
 
 name: sdedit
+# Project vocabulary: "base" = medium-base (50-step guided flow),
+# "inference" = medium (the post-trained 8-step checkpoint).
 variant: medium-base   # SA3 checkpoint the solver samples with (grooveback.priors)
 steps: null            # null -> the variant's default in PRIOR_VARIANTS
 cfg_scale: 1.0         # no steering toward the mean of the training captions (ADR-0011)

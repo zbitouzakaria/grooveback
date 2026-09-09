@@ -46,10 +46,12 @@ ANCHORS = [
 """Label -> filename of the non-sdedit tracks every `tracks: all` player carries."""
 
 SWEEP_FAMILIES = {
-    "n": "sdedit noise sweep",
-    "t": "sdedit theta sweep",
-    "p": "sdedit prompted, cfg sweep at n 0.25",
-    "q": "sdedit prompted positive-only, cfg sweep at n 0.25",
+    # "base" = medium-base (50-step guided flow); "inference" = the
+    # post-trained medium checkpoint, when its arms exist.
+    "base-n": "base — initial noise sweep (classic SDEdit)",
+    "base-t": "base — theta sweep (damage as noise)",
+    "inference-n": "inference — initial noise sweep (classic SDEdit)",
+    "inference-t": "inference — theta sweep (damage as noise)",
 }
 """Family of a `sdedit_{family}_{value}.flac` render -> its player section."""
 

@@ -10,8 +10,8 @@ aerofunk_32k:
     master: original.flac
     apollo: apollo.flac
     a2sb: a2sb.flac
-    sdedit n 0.50: sdedit_n_0.50.flac
-    sdedit t 0.35: sdedit_t_0.35.flac
+    base n 0.50: sdedit_base-n_0.50.flac
+    base t 0.35: sdedit_base-t_0.35.flac
 
 aerofunk_64k:
   dir: artifacts/sdedit/listen/aerofunk_64k
@@ -20,8 +20,8 @@ aerofunk_64k:
     master: original.flac
     apollo: apollo.flac
     a2sb: a2sb.flac
-    sdedit n 0.50: sdedit_n_0.50.flac
-    sdedit t 0.35: sdedit_t_0.35.flac
+    base n 0.50: sdedit_base-n_0.50.flac
+    base t 0.35: sdedit_base-t_0.35.flac
 
 codec_32k:
   dir: artifacts/sdedit/listen/codec_32k
@@ -30,8 +30,8 @@ codec_32k:
     master: original.flac
     apollo: apollo.flac
     a2sb: a2sb.flac
-    sdedit n 0.50: sdedit_n_0.50.flac
-    sdedit t 0.35: sdedit_t_0.35.flac
+    base n 0.50: sdedit_base-n_0.50.flac
+    base t 0.35: sdedit_base-t_0.35.flac
 
 codec_64k:
   dir: artifacts/sdedit/listen/codec_64k
@@ -40,5 +40,5 @@ codec_64k:
     master: original.flac
     apollo: apollo.flac
     a2sb: a2sb.flac
-    sdedit n 0.50: sdedit_n_0.50.flac
-    sdedit t 0.35: sdedit_t_0.35.flac
+    base n 0.50: sdedit_base-n_0.50.flac
+    base t 0.35: sdedit_base-t_0.35.flac
