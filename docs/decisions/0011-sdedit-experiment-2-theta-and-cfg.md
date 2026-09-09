@@ -115,6 +115,12 @@ this is not retried naively:
   posterior-sampling solver's job — noting that constraining the preferred
   (8-step, stochastic) inference model is harder than constraining base,
   a tension the next solver design has to face.
+- **Final verdict: no SDEdit-family setting is usable as restoration.**
+  Compared against apollo or the untouched input, every configuration
+  hallucinates too much to be an improvement. SDEdit work stops here; the
+  keepers are the solver/harness plumbing, the fork, the listening
+  instrument, and these findings. The next method is the
+  posterior-sampling solver.
 
 ## Consequences
 
