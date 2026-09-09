@@ -44,6 +44,8 @@ runpodctl network-volume create --name <n> --size <gb> --data-center-id <dc>
 ```
 
 Files: `scp`/`rsync` over the pod's SSH is the reliable path. `runpodctl send` / `receive` (croc) also works.
+The `runpod/pytorch` images ship **without rsync** — `apt-get install -y rsync` on the pod first, or the local
+rsync dies with `command not found` from the remote side.
 
 ## Setting up a pod
 
@@ -103,6 +105,10 @@ Decide by setup cost, not by habit:
 | | volume | why |
 |---|---|---|
 | A2SB | yes — the existing `grooveback-US-MO-1` (`18v73b8ggl`, 14 GB) | fork clone, its own venv, and checkpoints; rebuilding each time is real work, and it needs an A100 anyway |
+
+On that volume the fork lives at `/workspace/a2sb`, its venv at `/workspace/venv`, and the HF cache at
+`/workspace/hf` (export `HF_HOME=/workspace/hf`). The clone's `.venv` is a symlink that dangles after a pod
+recycles (it once pointed at container disk): re-point it with `ln -sfn /workspace/venv /workspace/a2sb/.venv`.
 | SAME-L, and anything else | **no** | setup is a git clone plus a venv that inherits the image's torch. The whole 140-window transport run, setup included, was 111 s on a fresh $0.49/h L4 |
 
 So: one volume, where the heavy setup lives, and everything else runs volume-less on whatever GPU is cheapest in any
