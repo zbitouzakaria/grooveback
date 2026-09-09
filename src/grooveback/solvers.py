@@ -1,8 +1,13 @@
-"""Restoring audio with the prior at inference time.
+"""Restoring audio with a model at inference time.
 
-A solver takes degraded audio and uses the prior (ADR-0004) to propose a
-clean version — no surrogate model, no fine-tuning, the damage is handled
-entirely at inference. SDEdit is the first solver (ADR-0009).
+A solver takes degraded audio and proposes a clean version — no surrogate
+model, no fine-tuning, the damage is handled entirely at inference. SDEdit
+was the first (ADR-0009, rejected); `roundtrip` and `latent_sub` run degraded
+audio through an autoencoder's latent space (ADR-0011).
+
+Every solver returns `(channels, samples)` float32 at the input's length and
+integrated loudness — the waveform baselines' output tracks the input's level
+by construction, while a decoder's native level drifts.
 """
 
 from __future__ import annotations
@@ -11,12 +16,78 @@ import numpy as np
 import torch
 
 from grooveback import audio as ga
+from grooveback import latents as gl
 from grooveback.priors import PRIOR_SAMPLE_RATE
 
 SDEDIT_MAX_SECONDS = 360.0
 """Whole files, one model call. The `seconds_total` conditioner is calibrated
 up to 384 s and the schedule pads 6 s past the duration (ADR-0008), so six
 minutes is the ceiling this solver accepts."""
+
+
+def _fit_to_input(out: np.ndarray, samples: int) -> np.ndarray:
+    """Trim a decoder overrun, or zero-pad a resampling shortfall, to `samples`."""
+    out = out[:, :samples]
+    if out.shape[-1] < samples:
+        out = np.pad(out, ((0, 0), (0, samples - out.shape[-1])))
+    return np.ascontiguousarray(out.astype(np.float32))
+
+
+def _match_input_loudness(out: np.ndarray, audio: np.ndarray, sample_rate: int) -> np.ndarray:
+    """Gain `out` to the input's integrated loudness (peaks may pass full scale).
+
+    Integrated loudness needs at least the meter's 400 ms block, and digital
+    silence (or DC) measures -inf; in both cases the output stays at its
+    native level instead of scaling by infinity.
+    """
+    if out.shape[-1] > int(0.4 * sample_rate):
+        target = ga.loudness(audio, sample_rate)
+        level = ga.loudness(out, sample_rate)
+        if np.isfinite(target) and np.isfinite(level):
+            out = out * np.float32(10.0 ** ((target - level) / 20.0))
+    return out
+
+
+def roundtrip(
+    model,
+    audio: np.ndarray,
+    sample_rate: int,
+    *,
+    ae: str,
+    sample: bool = False,
+    seed: int = 0,
+) -> np.ndarray:
+    """`decode(encode(x))` through one autoencoder — the cheapest restoration
+    its latent space offers: the decoder invents plausible content where the
+    input carries none (ADR-0011).
+
+    `sample=True` draws the encoder's posterior where one exists (εar-VAE,
+    εar-VAE2) instead of taking the deterministic encode.
+    """
+    latents = gl.ae_encode(ae, audio, sample_rate, model, sample=sample, seed=seed)
+    out = gl.ae_decode(ae, latents, model)
+    out = _fit_to_input(out, audio.shape[-1])
+    return _match_input_loudness(out, audio, sample_rate)
+
+
+def latent_sub(
+    model,
+    audio: np.ndarray,
+    sample_rate: int,
+    *,
+    ae: str,
+    damage: np.ndarray,
+) -> np.ndarray:
+    """Subtract a mean MP3 damage direction from the input's latents, then decode.
+
+    `damage` is a `(channels,)` vector measured on a donor track:
+    `mean_t(encode(mp3(donor)) - encode(donor))` at the input's bitrate — it
+    points clean → damaged, so subtraction moves toward clean (ADR-0011).
+    """
+    latents = gl.ae_encode(ae, audio, sample_rate, model)
+    out = gl.ae_decode(ae, gl.subtract_damage(latents, damage), model)
+    out = _fit_to_input(out, audio.shape[-1])
+    return _match_input_loudness(out, audio, sample_rate)
 
 
 def sdedit(
@@ -101,12 +172,4 @@ def sdedit(
     )
     out = batch.squeeze(0).float().cpu().numpy().astype(np.float32)
     out = np.ascontiguousarray(out[:, : audio.shape[-1]])
-    # Integrated loudness needs at least the meter's 400 ms block, and
-    # digital silence (or DC) measures -inf; in both cases the output stays
-    # at its native level instead of scaling by infinity.
-    if out.shape[-1] > int(0.4 * sample_rate):
-        target = ga.loudness(audio, sample_rate)
-        level = ga.loudness(out, sample_rate)
-        if np.isfinite(target) and np.isfinite(level):
-            out = out * np.float32(10.0 ** ((target - level) / 20.0))
-    return out
+    return _match_input_loudness(out, audio, sample_rate)

@@ -1,0 +1,8 @@
+# decode(encode(x)) through one autoencoder — the cheapest restoration its
+# latent space offers: the decoder invents plausible content where the input
+# carries none (ADR-0011).
+
+name: roundtrip
+ae: same-l        # same-l | earvae | earvae2 | codicodec (grooveback.latents)
+sample: false     # sampled posterior encode, where the model has one (earvae, earvae2)
+seed: 0
