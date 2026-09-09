@@ -1,0 +1,16 @@
+# SDEdit (Meng et al. 2022): encode the input, mix in noise at noise_level,
+# denoise with the prior from schedule time theta down to 0. theta unset ties
+# the schedule to noise_level (classic SDEdit); theta set with noise_level 0
+# spends the whole denoising budget on the damage itself (ADR-0009).
+
+name: sdedit
+# Project vocabulary: "base" = medium-base (50-step guided flow),
+# "inference" = medium (the post-trained 8-step checkpoint).
+variant: medium-base   # SA3 checkpoint the solver samples with (grooveback.priors)
+steps: null            # null -> the variant's default in PRIOR_VARIANTS
+cfg_scale: 1.0         # no steering toward the mean of the training captions (ADR-0009)
+noise_level: 0.15
+theta: null
+prompt: ""
+negative_prompt: null
+seed: 0

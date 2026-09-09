@@ -1,0 +1,10 @@
+# @package _global_
+# ADR-0009, classic SDEdit sweep: theta tied to the noise level.
+#   uv run python -m grooveback.cli.run -m xp=sdedit-noise input=data/degraded output_dir=artifacts/sdedit/base
+# The second checkpoint needs its own output_dir (filenames carry only the
+# swept value): add model.variant=medium output_dir=artifacts/sdedit/inference
+
+hydra:
+  sweeper:
+    params:
+      model.noise_level: 0.06,0.15,0.25,0.35,0.5

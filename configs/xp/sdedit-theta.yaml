@@ -1,0 +1,14 @@
+# @package _global_
+# ADR-0009, theta sweep: no noise mixed in, schedule start swept.
+# 0.001 is the round-trip anchor.
+#   uv run python -m grooveback.cli.run -m xp=sdedit-theta input=data/degraded output_dir=artifacts/sdedit/base
+# The second checkpoint needs its own output_dir (filenames carry only the
+# swept value): add model.variant=medium output_dir=artifacts/sdedit/inference
+
+model:
+  noise_level: 0
+
+hydra:
+  sweeper:
+    params:
+      model.theta: 0.001,0.06,0.1,0.15,0.2,0.25,0.35,0.45,0.55,0.7,0.8

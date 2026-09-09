@@ -37,8 +37,23 @@ import matplotlib.pyplot as plt  # noqa: E402
 from grooveback import audio as ga  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[1]
-ANCHORS = [("input", "input.flac"), ("master", "original.flac"), ("apollo", "apollo.flac")]
+ANCHORS = [
+    ("input", "input.flac"),
+    ("master", "original.flac"),
+    ("apollo", "apollo.flac"),
+    ("a2sb", "a2sb.flac"),
+]
 """Label -> filename of the non-sdedit tracks every `tracks: all` player carries."""
+
+SWEEP_FAMILIES = {
+    # "base" = medium-base (50-step guided flow); "inference" = the
+    # post-trained medium checkpoint, when its arms exist.
+    "base-n": "base — initial noise sweep (classic SDEdit)",
+    "base-t": "base — theta sweep (damage as noise)",
+    "inference-n": "inference — initial noise sweep (classic SDEdit)",
+    "inference-t": "inference — theta sweep (damage as noise)",
+}
+"""Family of a `sdedit_{family}_{value}.flac` render -> its player section."""
 
 AX_RECT = (0.050, 0.20, 0.870, 0.72)
 """The plot box inside the figure, as fractions: left, bottom, width, height.
@@ -80,21 +95,27 @@ def save_spectrogram(path: Path, audio, sample_rate: int) -> None:
 
 
 def variant_families(pack_dir: Path) -> dict[str, list[tuple[str, str]]]:
-    """Family -> [(label, filename)] for every non-anchor flac, by noise level.
+    """Family -> [(label, filename)] for every non-anchor flac, by sweep value.
 
-    `small-music_s8_0.16.flac` belongs to family `small-music_s8` and gets the
-    label `noise 0.16`.
+    A render is named `sdedit_{family}_{value}.flac`: `sdedit_n_0.15.flac`
+    belongs to the noise sweep with label `n 0.15`; SWEEP_FAMILIES lists the
+    families and fixes the section order.
     """
     anchor_files = {filename for _, filename in ANCHORS}
     families: dict[str, list[tuple[float, str, str]]] = {}
     for f in sorted(pack_dir.glob("*.flac")):
         if f.name in anchor_files:
             continue
-        family, noise = f.stem.rsplit("_", 1)
-        families.setdefault(family, []).append((float(noise), f"noise {noise}", f.name))
+        _, family, value = f.stem.split("_")
+        families.setdefault(SWEEP_FAMILIES[family], []).append(
+            (float(value), f"{family} {value}", f.name)
+        )
+    section_order = list(SWEEP_FAMILIES.values())
     return {
         family: [(label, name) for _, label, name in sorted(entries)]
-        for family, entries in sorted(families.items())
+        for family, entries in sorted(
+            families.items(), key=lambda item: section_order.index(item[0])
+        )
     }
 
 
