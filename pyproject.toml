@@ -22,6 +22,8 @@ dependencies = [
     # Pins torch/torchaudio to ==2.7.1 for the whole project.
     "stable-audio-3",
     "fast-bss-eval>=0.1.4",
+    "soxr>=0.5",
+    "einops>=0.8",
 ]
 
 [tool.uv.sources]
@@ -54,6 +56,14 @@ explicit = true
 dev = [
     "pytest>=8",
     "ruff",
+]
+# The extra autoencoders benchmarked in ADR-0011. εar-VAE's model code imports
+# dac and alias_free_torch; CoDiCodec is its own package. All resolve under the
+# stable-audio-3 torch pin, so they run in-process (no isolated venv needed).
+aes = [
+    "descript-audio-codec>=1.0",
+    "alias-free-torch>=0.0.6",
+    "codicodec>=0.1.2",
 ]
 notebooks = [
     "librosa>=0.10",

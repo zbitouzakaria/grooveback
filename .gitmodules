@@ -2,3 +2,9 @@
 	path = third_party/apollo
 	url = https://github.com/zbitouzakaria/Apollo.git
 	branch = midpoint-chunk-handoff
+[submodule "third_party/earvae2"]
+	path = third_party/earvae2
+	url = https://github.com/Eps-Acoustic-Revolution-Lab/EAR_VAE2
+[submodule "third_party/earvae"]
+	path = third_party/earvae
+	url = https://github.com/Eps-Acoustic-Revolution-Lab/EAR_VAE
