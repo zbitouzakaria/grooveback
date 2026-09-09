@@ -20,6 +20,105 @@
 <p class="note">Every track is level-matched to −14 LUFS with one common headroom gain per
 player, master included. Solo is exclusive: keys 1–9 or a click switch tracks in place.
 Space plays, R toggles repeat, loop a section with the loop controls or A/B/L.</p>
+<h2>aerofunk_32k</h2>
+<trackswitch-player>
+<script type="application/json">{
+ "media": {
+  "t0": {
+   "type": "audio",
+   "title": "input",
+   "src": "../artifacts/sdedit/listen/aerofunk_32k/input.flac",
+   "imageID": "t0Plot",
+   "solo": true
+  },
+  "t0Plot": {
+   "type": "image",
+   "src": "media/aerofunk_32k/input.png"
+  },
+  "t1": {
+   "type": "audio",
+   "title": "master",
+   "src": "../artifacts/sdedit/listen/aerofunk_32k/original.flac",
+   "imageID": "t1Plot"
+  },
+  "t1Plot": {
+   "type": "image",
+   "src": "media/aerofunk_32k/original.png"
+  },
+  "t2": {
+   "type": "audio",
+   "title": "apollo",
+   "src": "../artifacts/sdedit/listen/aerofunk_32k/apollo.flac",
+   "imageID": "t2Plot"
+  },
+  "t2Plot": {
+   "type": "image",
+   "src": "media/aerofunk_32k/apollo.png"
+  },
+  "t3": {
+   "type": "audio",
+   "title": "a2sb",
+   "src": "../artifacts/sdedit/listen/aerofunk_32k/a2sb.flac",
+   "imageID": "t3Plot"
+  },
+  "t3Plot": {
+   "type": "image",
+   "src": "media/aerofunk_32k/a2sb.png"
+  },
+  "t4": {
+   "type": "audio",
+   "title": "base n 0.50",
+   "src": "../artifacts/sdedit/listen/aerofunk_32k/sdedit_base-n_0.50.flac",
+   "imageID": "t4Plot"
+  },
+  "t4Plot": {
+   "type": "image",
+   "src": "media/aerofunk_32k/sdedit_base-n_0.50.png"
+  },
+  "t5": {
+   "type": "audio",
+   "title": "base t 0.35",
+   "src": "../artifacts/sdedit/listen/aerofunk_32k/sdedit_base-t_0.35.flac",
+   "imageID": "t5Plot"
+  },
+  "t5Plot": {
+   "type": "image",
+   "src": "media/aerofunk_32k/sdedit_base-t_0.35.png"
+  }
+ },
+ "views": [
+  {
+   "type": "navigationBar",
+   "controls": [
+    "playback",
+    "globalVolume",
+    "looping",
+    "seekBar",
+    "timer"
+   ],
+   "repeatEnabled": true
+  },
+  {
+   "type": "perTrackImage",
+   "seekable": true,
+   "seekMarginLeft": 5.0,
+   "seekMarginRight": 7.9999999999999964
+  },
+  {
+   "type": "trackList",
+   "tracks": [
+    "t0",
+    "t1",
+    "t2",
+    "t3",
+    "t4",
+    "t5"
+   ],
+   "soloGroup": 0
+  }
+ ]
+}</script>
+</trackswitch-player>
 <h2>aerofunk_64k</h2>
 <trackswitch-player>
 <script type="application/json">{
@@ -57,23 +156,33 @@ Space plays, R toggles repeat, loop a section with the loop controls or A/B/L.</
   },
   "t3": {
    "type": "audio",
-   "title": "sdedit small s8 0.16",
-   "src": "../artifacts/sdedit/listen/aerofunk_64k/small-music_s8_0.16.flac",
+   "title": "a2sb",
+   "src": "../artifacts/sdedit/listen/aerofunk_64k/a2sb.flac",
    "imageID": "t3Plot"
   },
   "t3Plot": {
    "type": "image",
-   "src": "media/aerofunk_64k/small-music_s8_0.16.png"
+   "src": "media/aerofunk_64k/a2sb.png"
   },
   "t4": {
    "type": "audio",
-   "title": "sdedit medium s8 0.16",
-   "src": "../artifacts/sdedit/listen/aerofunk_64k/medium_s8_0.16.flac",
+   "title": "base n 0.50",
+   "src": "../artifacts/sdedit/listen/aerofunk_64k/sdedit_base-n_0.50.flac",
    "imageID": "t4Plot"
   },
   "t4Plot": {
    "type": "image",
-   "src": "media/aerofunk_64k/medium_s8_0.16.png"
+   "src": "media/aerofunk_64k/sdedit_base-n_0.50.png"
+  },
+  "t5": {
+   "type": "audio",
+   "title": "base t 0.35",
+   "src": "../artifacts/sdedit/listen/aerofunk_64k/sdedit_base-t_0.35.flac",
+   "imageID": "t5Plot"
+  },
+  "t5Plot": {
+   "type": "image",
+   "src": "media/aerofunk_64k/sdedit_base-t_0.35.png"
   }
  },
  "views": [
@@ -101,67 +210,78 @@ Space plays, R toggles repeat, loop a section with the loop controls or A/B/L.</
     "t1",
     "t2",
     "t3",
-    "t4"
+    "t4",
+    "t5"
    ],
    "soloGroup": 0
   }
  ]
 }</script>
 </trackswitch-player>
-<h2>aerofunk_128k</h2>
+<h2>codec_32k</h2>
 <trackswitch-player>
 <script type="application/json">{
  "media": {
   "t0": {
    "type": "audio",
    "title": "input",
-   "src": "../artifacts/sdedit/listen/aerofunk_128k/input.flac",
+   "src": "../artifacts/sdedit/listen/codec_32k/input.flac",
    "imageID": "t0Plot",
    "solo": true
   },
   "t0Plot": {
    "type": "image",
-   "src": "media/aerofunk_128k/input.png"
+   "src": "media/codec_32k/input.png"
   },
   "t1": {
    "type": "audio",
    "title": "master",
-   "src": "../artifacts/sdedit/listen/aerofunk_128k/original.flac",
+   "src": "../artifacts/sdedit/listen/codec_32k/original.flac",
    "imageID": "t1Plot"
   },
   "t1Plot": {
    "type": "image",
-   "src": "media/aerofunk_128k/original.png"
+   "src": "media/codec_32k/original.png"
   },
   "t2": {
    "type": "audio",
    "title": "apollo",
-   "src": "../artifacts/sdedit/listen/aerofunk_128k/apollo.flac",
+   "src": "../artifacts/sdedit/listen/codec_32k/apollo.flac",
    "imageID": "t2Plot"
   },
   "t2Plot": {
    "type": "image",
-   "src": "media/aerofunk_128k/apollo.png"
+   "src": "media/codec_32k/apollo.png"
   },
   "t3": {
    "type": "audio",
-   "title": "sdedit small s8 0.16",
-   "src": "../artifacts/sdedit/listen/aerofunk_128k/small-music_s8_0.16.flac",
+   "title": "a2sb",
+   "src": "../artifacts/sdedit/listen/codec_32k/a2sb.flac",
    "imageID": "t3Plot"
   },
   "t3Plot": {
    "type": "image",
-   "src": "media/aerofunk_128k/small-music_s8_0.16.png"
+   "src": "media/codec_32k/a2sb.png"
   },
   "t4": {
    "type": "audio",
-   "title": "sdedit medium s8 0.16",
-   "src": "../artifacts/sdedit/listen/aerofunk_128k/medium_s8_0.16.flac",
+   "title": "base n 0.50",
+   "src": "../artifacts/sdedit/listen/codec_32k/sdedit_base-n_0.50.flac",
    "imageID": "t4Plot"
   },
   "t4Plot": {
    "type": "image",
-   "src": "media/aerofunk_128k/medium_s8_0.16.png"
+   "src": "media/codec_32k/sdedit_base-n_0.50.png"
+  },
+  "t5": {
+   "type": "audio",
+   "title": "base t 0.35",
+   "src": "../artifacts/sdedit/listen/codec_32k/sdedit_base-t_0.35.flac",
+   "imageID": "t5Plot"
+  },
+  "t5Plot": {
+   "type": "image",
+   "src": "media/codec_32k/sdedit_base-t_0.35.png"
   }
  },
  "views": [
@@ -189,95 +309,8 @@ Space plays, R toggles repeat, loop a section with the loop controls or A/B/L.</
     "t1",
     "t2",
     "t3",
-    "t4"
-   ],
-   "soloGroup": 0
-  }
- ]
-}</script>
-</trackswitch-player>
-<h2>aerofunk_192k</h2>
-<trackswitch-player>
-<script type="application/json">{
- "media": {
-  "t0": {
-   "type": "audio",
-   "title": "input",
-   "src": "../artifacts/sdedit/listen/aerofunk_192k/input.flac",
-   "imageID": "t0Plot",
-   "solo": true
-  },
-  "t0Plot": {
-   "type": "image",
-   "src": "media/aerofunk_192k/input.png"
-  },
-  "t1": {
-   "type": "audio",
-   "title": "master",
-   "src": "../artifacts/sdedit/listen/aerofunk_192k/original.flac",
-   "imageID": "t1Plot"
-  },
-  "t1Plot": {
-   "type": "image",
-   "src": "media/aerofunk_192k/original.png"
-  },
-  "t2": {
-   "type": "audio",
-   "title": "apollo",
-   "src": "../artifacts/sdedit/listen/aerofunk_192k/apollo.flac",
-   "imageID": "t2Plot"
-  },
-  "t2Plot": {
-   "type": "image",
-   "src": "media/aerofunk_192k/apollo.png"
-  },
-  "t3": {
-   "type": "audio",
-   "title": "sdedit small s8 0.16",
-   "src": "../artifacts/sdedit/listen/aerofunk_192k/small-music_s8_0.16.flac",
-   "imageID": "t3Plot"
-  },
-  "t3Plot": {
-   "type": "image",
-   "src": "media/aerofunk_192k/small-music_s8_0.16.png"
-  },
-  "t4": {
-   "type": "audio",
-   "title": "sdedit medium s8 0.16",
-   "src": "../artifacts/sdedit/listen/aerofunk_192k/medium_s8_0.16.flac",
-   "imageID": "t4Plot"
-  },
-  "t4Plot": {
-   "type": "image",
-   "src": "media/aerofunk_192k/medium_s8_0.16.png"
-  }
- },
- "views": [
-  {
-   "type": "navigationBar",
-   "controls": [
-    "playback",
-    "globalVolume",
-    "looping",
-    "seekBar",
-    "timer"
-   ],
-   "repeatEnabled": true
-  },
-  {
-   "type": "perTrackImage",
-   "seekable": true,
-   "seekMarginLeft": 5.0,
-   "seekMarginRight": 7.9999999999999964
-  },
-  {
-   "type": "trackList",
-   "tracks": [
-    "t0",
-    "t1",
-    "t2",
-    "t3",
-    "t4"
+    "t4",
+    "t5"
    ],
    "soloGroup": 0
   }
@@ -321,23 +354,33 @@ Space plays, R toggles repeat, loop a section with the loop controls or A/B/L.</
   },
   "t3": {
    "type": "audio",
-   "title": "sdedit small s8 0.16",
-   "src": "../artifacts/sdedit/listen/codec_64k/small-music_s8_0.16.flac",
+   "title": "a2sb",
+   "src": "../artifacts/sdedit/listen/codec_64k/a2sb.flac",
    "imageID": "t3Plot"
   },
   "t3Plot": {
    "type": "image",
-   "src": "media/codec_64k/small-music_s8_0.16.png"
+   "src": "media/codec_64k/a2sb.png"
   },
   "t4": {
    "type": "audio",
-   "title": "sdedit medium s8 0.16",
-   "src": "../artifacts/sdedit/listen/codec_64k/medium_s8_0.16.flac",
+   "title": "base n 0.50",
+   "src": "../artifacts/sdedit/listen/codec_64k/sdedit_base-n_0.50.flac",
    "imageID": "t4Plot"
   },
   "t4Plot": {
    "type": "image",
-   "src": "media/codec_64k/medium_s8_0.16.png"
+   "src": "media/codec_64k/sdedit_base-n_0.50.png"
+  },
+  "t5": {
+   "type": "audio",
+   "title": "base t 0.35",
+   "src": "../artifacts/sdedit/listen/codec_64k/sdedit_base-t_0.35.flac",
+   "imageID": "t5Plot"
+  },
+  "t5Plot": {
+   "type": "image",
+   "src": "media/codec_64k/sdedit_base-t_0.35.png"
   }
  },
  "views": [
@@ -365,183 +408,8 @@ Space plays, R toggles repeat, loop a section with the loop controls or A/B/L.</
     "t1",
     "t2",
     "t3",
-    "t4"
-   ],
-   "soloGroup": 0
-  }
- ]
-}</script>
-</trackswitch-player>
-<h2>codec_128k</h2>
-<trackswitch-player>
-<script type="application/json">{
- "media": {
-  "t0": {
-   "type": "audio",
-   "title": "input",
-   "src": "../artifacts/sdedit/listen/codec_128k/input.flac",
-   "imageID": "t0Plot",
-   "solo": true
-  },
-  "t0Plot": {
-   "type": "image",
-   "src": "media/codec_128k/input.png"
-  },
-  "t1": {
-   "type": "audio",
-   "title": "master",
-   "src": "../artifacts/sdedit/listen/codec_128k/original.flac",
-   "imageID": "t1Plot"
-  },
-  "t1Plot": {
-   "type": "image",
-   "src": "media/codec_128k/original.png"
-  },
-  "t2": {
-   "type": "audio",
-   "title": "apollo",
-   "src": "../artifacts/sdedit/listen/codec_128k/apollo.flac",
-   "imageID": "t2Plot"
-  },
-  "t2Plot": {
-   "type": "image",
-   "src": "media/codec_128k/apollo.png"
-  },
-  "t3": {
-   "type": "audio",
-   "title": "sdedit small s8 0.16",
-   "src": "../artifacts/sdedit/listen/codec_128k/small-music_s8_0.16.flac",
-   "imageID": "t3Plot"
-  },
-  "t3Plot": {
-   "type": "image",
-   "src": "media/codec_128k/small-music_s8_0.16.png"
-  },
-  "t4": {
-   "type": "audio",
-   "title": "sdedit medium s8 0.16",
-   "src": "../artifacts/sdedit/listen/codec_128k/medium_s8_0.16.flac",
-   "imageID": "t4Plot"
-  },
-  "t4Plot": {
-   "type": "image",
-   "src": "media/codec_128k/medium_s8_0.16.png"
-  }
- },
- "views": [
-  {
-   "type": "navigationBar",
-   "controls": [
-    "playback",
-    "globalVolume",
-    "looping",
-    "seekBar",
-    "timer"
-   ],
-   "repeatEnabled": true
-  },
-  {
-   "type": "perTrackImage",
-   "seekable": true,
-   "seekMarginLeft": 5.0,
-   "seekMarginRight": 7.9999999999999964
-  },
-  {
-   "type": "trackList",
-   "tracks": [
-    "t0",
-    "t1",
-    "t2",
-    "t3",
-    "t4"
-   ],
-   "soloGroup": 0
-  }
- ]
-}</script>
-</trackswitch-player>
-<h2>codec_192k</h2>
-<trackswitch-player>
-<script type="application/json">{
- "media": {
-  "t0": {
-   "type": "audio",
-   "title": "input",
-   "src": "../artifacts/sdedit/listen/codec_192k/input.flac",
-   "imageID": "t0Plot",
-   "solo": true
-  },
-  "t0Plot": {
-   "type": "image",
-   "src": "media/codec_192k/input.png"
-  },
-  "t1": {
-   "type": "audio",
-   "title": "master",
-   "src": "../artifacts/sdedit/listen/codec_192k/original.flac",
-   "imageID": "t1Plot"
-  },
-  "t1Plot": {
-   "type": "image",
-   "src": "media/codec_192k/original.png"
-  },
-  "t2": {
-   "type": "audio",
-   "title": "apollo",
-   "src": "../artifacts/sdedit/listen/codec_192k/apollo.flac",
-   "imageID": "t2Plot"
-  },
-  "t2Plot": {
-   "type": "image",
-   "src": "media/codec_192k/apollo.png"
-  },
-  "t3": {
-   "type": "audio",
-   "title": "sdedit small s8 0.16",
-   "src": "../artifacts/sdedit/listen/codec_192k/small-music_s8_0.16.flac",
-   "imageID": "t3Plot"
-  },
-  "t3Plot": {
-   "type": "image",
-   "src": "media/codec_192k/small-music_s8_0.16.png"
-  },
-  "t4": {
-   "type": "audio",
-   "title": "sdedit medium s8 0.16",
-   "src": "../artifacts/sdedit/listen/codec_192k/medium_s8_0.16.flac",
-   "imageID": "t4Plot"
-  },
-  "t4Plot": {
-   "type": "image",
-   "src": "media/codec_192k/medium_s8_0.16.png"
-  }
- },
- "views": [
-  {
-   "type": "navigationBar",
-   "controls": [
-    "playback",
-    "globalVolume",
-    "looping",
-    "seekBar",
-    "timer"
-   ],
-   "repeatEnabled": true
-  },
-  {
-   "type": "perTrackImage",
-   "seekable": true,
-   "seekMarginLeft": 5.0,
-   "seekMarginRight": 7.9999999999999964
-  },
-  {
-   "type": "trackList",
-   "tracks": [
-    "t0",
-    "t1",
-    "t2",
-    "t3",
-    "t4"
+    "t4",
+    "t5"
    ],
    "soloGroup": 0
   }
