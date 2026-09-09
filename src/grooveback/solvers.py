@@ -45,7 +45,7 @@ def sdedit(
     Setting `theta` above `noise_level` makes the model remove more than was
     added — with `noise_level=0` nothing is added at all, and the θ of
     denoising budget is spent on what already deviates from clean music: the
-    damage itself (ADR-0011). Deterministic on the -base checkpoints, whose
+    damage itself (ADR-0009). Deterministic on the -base checkpoints, whose
     euler sampler draws no noise of its own.
 
     Output comes back at the input's integrated loudness (gain only, so peaks

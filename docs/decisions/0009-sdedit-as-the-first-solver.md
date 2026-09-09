@@ -1,66 +1,100 @@
 # 9. SDEdit as the first solver
 
-Date: 2026-09-07
+Date: 2026-09-07, concluded 2026-09-09
 
 ## Status
 
-Accepted
+Accepted, and concluded: the method is rejected as restoration. This record
+absorbs the former ADR-0011 and keeps the findings.
 
 ## Context
 
-The baseline phase is closed (ADR-0005 → 0006/0007/0008). The next phase is
-using the prior at inference time: given a degraded file, steer the
-generative model toward a clean track that could have produced it (ADR-0004).
-The full posterior-sampling methods (the DPS/DAPS/LOUDAR line) need an
-operator model and solver machinery; before building any of that, the
-restoration chain itself — degraded audio → SAME latents → noise → denoise
-with the prior → decode → listen — should exist and be exercised end to end.
+The baseline phase (ADR-0005 → 0008) measured the existing tools. Apollo is
+a network trained on pairs: damaged audio in, repaired audio out, one pass.
+Our prior (ADR-0004) is a different kind of model. It has only ever seen
+clean music, and it *generates* it: starting from pure noise, it removes
+noise over many small steps, following an internal clock that runs from 1
+(all noise) to 0 (finished music). It knows nothing about MP3s.
 
-## Decision
+SDEdit is the cheapest way to point such a generator at restoration — no
+surrogate model, no fine-tuning — so it went first: to stand the whole
+inference chain up, and to find out where the ceiling of this method is.
 
-SDEdit (Meng et al. 2022) is the first solver: encode the input, mix in
-noise at a chosen level, and denoise with the base Stable Audio 3 checkpoint
-from there. Nothing is trained — no surrogate, no fine-tuning; the noise
-level is the whole method. `stable-audio-3` implements it natively
-(`init_audio` + `init_noise_level`, the schedule's starting sigma), so
-`grooveback.solvers.sdedit` is a thin wrapper and the work is the harness.
+## The method, in plain terms
 
-- **One Hydra entry point**, `grooveback.cli.run`: a `mode` argument names
-  the run type (only `inference` exists), a `model` config group selects the
-  method and carries its parameters — a future solver is `model=dps` plus a
-  yaml. Input is a file or a folder; each file is restored whole and written
-  to the output dir under its own name plus `_{method}_{noise_level}`. One
-  noise level per run; sweeps are multiruns sharing an output dir.
-- **Whole files, up to 6 minutes.** The `seconds_total` conditioner is
-  calibrated to 384 s (ADR-0008); the solver refuses longer input rather
-  than silently truncating. For the small variants this runs past their
-  120 s trained window — a deliberate experiment; `medium` covers 6 minutes
-  inside its trained length.
-- **Empty prompt by default.** What the init audio alone contributes comes
-  first; text conditioning is an override to explore later.
-- **No scoring in the chain.** Degraded material (64/128/192 kbps MP3s of
-  the codec asset and a 6-minute aerofunk cut) is prepared once with ffmpeg;
-  renders are judged by level-matched listening (audio.md). The one
-  mechanical gate: over a noise-level sweep, MSE(render, input) must rise
-  monotonically with the noise level — more starting noise regenerates more
-  — which catches a backwards noise mapping or an ignored init.
+**Classic SDEdit.** Mix some noise into the damaged track and drop it into
+the generator partway through its process. With noise amount n = 0.25 the
+model is told "you are at time 0.25" and runs its usual steps down to 0.
+Whatever the noise destroyed, it rebuilds — and it rebuilds it as the clean
+music it knows. One number does two jobs here: how much of the track gets
+destroyed, and how much rebuilding the model performs. To repair more
+damage you must first destroy more of the track. That trade is built in.
+
+**The theta variant.** Split the two jobs. Mix in no noise at all, but
+still tell the model "you are at time θ" (say 0.35). It now spends 0.35
+worth of rebuilding on a track that contains no added noise — so the only
+thing it can treat as noise is whatever already deviates from clean music:
+the codec damage itself. And because nothing random is added, the output is
+a deterministic function of the input: run it twice, get the same file
+(verified bit-identical).
+
+The vendor's code cannot express this — one parameter drives both jobs — so
+the project runs a small fork of `stable-audio-3` that adds
+`init_mix_level`. One detail cost a day: at time θ the model expects the
+track scaled down by (1 − θ), because that is how every training example
+looked. The fork's first version skipped that scaling, so every θ render
+handed the model a full-volume track at a time where it expected a quieter
+one, and the results were incoherent. The fix is one word — scale by the
+schedule's value, not the mix's — and with it θ renders are coherent.
+
+## What was run
+
+Two checkpoints of the medium model — "base" (50 careful steps, steerable
+by prompts) and "inference" (the 8-step version the paper tuned for sound
+quality) — on heavily damaged input: 32 and 64 kbps MP3 twins of two tracks
+with known masters. Sweeps of n and θ, a text-prompted arm, an attempt to
+fill the dead band by adding noise only above the codec cutoff, and apollo
+and a2sb rendered on the same inputs as anchors. Everything ends in
+level-matched listening packs behind the demo pages (ADR-0010).
+
+## Findings
+
+- **The prior keeps anything that is plausible music.** A track with no top
+  end is plausible music. A track with hiss on top is also plausible music.
+  So no setting ever fills the band the codec removed, and noise injected
+  into that band comes back as noise. A generative prior only replaces what
+  it can recognize as not-music, and almost nothing about codec damage
+  qualifies.
+- **The damage is large in the model's own units.** Encoding a master and
+  its MP3 twin and measuring the distance (σ\*) gives 0.54–0.80 on a scale
+  where 1.0 means all noise — far past the noise levels a track survives
+  (n above ~0.25 already drifts audibly away from the input).
+- **Prompt guidance is far too strong for a shortened run.** cfg 7 is
+  calibrated for the full process from pure noise; on SDEdit's short tail
+  it wrecks the track (input correlation 0.96 → 0.32) while adding energy
+  everywhere. At doses that preserve the track, prompts change nothing.
+- **Quality and faithfulness split by damage level.** On heavy damage the
+  inference checkpoint sounds clearly better while following the input less
+  (correlation ~0.90 against base's ~0.97). On the light damage of the
+  first experiment, that same freedom read as hallucinated detail. Which
+  prior fits depends on how much of the input deserves keeping.
+- **Verdict: rejected.** Compared with apollo or with the untouched input,
+  every configuration hallucinates too much to be an improvement.
 
 ## Consequences
 
-- The whole inference path of ADR-0004 exists and is parametrized; every
-  later solver reuses the harness and replaces only the model group.
-- Expected failure mode, accepted going in: one global noise level erases
-  in-band detail it should keep while inventing what is missing — SDEdit
-  has no mechanism to stay consistent with the observation. Where the sweep
-  lands between "still degraded" and "no longer the same track" is exactly
-  the finding to record.
-- At noise level → 0 the chain reduces to the bare autoencoder round-trip,
-  the benchmark's `same-s` row (ADR-0007) — a known answer that verifies
-  the wiring.
+- Kept: the solver and Hydra harness (a new method is one config group and
+  one function), the stable-audio-3 fork, the anchored listening packs,
+  and these findings.
+- Next: a solver that carries an observation constraint — the prior
+  proposes full-band music while being held to "your lowpass must match the
+  input" (the DPS/DAPS/LOUDAR line, per ADR-0004). That is the only shape
+  in this family that can invent the missing band without permission to
+  invent everywhere. Its first design question is posed by the findings:
+  the easier model to constrain (base) is not the better-sounding one
+  (inference).
 
 ## Revisit triggers
 
-- Listening results land → record findings, and pick the posterior-sampling
-  solver work that follows.
-- A setting worth keeping emerges → promote it into the ADR-0007 benchmark
-  as a named method.
+- A fine-tuned prior exists → the same sweeps become a cheap re-test.
+- Upstream stable-audio-3 moves → rebase the fork.
