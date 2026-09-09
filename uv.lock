@@ -694,7 +694,7 @@ requires-dist = [
     { name = "omegaconf", specifier = ">=2.3" },
     { name = "pyloudnorm", specifier = ">=0.1.1" },
     { name = "soundfile", specifier = ">=0.12" },
-    { name = "stable-audio-3", git = "https://github.com/zbitouzakaria/stable-audio-3.git?rev=3513afc6711acf1bda946c646b7b95fc42c39730" },
+    { name = "stable-audio-3", git = "https://github.com/zbitouzakaria/stable-audio-3.git?rev=b0a90b91c5e2980a2e9876fc516733ece0eec797" },
     { name = "torch", marker = "platform_machine != 'x86_64' or sys_platform != 'linux'", specifier = ">=2.2", index = "https://pypi.org/simple" },
     { name = "torch", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'", specifier = ">=2.2", index = "https://download.pytorch.org/whl/cu126" },
     { name = "torchaudio", marker = "platform_machine != 'x86_64' or sys_platform != 'linux'", specifier = ">=2.2", index = "https://pypi.org/simple" },
@@ -2767,7 +2767,7 @@ wheels = [
 [[package]]
 name = "stable-audio-3"
 version = "0.1.0"
-source = { git = "https://github.com/zbitouzakaria/stable-audio-3.git?rev=3513afc6711acf1bda946c646b7b95fc42c39730#3513afc6711acf1bda946c646b7b95fc42c39730" }
+source = { git = "https://github.com/zbitouzakaria/stable-audio-3.git?rev=b0a90b91c5e2980a2e9876fc516733ece0eec797#b0a90b91c5e2980a2e9876fc516733ece0eec797" }
 dependencies = [
     { name = "einops" },
     { name = "einops-exts" },

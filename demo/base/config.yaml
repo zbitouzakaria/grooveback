@@ -12,8 +12,6 @@ aerofunk_32k:
     a2sb: a2sb.flac
     sdedit n 0.50: sdedit_n_0.50.flac
     sdedit t 0.35: sdedit_t_0.35.flac
-    sdedit hf10 t 0.35: sdedit_hf10t_0.35.flac
-    sdedit hf20 t 0.35: sdedit_hf20t_0.35.flac
 
 aerofunk_64k:
   dir: artifacts/sdedit/listen/aerofunk_64k
@@ -24,8 +22,6 @@ aerofunk_64k:
     a2sb: a2sb.flac
     sdedit n 0.50: sdedit_n_0.50.flac
     sdedit t 0.35: sdedit_t_0.35.flac
-    sdedit hf10 t 0.35: sdedit_hf10t_0.35.flac
-    sdedit hf20 t 0.35: sdedit_hf20t_0.35.flac
 
 codec_32k:
   dir: artifacts/sdedit/listen/codec_32k
@@ -36,8 +32,6 @@ codec_32k:
     a2sb: a2sb.flac
     sdedit n 0.50: sdedit_n_0.50.flac
     sdedit t 0.35: sdedit_t_0.35.flac
-    sdedit hf10 t 0.35: sdedit_hf10t_0.35.flac
-    sdedit hf20 t 0.35: sdedit_hf20t_0.35.flac
 
 codec_64k:
   dir: artifacts/sdedit/listen/codec_64k
@@ -48,5 +42,3 @@ codec_64k:
     a2sb: a2sb.flac
     sdedit n 0.50: sdedit_n_0.50.flac
     sdedit t 0.35: sdedit_t_0.35.flac
-    sdedit hf10 t 0.35: sdedit_hf10t_0.35.flac
-    sdedit hf20 t 0.35: sdedit_hf20t_0.35.flac

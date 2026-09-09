@@ -73,21 +73,30 @@ packs and demo content entirely.
   (cutoff pinned at the measured codec edge, run_xp convention), all
   level-matched in one set.
 
-### Band-noised inputs (added overnight, 2026-09-09, user's idea)
+### Band-noised inputs: tried, failed, removed (2026-09-09)
 
-Listening found that both sweeps preserve the codec cutoff: a bandlimited
-track is a plausible clean signal to the prior, so nothing above the edge
-reads as damage. The fix is to destroy that evidence — seeded white noise
-high-passed above the cutoff (5 kHz for 32k, 12 kHz for 64k), scaled to
-{5, 10, 20, 40}% of the track's RMS, added to the input before the θ
-variant ({0.15 … 0.70}) and a classic-n arm. Measured on aerofunk_32k at
-θ 0.35: the plain variant leaves the 11–20 kHz band at −74 dB; 10% band
-noise brings it to −40.1 dB against the master's −41.4 at correlation 0.97
-— the injected level calibrates the filled energy almost linearly. The mid
-band (5.5–11 kHz) stays several dB shy at 10% and closer at 20%, which
-suggests shaping the injected noise to the master's spectral tilt instead
-of white as the next refinement. Whether the filled band is musical
-content or polished noise is the listening question.
+Listening found that both sweeps preserve the codec cutoff — a bandlimited
+track is a plausible clean signal to the prior — so seeded band-limited
+noise ({5, 10, 20, 40}% of track RMS above the cutoff) was added to the
+inputs to destroy that evidence before the θ variant. The band-energy
+numbers looked right only because the injection was calibrated to
+master-like levels: by ear the model does not converge — the static
+survives on top of the track. Renders removed. Two causes, recorded so
+this is not retried naively:
+
+- **A real bug**: the fork's first mixing patch scaled the init signal by
+  `(1 - mix_level)` instead of `(1 - sigma_max)`, so every `theta`-set
+  render fed the model a full-scale latent at a timestep where it was
+  trained on `(1 - θ)`-scaled ones — off-distribution by exactly θ. Fixed
+  in fork commit `b0a90b9` (the classic path was and stays bit-identical
+  to upstream); every t-family render predates the fix and understates
+  the variant.
+- **The structural limit**: audio-domain noise reaches the latent as
+  structured *content* (hiss is in-distribution music), not as the
+  Gaussian latent noise the denoiser was trained to remove. SDEdit has no
+  observation operator — no way to keep the observed band and invent the
+  missing one. That constraint is the posterior-sampling line's job
+  (DPS/DAPS/LOUDAR), which is the planned next solver.
 
 ## Consequences
 

@@ -27,7 +27,7 @@ dependencies = [
 [tool.uv.sources]
 # Our fork: upstream a0b57f5 plus init_mix_level, which decouples the init
 # audio mix from the schedule start (the sdedit theta variant, ADR-0011).
-stable-audio-3 = { git = "https://github.com/zbitouzakaria/stable-audio-3.git", rev = "3513afc6711acf1bda946c646b7b95fc42c39730" }
+stable-audio-3 = { git = "https://github.com/zbitouzakaria/stable-audio-3.git", rev = "b0a90b91c5e2980a2e9876fc516733ece0eec797" }
 # stable-audio-3 routes linux-x86_64 torch to the cu126 index. Its marker'd
 # source must be repeated here verbatim (a differing root source conflicts
 # instead of winning), plus an explicit PyPI entry so the Mac split resolves

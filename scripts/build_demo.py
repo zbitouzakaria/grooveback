@@ -48,12 +48,6 @@ ANCHORS = [
 SWEEP_FAMILIES = {
     "n": "sdedit noise sweep",
     "t": "sdedit theta sweep",
-    "hf05t": "sdedit HF-noised 5%, theta sweep",
-    "hf10t": "sdedit HF-noised 10%, theta sweep",
-    "hf20t": "sdedit HF-noised 20%, theta sweep",
-    "hf40t": "sdedit HF-noised 40%, theta sweep",
-    "hf10n": "sdedit HF-noised 10%, noise sweep",
-    "hf20n": "sdedit HF-noised 20%, noise sweep",
     "p": "sdedit prompted, cfg sweep at n 0.25",
     "q": "sdedit prompted positive-only, cfg sweep at n 0.25",
 }
