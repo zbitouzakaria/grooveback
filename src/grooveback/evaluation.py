@@ -215,7 +215,13 @@ def best_lag(
     if not probe.any():
         raise ValueError("The middle of the estimate is silent; cannot align.")
     haystack = ref[start - max_lag : start + probe_samples + max_lag]
-    correlation = np.correlate(haystack, probe, "valid")
+    # Cross-correlation through the FFT: np.correlate's direct loop takes
+    # over a minute for these sizes on some Linux numpy builds (measured on a
+    # RunPod image), while the transform product is milliseconds everywhere
+    # and exact to float64 roundoff — far below the argmax's decision margin.
+    n_fft = 1 << (haystack.size + probe.size - 1).bit_length()
+    spectrum = np.fft.rfft(haystack, n_fft) * np.conj(np.fft.rfft(probe, n_fft))
+    correlation = np.fft.irfft(spectrum, n_fft)[: 2 * max_lag + 1]
     return max_lag - int(np.argmax(correlation))
 
 
