@@ -1,29 +1,36 @@
 """The whole benchmark, one entry point.
 
-  uv run python scripts/run_xp.py [device]
+  uv run python scripts/run_xp.py [device=cuda] [sources=[codec]] [anchors=[]]
 
 Cut one chunk per source, make MP3 twins at three bitrates, restore each twin
-with every method, and score everything against the original chunk:
+with every method, and score everything against the original chunk. Methods
+are the autoencoder round-trips (plus a sampled-encode variant where the
+model has one, and a mean-damage subtraction per ADR-0011), anchored by
+apollo and a2sb:
 
-  artifacts/xp/{source}/original.wav             the clean chunk
-  artifacts/xp/{source}/{bitrate}/input.wav      the MP3 round-trip
-  artifacts/xp/{source}/{bitrate}/{method}.wav   one render per method
+  artifacts/xp/{source}/original.flac            the clean chunk
+  artifacts/xp/{source}/{bitrate}/input.flac     the MP3 round-trip
+  artifacts/xp/{source}/{bitrate}/{method}.flac  one render per method
   artifacts/xp/{source}/{bitrate}/listen/        level-matched copies to A/B
-  artifacts/xp/results.json                      BSS-SDR, SDR, SI-SNR per render
+  artifacts/xp/_donor/{bitrate}/damage-{ae}.npy  mean damage directions
+  artifacts/xp/results.json                      the metrics per render
 
-A render is skipped when its file exists, so re-running is safe and renders
-produced on a GPU pod are picked up as-is. Scoring always re-runs, over
-whatever renders exist.
+Everything in `configs/benchmark.yaml` is overridable from the CLI, which is
+how a GPU pod renders one slice (`anchors=[]`) while another takes a2sb only
+(`autoencoders=[] anchors=[a2sb]`). A render is skipped when its file exists,
+so re-running is safe and renders produced on a pod are picked up as-is.
+Scoring always re-runs, over whatever renders exist.
 """
 
 from __future__ import annotations
 
 import json
 import subprocess
-import sys
 from pathlib import Path
 
+import hydra
 import numpy as np
+from omegaconf import DictConfig
 
 from grooveback import audio as ga
 from grooveback import latents as gl
@@ -38,21 +45,30 @@ from grooveback.evaluation import (
     spectral_snr_db,
     write_listening_pack,
 )
+from grooveback.solvers import latent_sub, roundtrip
 
 SR = 44_100
 SOURCES = {
-    "aerofunk": ("data/Aerofunk - Nice One (Cpu Cant Hack It Mix) 258.wav", 60.0, 12.0),
     "codec": ("data/original_codec_wav.wav", 0.0, 6.0),
+    "aerofunk": ("data/Aerofunk - Nice One (Cpu Cant Hack It Mix) 258.wav", 0.0, 180.0),
+    "nesta": ("data/same-artist/Nesta - James Bande (Edit).wav", 0.0, 180.0),
+    # The damage donor (ADR-0011): same artist as nesta, never scored itself —
+    # the default `sources` list in configs/benchmark.yaml leaves it out.
+    "_donor": ("data/same-artist/Nesta - Bad Hoe Running (edit).wav", 0.0, 180.0),
 }
 """name -> (path, start_s, duration_s). One chunk per source, one fixed rule."""
 
-BITRATES = ("64k", "128k", "192k")
-METHODS = ("same-s", "same-l", "apollo", "a2sb")
 XP = Path("artifacts/xp")
 
 
 def render_path(name: str, bitrate: str, method: str) -> Path:
-    return XP / name / bitrate / f"{method}.wav"
+    return XP / name / bitrate / f"{method}.flac"
+
+
+def save_flac(path: Path, audio: np.ndarray) -> None:
+    """24-bit FLAC — the disk lever: ~130 dB below program level, transparent
+    to every metric and to listening, at roughly half the float-WAV size."""
+    ga.save(path, audio, SR, subtype="PCM_24")
 
 
 def band_above(x: np.ndarray, lo_hz: float) -> np.ndarray:
@@ -63,52 +79,95 @@ def band_above(x: np.ndarray, lo_hz: float) -> np.ndarray:
     return np.fft.irfft(spectrum, n=x.shape[-1], axis=-1).astype(np.float32)
 
 
-def cached(wav: Path) -> np.ndarray | None:
+def cached(path: Path) -> np.ndarray | None:
     """An existing render, or None if it has to be made."""
-    return ga.load(wav)[0] if wav.exists() else None
+    return ga.load(path)[0] if path.exists() else None
 
 
 def cut_chunk(name: str) -> np.ndarray:
-    wav = XP / name / "original.wav"
-    if wav.exists():
-        return ga.load(wav)[0]
     path, start_s, duration_s = SOURCES[name]
+    expected = int(duration_s * SR)
+    flac = XP / name / "original.flac"
+    if flac.exists():
+        chunk = ga.load(flac)[0]
+        if chunk.shape[1] != expected:
+            raise RuntimeError(
+                f"{flac} is {chunk.shape[1]} samples, the cut now says {expected} "
+                f"— delete artifacts/xp/{name} to re-cut."
+            )
+        return chunk
     source, rate = ga.load(path)
     if rate != SR:
-        raise ValueError(f"{path} is {rate} Hz, the benchmark runs at {SR} Hz.")
+        # 48 kHz masters land on the benchmark grid once, identically for
+        # every method downstream (ADR-0011).
+        print(f"resample {name}: {rate} -> {SR} Hz", flush=True)
+        source = ga.resample(source, sr_in=rate, sr_out=SR)
     start = int(start_s * SR)
-    chunk = source[:, start : start + int(duration_s * SR)]
-    ga.save(wav, chunk, SR)
+    chunk = source[:, start : start + expected]
+    if chunk.shape[1] < expected:
+        raise ValueError(f"{path} is too short for {duration_s:.0f} s from {start_s:.0f} s.")
+    save_flac(flac, chunk)
     return chunk
 
 
 def build_twin(name: str, bitrate: str, original: np.ndarray) -> np.ndarray:
     """MP3-compress the chunk and read it back, verified sample-aligned."""
-    wav = XP / name / bitrate / "input.wav"
-    if not wav.exists():
-        mp3 = wav.with_suffix(".mp3")
+    flac = XP / name / bitrate / "input.flac"
+    if not flac.exists():
+        mp3 = flac.with_suffix(".mp3")
+        tmp = flac.with_suffix(".tmp.wav")
         mp3.parent.mkdir(parents=True, exist_ok=True)
         subprocess.run(["ffmpeg", "-y", "-loglevel", "error",
-                        "-i", str(XP / name / "original.wav"),
+                        "-i", str(XP / name / "original.flac"),
                         "-c:a", "libmp3lame", "-b:a", bitrate, str(mp3)], check=True)
         subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(mp3),
-                        "-c:a", "pcm_f32le", str(wav)], check=True)
-    degraded = ga.load(wav)[0][:, : original.shape[1]]
+                        "-c:a", "pcm_f32le", str(tmp)], check=True)
+        save_flac(flac, ga.load(tmp)[0])
+        tmp.unlink()
+    degraded = ga.load(flac)[0][:, : original.shape[1]]
     # One sample of shift would wreck the waveform metrics, so refuse to score
     # a twin that is not exactly aligned. ffmpeg's decoder honours the LAME
     # header, so in practice the round-trip lands at lag 0.
     lag = best_lag(original[:, : degraded.shape[1]], degraded)
     if lag != 0:
-        raise RuntimeError(f"{wav} is {lag} samples off its original.")
+        raise RuntimeError(f"{flac} is {lag} samples off its original.")
     return degraded
 
 
-def main() -> None:
-    device = sys.argv[1] if len(sys.argv) > 1 else "auto"
+def damage_vector(ae: str, bitrate: str, model) -> np.ndarray:
+    """The mean damage direction for one autoencoder at one bitrate, cached.
 
-    chunks = {name: cut_chunk(name) for name in SOURCES}
+    mean over frames of encode(mp3(donor)) - encode(donor): points clean ->
+    damaged, so the solver subtracts it (ADR-0011).
+    """
+    npy = XP / "_donor" / bitrate / f"damage-{ae}.npy"
+    if npy.exists():
+        return np.load(npy)
+    donor = cut_chunk("_donor")
+    twin = build_twin("_donor", bitrate, donor)
+    clean = gl.ae_encode(ae, donor, SR, model)
+    degraded = gl.ae_encode(ae, twin, SR, model)
+    damage = gl.mean_damage(clean, degraded).astype(np.float32)
+    npy.parent.mkdir(parents=True, exist_ok=True)
+    np.save(npy, damage)
+    print(f"damage {ae} {bitrate}: |d| = {float(np.linalg.norm(damage)):.3f}", flush=True)
+    return damage
+
+
+def ae_tags(ae: str, sampled: list[str]) -> list[str]:
+    """The render names one autoencoder produces."""
+    tags = [ae]
+    if ae in sampled:
+        tags.append(f"{ae}-sample")
+    tags.append(f"{ae}-sub")
+    return tags
+
+
+@hydra.main(config_path="../configs", config_name="benchmark", version_base=None)
+def main(cfg: DictConfig) -> None:
+    chunks = {name: cut_chunk(name) for name in cfg.sources}
     twins = {(name, bitrate): build_twin(name, bitrate, chunks[name])
-             for name in SOURCES for bitrate in BITRATES}
+             for name in cfg.sources for bitrate in cfg.bitrates}
     # The frequency the codec actually kept, exact on synthetic twins. A2SB is
     # walled here rather than at its own detected knee: the knee detector
     # exists for real rips with smeared rolloffs, and on a sharp LAME edge it
@@ -117,45 +176,58 @@ def main() -> None:
              for key in twins}
 
     # Render whatever is missing, loading each model at most once.
-    for variant in ("same-s", "same-l"):
-        todo = [key for key in twins if not render_path(*key, variant).exists()]
-        if todo:
-            model = gl.load_same(variant, device=device)
-            for name, bitrate in todo:
-                print(f"render {variant}: {name} {bitrate}", flush=True)
-                out = gl.roundtrip(twins[(name, bitrate)], SR, model=model)
-                ga.save(render_path(name, bitrate, variant),
-                        out[:, : chunks[name].shape[1]], SR)
-            del model
-
-    todo = [key for key in twins if not render_path(*key, "apollo").exists()]
-    if todo:
-        model = load_apollo(device=device)
-        for name, bitrate in todo:
-            print(f"render apollo: {name} {bitrate}", flush=True)
-            out = run_apollo(twins[(name, bitrate)], SR, model=model)
-            ga.save(render_path(name, bitrate, "apollo"), out, SR)
+    for ae in cfg.autoencoders:
+        todo = [(name, bitrate, tag)
+                for name, bitrate in twins
+                for tag in ae_tags(ae, cfg.sampled)
+                if not render_path(name, bitrate, tag).exists()]
+        if not todo:
+            continue
+        model = gl.load_ae(ae, device=cfg.device)
+        for name, bitrate, tag in todo:
+            print(f"render {tag}: {name} {bitrate}", flush=True)
+            twin = twins[(name, bitrate)]
+            if tag.endswith("-sub"):
+                out = latent_sub(model, twin, SR, ae=ae,
+                                 damage=damage_vector(ae, bitrate, model))
+            else:
+                out = roundtrip(model, twin, SR, ae=ae, sample=tag.endswith("-sample"))
+            save_flac(render_path(name, bitrate, tag), out)
         del model
 
-    for name, bitrate in twins:
-        if not render_path(name, bitrate, "a2sb").exists():
-            print(f"render a2sb: {name} {bitrate} "
-                  f"(wall at {edges[(name, bitrate)] - 250:.0f} Hz)", flush=True)
-            # 50 steps is the paper's default; ADR-0006 uses it as canonical.
-            # The wall sits one band under the measured edge so the model sees
-            # full-level content right up to a sharp, training-matched edge.
-            out = run_a2sb(twins[(name, bitrate)], SR, n_steps=50,
-                           cutoff_hz=edges[(name, bitrate)] - 250,
-                           device="mps" if device == "auto" else device)
-            ga.save(render_path(name, bitrate, "a2sb"), out, SR)
+    if "apollo" in cfg.anchors:
+        todo = [key for key in twins if not render_path(*key, "apollo").exists()]
+        if todo:
+            model = load_apollo(device=cfg.device)
+            for name, bitrate in todo:
+                print(f"render apollo: {name} {bitrate}", flush=True)
+                out = run_apollo(twins[(name, bitrate)], SR, model=model)
+                save_flac(render_path(name, bitrate, "apollo"), out)
+            del model
+
+    if "a2sb" in cfg.anchors:
+        for name, bitrate in twins:
+            if not render_path(name, bitrate, "a2sb").exists():
+                print(f"render a2sb: {name} {bitrate} "
+                      f"(wall at {edges[(name, bitrate)] - 250:.0f} Hz)", flush=True)
+                # 50 steps is the paper's default; ADR-0006 uses it as
+                # canonical. The wall sits one band under the measured edge so
+                # the model sees full-level content right up to a sharp,
+                # training-matched edge.
+                out = run_a2sb(twins[(name, bitrate)], SR, n_steps=50,
+                               cutoff_hz=edges[(name, bitrate)] - 250,
+                               device="mps" if cfg.device == "auto" else cfg.device)
+                save_flac(render_path(name, bitrate, "a2sb"), out)
 
     # Score whatever exists against the original, and write listening sets.
+    methods = [tag for ae in cfg.autoencoders for tag in ae_tags(ae, cfg.sampled)]
+    methods += list(cfg.anchors)
     results: dict = {}
-    for name in SOURCES:
+    for name in cfg.sources:
         results[name] = {}
-        for bitrate in BITRATES:
+        for bitrate in cfg.bitrates:
             pack = {"original": chunks[name], "input": twins[(name, bitrate)]}
-            for method in METHODS:
+            for method in methods:
                 render = cached(render_path(name, bitrate, method))
                 if render is not None:
                     pack[method] = render
@@ -186,7 +258,8 @@ def main() -> None:
                     "fill_lsd_db": round(
                         log_spectral_distance_db(fill_master, fill), 2),
                 }
-            write_listening_pack(pack, SR, XP / name / bitrate / "listen")
+            write_listening_pack(pack, SR, XP / name / bitrate / "listen",
+                                 suffix=".flac")
             print(name, bitrate, results[name][bitrate], flush=True)
 
     (XP / "results.json").write_text(json.dumps(results, indent=1))
