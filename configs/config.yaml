@@ -5,6 +5,7 @@
 
 defaults:
   - model: sdedit
+  - xp: null
   - _self_
 
 mode: inference
