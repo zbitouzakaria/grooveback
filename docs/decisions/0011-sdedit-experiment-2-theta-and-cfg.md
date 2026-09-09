@@ -98,6 +98,24 @@ this is not retried naively:
   missing one. That constraint is the posterior-sampling line's job
   (DPS/DAPS/LOUDAR), which is the planned next solver.
 
+### Listening verdict (2026-09-09, corrected-fork renders)
+
+- **The inference model sounds clearly better than base on this heavy
+  damage** — the post-training's perceptual optimization survives partial
+  denoising. Measured signature: ~9 dB more mid-band (5.5–11 kHz) energy at
+  correlation 0.90–0.92 versus base's 0.97–0.99. Together with
+  experiment 1 (where the same renoising read as hallucination on light
+  damage), the trade is damage-dependent: faithful prior for light damage,
+  quality prior for heavy damage.
+- At 32k, high-θ renders drift into coherent *other* tracks — real-sounding
+  music loosely anchored to the input — while 64k stays conservative, as
+  the surviving structure predicts.
+- No SDEdit-family setting fills the dead band; the corrected θ sweep
+  confirms it with proper scaling. The missing band remains the
+  posterior-sampling solver's job — noting that constraining the preferred
+  (8-step, stochastic) inference model is harder than constraining base,
+  a tension the next solver design has to face.
+
 ## Consequences
 
 - The project now depends on its own stable-audio-3 fork; the pin moves with

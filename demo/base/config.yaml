@@ -12,6 +12,8 @@ aerofunk_32k:
     a2sb: a2sb.flac
     base n 0.50: sdedit_base-n_0.50.flac
     base t 0.35: sdedit_base-t_0.35.flac
+    inference n 0.25: sdedit_inference-n_0.25.flac
+    inference t 0.35: sdedit_inference-t_0.35.flac
 
 aerofunk_64k:
   dir: artifacts/sdedit/listen/aerofunk_64k
@@ -22,6 +24,8 @@ aerofunk_64k:
     a2sb: a2sb.flac
     base n 0.50: sdedit_base-n_0.50.flac
     base t 0.35: sdedit_base-t_0.35.flac
+    inference n 0.25: sdedit_inference-n_0.25.flac
+    inference t 0.35: sdedit_inference-t_0.35.flac
 
 codec_32k:
   dir: artifacts/sdedit/listen/codec_32k
@@ -32,6 +36,8 @@ codec_32k:
     a2sb: a2sb.flac
     base n 0.50: sdedit_base-n_0.50.flac
     base t 0.35: sdedit_base-t_0.35.flac
+    inference n 0.25: sdedit_inference-n_0.25.flac
+    inference t 0.35: sdedit_inference-t_0.35.flac
 
 codec_64k:
   dir: artifacts/sdedit/listen/codec_64k
@@ -42,3 +48,5 @@ codec_64k:
     a2sb: a2sb.flac
     base n 0.50: sdedit_base-n_0.50.flac
     base t 0.35: sdedit_base-t_0.35.flac
+    inference n 0.25: sdedit_inference-n_0.25.flac
+    inference t 0.35: sdedit_inference-t_0.35.flac
