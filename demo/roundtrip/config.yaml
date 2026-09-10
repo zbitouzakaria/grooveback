@@ -42,14 +42,14 @@ aerofunk_128k:
   dir: artifacts/xp/aerofunk/128k/listen
   tracks: *tracks
 
-nesta_32k:
-  dir: artifacts/xp/nesta/32k/listen
+same-artist_32k:
+  dir: artifacts/xp/same-artist/32k/listen
   tracks: *tracks
 
-nesta_64k:
-  dir: artifacts/xp/nesta/64k/listen
+same-artist_64k:
+  dir: artifacts/xp/same-artist/64k/listen
   tracks: *tracks
 
-nesta_128k:
-  dir: artifacts/xp/nesta/128k/listen
+same-artist_128k:
+  dir: artifacts/xp/same-artist/128k/listen
   tracks: *tracks

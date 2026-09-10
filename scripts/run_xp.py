@@ -57,10 +57,13 @@ SR = 44_100
 SOURCES = {
     "codec": ("data/original_codec_wav.wav", 0.0, 6.0),
     "aerofunk": ("data/Aerofunk - Nice One (Cpu Cant Hack It Mix) 258.wav", 0.0, 180.0),
-    "nesta": ("data/same-artist/Nesta - James Bande (Edit).wav", 0.0, 180.0),
-    # The damage donor (ADR-0011): same artist as nesta, never scored itself —
-    # the default `sources` list in configs/benchmark.yaml leaves it out.
-    "_donor": ("data/same-artist/Nesta - Bad Hoe Running (edit).wav", 0.0, 180.0),
+    # One source/donor pair by a single artist, reached through neutral
+    # symlinks (the files are gitignored and unnamed here): the pair measures
+    # whether a damage direction learned on one track transfers to another by
+    # the same hand (ADR-0011). The donor is never scored itself — the
+    # default `sources` list in configs/benchmark.yaml leaves it out.
+    "same-artist": ("data/same-artist/source.wav", 0.0, 180.0),
+    "_donor": ("data/same-artist/donor.wav", 0.0, 180.0),
 }
 """name -> (path, start_s, duration_s). One chunk per source, one fixed rule."""
 

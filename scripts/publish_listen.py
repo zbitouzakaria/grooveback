@@ -4,7 +4,7 @@
 
 The curated set from ADR-0011's listening verdict: six tracks per
 (source x bitrate), each labeled with its 1-9 solo shortcut, for codec and
-aerofunk at 32/64/128 kbps (nesta stays private). Unlike `demo/`, the audio
+aerofunk at 32/64/128 kbps; the same-artist pair stays out of the published set. Unlike `demo/`, the audio
 is committed: copies at -14 LUFS under one common -1 dBFS gain per pack,
 written as 24-bit FLAC with aerofunk at its full three minutes — 556 MB,
 approved over the initial 500 MB budget.

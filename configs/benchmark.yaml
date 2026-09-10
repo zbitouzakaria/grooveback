@@ -5,7 +5,7 @@
 #   run_xp.py sources=[codec] anchors=[]                # the 6 s smoke source
 
 device: auto
-sources: [codec, aerofunk, nesta]
+sources: [codec, aerofunk, same-artist]
 bitrates: [32k, 64k, 128k]
 autoencoders: [same-l, earvae, earvae2, codicodec]
 chains: [apollo]             # each ae also renders {chain}-{ae}: ae(chain(input))
