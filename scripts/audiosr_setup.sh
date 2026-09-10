@@ -6,7 +6,8 @@
 # own venv behind a subprocess -- the A2SB arrangement, without the fork: the
 # package needs no code changes, only install-time pins that keep a 2023-era
 # release installable today:
-#   - numpy<2: torch 2.0.1 was built against the numpy 1 ABI
+#   - numpy<1.24: the librosa version audiosr pulls still uses the
+#     np.float alias, removed in numpy 1.24 (torch 2.0.1 also needs <2)
 #   - huggingface_hub<0.26: the diffusers version audiosr pulls imports
 #     cached_download, removed from the hub client in 0.26
 #   - setuptools<81: the librosa version audiosr pulls imports pkg_resources,
@@ -29,12 +30,12 @@ Linux-x86_64)
     uv pip install --python "$PYTHON" \
         --extra-index-url https://download.pytorch.org/whl/cu118 \
         torch==2.0.1+cu118 torchaudio==2.0.2+cu118 audiosr==0.0.7 \
-        "numpy<2" "huggingface_hub<0.26" "setuptools<81" \
+        "numpy<1.24" "huggingface_hub<0.26" "setuptools<81" \
         matplotlib progressbar unidecode soundfile soxr ;;
 *)
     uv pip install --python "$PYTHON" \
         torch==2.0.1 torchaudio==2.0.2 audiosr==0.0.7 \
-        "numpy<2" "huggingface_hub<0.26" "setuptools<81" \
+        "numpy<1.24" "huggingface_hub<0.26" "setuptools<81" \
         matplotlib progressbar unidecode soundfile soxr ;;
 esac
 
