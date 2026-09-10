@@ -158,6 +158,10 @@ design. We also probed whether the base Stable Audio 3 checkpoints generate mast
 [SonicMaster](#ref-sonicmaster) through its hosted demo and excluded it, because it duplicates and stacks kick drums
 on electronic material.
 
+The strongest methods can be heard side by side — ground truth, degraded input, Apollo, A²SB, Apollo → εar-VAE,
+and the latent damage subtraction, at 32/64/128 kbps — on the
+[published listening page](https://zbitouzakaria.github.io/grooveback/listen/).
+
 We then tried a first method beyond the supervised tools: **SDEdit ([Meng et al. 2022](#ref-sdedit)) with Stable
 Audio 3** ([SDEdit as the first solver](docs/decisions/0009-sdedit-as-the-first-solver.md)). The solver encodes the
 degraded track into SAME latents, mixes in noise at level *n*, and lets the model denoise from schedule time *n*; the

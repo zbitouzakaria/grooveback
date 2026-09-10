@@ -4,7 +4,8 @@ Date: 2026-09-10
 
 ## Status
 
-Proposed — metrics in; the listening verdict is pending
+Accepted — concluded: apollo → εar-VAE for heavily damaged records, apollo
+alone above 64 kbps; the kept set is published
 
 ## Context
 
@@ -317,6 +318,35 @@ holds the nine 16-track level-matched packs.
 | apollo-codicodec | **5.5** 🔴 | **5.9** 🔴 | **4.8** 🔴 | **10.8** 🔴 | 9.1 |
 | apollo | 20.2 | 19.9 | 20.1 | **24.6** 🟢 | **7.0** 🟢 |
 | a2sb | 23.8 | 21.9 | 23.7 | 23.4 | 9.8 |
+
+## Listening verdict (2026-09-10, monitors)
+
+- **apollo → εar-VAE is the method for really damaged records.** It beats
+  apollo alone on 32 kbps material, splits with it at 64 kbps, and above
+  64 kbps apollo alone sounds closer to the master.
+- The mechanism as heard: apollo is very good at guessing the missing
+  content, and εar-VAE's decode smooths the result — removing the artifacts
+  apollo itself introduces when the compression is severe. At lighter
+  compression apollo adds few artifacts, and the same smoothing then moves
+  the sound *away* from the master.
+- εar-VAE − MP3 damage (the mean subtraction) stays in the promising set.
+  Everything else tried — the other autoencoders' round-trips, chains and
+  subtractions — is worse by ear. A²SB is kept as a comparison point, not a
+  contender. The released εar-VAE2 sounds clearly worse than εar-VAE,
+  consistent with its public-data retrain (its card shows the open "base"
+  losing to the paper's proprietary "full") and its 50 Hz STFT bins in the
+  bass.
+- Kept set, in solo-key order: ground truth, degraded input, apollo, A²SB,
+  apollo → εar-VAE, εar-VAE − MP3 damage.
+
+### Published set
+
+`docs/listen/` carries the kept set for codec and aerofunk at 32/64/128 kbps
+on GitHub Pages — 24-bit FLAC listening copies at −14 LUFS under one common
+−1 dBFS gain per pack, ~556 MB of audio committed to the repo (approved over
+the initial 500 MB budget to keep aerofunk at its full three minutes); nesta
+stays private. `scripts/publish_listen.py` rebuilds the page; audio URLs are
+mtime-versioned so republished packs bust any cached copy.
 
 ## Consequences
 
