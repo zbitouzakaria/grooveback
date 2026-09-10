@@ -184,7 +184,7 @@ def _earvae_decode(latents, model):
 
 EARVAE2_SAMPLE_RATE = 48_000
 EARVAE2_REPO = _REPO / "third_party" / "earvae2"
-EARVAE2_CHECKPOINT = ("earlab/EAR_VAE2", "ear_vae2.pt")
+EARVAE2_CHECKPOINT = ("earlab/EAR_VAE2", "weights/ear_vae2.pt")
 EARVAE2_CHUNK = {"chunked": True, "chunk_size": 512, "overlap": 16}
 """The upstream inference defaults; chunk sizes are latent frames (40 ms each)."""
 
