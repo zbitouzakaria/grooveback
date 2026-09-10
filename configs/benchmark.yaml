@@ -17,3 +17,7 @@ hydra:
     chdir: false
   run:
     dir: .
+
+defaults:
+  - override hydra/job_logging: disabled
+  - _self_
