@@ -122,7 +122,7 @@ in-band damage, the **missing band** above a cutoff, a **round-trip** (an autoen
 
 | Paper | Year | Method | Restores | Targets MP3 | Weights | Tested here |
 |---|---|---|---|---|---|---|
-| [AudioSR](#ref-audiosr) | 2023 | diffusion SR, mel domain + vocoder | missing band | — | open | — |
+| [AudioSR](#ref-audiosr) | 2023 | diffusion SR, mel domain + vocoder | missing band | — | open | ✓ [AudioSR baseline](docs/decisions/0012-audiosr-baseline.md) |
 | [Apollo](#ref-apollo) | 2024 | band-split GAN regression, waveform | full band | ✓ | open | ✓ [baseline findings](docs/decisions/0006-baseline-findings.md), [MP3-twin benchmark](docs/decisions/0007-benchmark-codec-restoration.md) |
 | [A2SB](#ref-a2sb) | 2025 | Schrödinger bridge, vocoder-free | missing band + gaps | — | open¹ | ✓ [baseline findings](docs/decisions/0006-baseline-findings.md), [MP3-twin benchmark](docs/decisions/0007-benchmark-codec-restoration.md) |
 | [Latent upsample/upmix](#ref-latentup) | 2025 | supervised latent-to-latent BWE/upmix | missing band | — | none | — |
