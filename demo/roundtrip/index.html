@@ -1,0 +1,1968 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>grooveback listening — roundtrip</title>
+<style>
+  body { font: 15px/1.5 system-ui, sans-serif; margin: 2rem auto; max-width: 1100px;
+         padding: 0 1rem; background: #fafafa; color: #222; }
+  h2 { margin: 2rem 0 .5rem; }
+  details { margin: .4rem 0; }
+  summary { cursor: pointer; font-weight: 600; }
+  trackswitch-player { display: block; margin: .5rem 0 1.5rem; }
+  .note { color: #555; }
+</style>
+<script src="../trackswitch.js"></script>
+</head>
+<body>
+<h1>grooveback listening — roundtrip</h1>
+<p class="note">Every track is level-matched to −14 LUFS with one common headroom gain per
+player, master included. Solo is exclusive: keys 1–9 or a click switch tracks in place.
+Space plays, R toggles repeat, loop a section with the loop controls or A/B/L.</p>
+<h2>codec_32k</h2>
+<trackswitch-player>
+<script type="application/json">{
+ "media": {
+  "t0": {
+   "type": "audio",
+   "title": "input",
+   "src": "../artifacts/xp/codec/32k/listen/input.flac?v=1789055968",
+   "imageID": "t0Plot",
+   "solo": true
+  },
+  "t0Plot": {
+   "type": "image",
+   "src": "media/codec_32k/input.png?v=1789055968"
+  },
+  "t1": {
+   "type": "audio",
+   "title": "master",
+   "src": "../artifacts/xp/codec/32k/listen/original.flac?v=1789055968",
+   "imageID": "t1Plot"
+  },
+  "t1Plot": {
+   "type": "image",
+   "src": "media/codec_32k/original.png?v=1789055968"
+  },
+  "t2": {
+   "type": "audio",
+   "title": "same-l",
+   "src": "../artifacts/xp/codec/32k/listen/same-l.flac?v=1789055968",
+   "imageID": "t2Plot"
+  },
+  "t2Plot": {
+   "type": "image",
+   "src": "media/codec_32k/same-l.png?v=1789055968"
+  },
+  "t3": {
+   "type": "audio",
+   "title": "same-l sub",
+   "src": "../artifacts/xp/codec/32k/listen/same-l-sub.flac?v=1789055969",
+   "imageID": "t3Plot"
+  },
+  "t3Plot": {
+   "type": "image",
+   "src": "media/codec_32k/same-l-sub.png?v=1789055969"
+  },
+  "t4": {
+   "type": "audio",
+   "title": "apollo then same-l",
+   "src": "../artifacts/xp/codec/32k/listen/apollo-same-l.flac?v=1789055968",
+   "imageID": "t4Plot"
+  },
+  "t4Plot": {
+   "type": "image",
+   "src": "media/codec_32k/apollo-same-l.png?v=1789055968"
+  },
+  "t5": {
+   "type": "audio",
+   "title": "earvae",
+   "src": "../artifacts/xp/codec/32k/listen/earvae.flac?v=1789055969",
+   "imageID": "t5Plot"
+  },
+  "t5Plot": {
+   "type": "image",
+   "src": "media/codec_32k/earvae.png?v=1789055969"
+  },
+  "t6": {
+   "type": "audio",
+   "title": "earvae sub",
+   "src": "../artifacts/xp/codec/32k/listen/earvae-sub.flac?v=1789055969",
+   "imageID": "t6Plot"
+  },
+  "t6Plot": {
+   "type": "image",
+   "src": "media/codec_32k/earvae-sub.png?v=1789055969"
+  },
+  "t7": {
+   "type": "audio",
+   "title": "apollo then earvae",
+   "src": "../artifacts/xp/codec/32k/listen/apollo-earvae.flac?v=1789055969",
+   "imageID": "t7Plot"
+  },
+  "t7Plot": {
+   "type": "image",
+   "src": "media/codec_32k/apollo-earvae.png?v=1789055969"
+  },
+  "t8": {
+   "type": "audio",
+   "title": "earvae2",
+   "src": "../artifacts/xp/codec/32k/listen/earvae2.flac?v=1789055969",
+   "imageID": "t8Plot"
+  },
+  "t8Plot": {
+   "type": "image",
+   "src": "media/codec_32k/earvae2.png?v=1789055969"
+  },
+  "t9": {
+   "type": "audio",
+   "title": "earvae2 sub",
+   "src": "../artifacts/xp/codec/32k/listen/earvae2-sub.flac?v=1789055969",
+   "imageID": "t9Plot"
+  },
+  "t9Plot": {
+   "type": "image",
+   "src": "media/codec_32k/earvae2-sub.png?v=1789055969"
+  },
+  "t10": {
+   "type": "audio",
+   "title": "apollo then earvae2",
+   "src": "../artifacts/xp/codec/32k/listen/apollo-earvae2.flac?v=1789055969",
+   "imageID": "t10Plot"
+  },
+  "t10Plot": {
+   "type": "image",
+   "src": "media/codec_32k/apollo-earvae2.png?v=1789055969"
+  },
+  "t11": {
+   "type": "audio",
+   "title": "codicodec",
+   "src": "../artifacts/xp/codec/32k/listen/codicodec.flac?v=1789055969",
+   "imageID": "t11Plot"
+  },
+  "t11Plot": {
+   "type": "image",
+   "src": "media/codec_32k/codicodec.png?v=1789055969"
+  },
+  "t12": {
+   "type": "audio",
+   "title": "codicodec sub",
+   "src": "../artifacts/xp/codec/32k/listen/codicodec-sub.flac?v=1789055969",
+   "imageID": "t12Plot"
+  },
+  "t12Plot": {
+   "type": "image",
+   "src": "media/codec_32k/codicodec-sub.png?v=1789055969"
+  },
+  "t13": {
+   "type": "audio",
+   "title": "apollo then codicodec",
+   "src": "../artifacts/xp/codec/32k/listen/apollo-codicodec.flac?v=1789055969",
+   "imageID": "t13Plot"
+  },
+  "t13Plot": {
+   "type": "image",
+   "src": "media/codec_32k/apollo-codicodec.png?v=1789055969"
+  },
+  "t14": {
+   "type": "audio",
+   "title": "apollo",
+   "src": "../artifacts/xp/codec/32k/listen/apollo.flac?v=1789055969",
+   "imageID": "t14Plot"
+  },
+  "t14Plot": {
+   "type": "image",
+   "src": "media/codec_32k/apollo.png?v=1789055969"
+  },
+  "t15": {
+   "type": "audio",
+   "title": "a2sb",
+   "src": "../artifacts/xp/codec/32k/listen/a2sb.flac?v=1789055969",
+   "imageID": "t15Plot"
+  },
+  "t15Plot": {
+   "type": "image",
+   "src": "media/codec_32k/a2sb.png?v=1789055969"
+  }
+ },
+ "views": [
+  {
+   "type": "navigationBar",
+   "controls": [
+    "playback",
+    "globalVolume",
+    "looping",
+    "seekBar",
+    "timer"
+   ],
+   "repeatEnabled": true
+  },
+  {
+   "type": "perTrackImage",
+   "seekable": true,
+   "seekMarginLeft": 5.0,
+   "seekMarginRight": 7.9999999999999964
+  },
+  {
+   "type": "trackList",
+   "tracks": [
+    "t0",
+    "t1",
+    "t2",
+    "t3",
+    "t4",
+    "t5",
+    "t6",
+    "t7",
+    "t8",
+    "t9",
+    "t10",
+    "t11",
+    "t12",
+    "t13",
+    "t14",
+    "t15"
+   ],
+   "soloGroup": 0
+  }
+ ]
+}</script>
+</trackswitch-player>
+<h2>codec_64k</h2>
+<trackswitch-player>
+<script type="application/json">{
+ "media": {
+  "t0": {
+   "type": "audio",
+   "title": "input",
+   "src": "../artifacts/xp/codec/64k/listen/input.flac?v=1789055972",
+   "imageID": "t0Plot",
+   "solo": true
+  },
+  "t0Plot": {
+   "type": "image",
+   "src": "media/codec_64k/input.png?v=1789055972"
+  },
+  "t1": {
+   "type": "audio",
+   "title": "master",
+   "src": "../artifacts/xp/codec/64k/listen/original.flac?v=1789055972",
+   "imageID": "t1Plot"
+  },
+  "t1Plot": {
+   "type": "image",
+   "src": "media/codec_64k/original.png?v=1789055972"
+  },
+  "t2": {
+   "type": "audio",
+   "title": "same-l",
+   "src": "../artifacts/xp/codec/64k/listen/same-l.flac?v=1789055972",
+   "imageID": "t2Plot"
+  },
+  "t2Plot": {
+   "type": "image",
+   "src": "media/codec_64k/same-l.png?v=1789055972"
+  },
+  "t3": {
+   "type": "audio",
+   "title": "same-l sub",
+   "src": "../artifacts/xp/codec/64k/listen/same-l-sub.flac?v=1789055972",
+   "imageID": "t3Plot"
+  },
+  "t3Plot": {
+   "type": "image",
+   "src": "media/codec_64k/same-l-sub.png?v=1789055972"
+  },
+  "t4": {
+   "type": "audio",
+   "title": "apollo then same-l",
+   "src": "../artifacts/xp/codec/64k/listen/apollo-same-l.flac?v=1789055972",
+   "imageID": "t4Plot"
+  },
+  "t4Plot": {
+   "type": "image",
+   "src": "media/codec_64k/apollo-same-l.png?v=1789055972"
+  },
+  "t5": {
+   "type": "audio",
+   "title": "earvae",
+   "src": "../artifacts/xp/codec/64k/listen/earvae.flac?v=1789055972",
+   "imageID": "t5Plot"
+  },
+  "t5Plot": {
+   "type": "image",
+   "src": "media/codec_64k/earvae.png?v=1789055972"
+  },
+  "t6": {
+   "type": "audio",
+   "title": "earvae sub",
+   "src": "../artifacts/xp/codec/64k/listen/earvae-sub.flac?v=1789055972",
+   "imageID": "t6Plot"
+  },
+  "t6Plot": {
+   "type": "image",
+   "src": "media/codec_64k/earvae-sub.png?v=1789055972"
+  },
+  "t7": {
+   "type": "audio",
+   "title": "apollo then earvae",
+   "src": "../artifacts/xp/codec/64k/listen/apollo-earvae.flac?v=1789055972",
+   "imageID": "t7Plot"
+  },
+  "t7Plot": {
+   "type": "image",
+   "src": "media/codec_64k/apollo-earvae.png?v=1789055972"
+  },
+  "t8": {
+   "type": "audio",
+   "title": "earvae2",
+   "src": "../artifacts/xp/codec/64k/listen/earvae2.flac?v=1789055972",
+   "imageID": "t8Plot"
+  },
+  "t8Plot": {
+   "type": "image",
+   "src": "media/codec_64k/earvae2.png?v=1789055972"
+  },
+  "t9": {
+   "type": "audio",
+   "title": "earvae2 sub",
+   "src": "../artifacts/xp/codec/64k/listen/earvae2-sub.flac?v=1789055972",
+   "imageID": "t9Plot"
+  },
+  "t9Plot": {
+   "type": "image",
+   "src": "media/codec_64k/earvae2-sub.png?v=1789055972"
+  },
+  "t10": {
+   "type": "audio",
+   "title": "apollo then earvae2",
+   "src": "../artifacts/xp/codec/64k/listen/apollo-earvae2.flac?v=1789055972",
+   "imageID": "t10Plot"
+  },
+  "t10Plot": {
+   "type": "image",
+   "src": "media/codec_64k/apollo-earvae2.png?v=1789055972"
+  },
+  "t11": {
+   "type": "audio",
+   "title": "codicodec",
+   "src": "../artifacts/xp/codec/64k/listen/codicodec.flac?v=1789055972",
+   "imageID": "t11Plot"
+  },
+  "t11Plot": {
+   "type": "image",
+   "src": "media/codec_64k/codicodec.png?v=1789055972"
+  },
+  "t12": {
+   "type": "audio",
+   "title": "codicodec sub",
+   "src": "../artifacts/xp/codec/64k/listen/codicodec-sub.flac?v=1789055972",
+   "imageID": "t12Plot"
+  },
+  "t12Plot": {
+   "type": "image",
+   "src": "media/codec_64k/codicodec-sub.png?v=1789055972"
+  },
+  "t13": {
+   "type": "audio",
+   "title": "apollo then codicodec",
+   "src": "../artifacts/xp/codec/64k/listen/apollo-codicodec.flac?v=1789055972",
+   "imageID": "t13Plot"
+  },
+  "t13Plot": {
+   "type": "image",
+   "src": "media/codec_64k/apollo-codicodec.png?v=1789055972"
+  },
+  "t14": {
+   "type": "audio",
+   "title": "apollo",
+   "src": "../artifacts/xp/codec/64k/listen/apollo.flac?v=1789055972",
+   "imageID": "t14Plot"
+  },
+  "t14Plot": {
+   "type": "image",
+   "src": "media/codec_64k/apollo.png?v=1789055972"
+  },
+  "t15": {
+   "type": "audio",
+   "title": "a2sb",
+   "src": "../artifacts/xp/codec/64k/listen/a2sb.flac?v=1789055972",
+   "imageID": "t15Plot"
+  },
+  "t15Plot": {
+   "type": "image",
+   "src": "media/codec_64k/a2sb.png?v=1789055972"
+  }
+ },
+ "views": [
+  {
+   "type": "navigationBar",
+   "controls": [
+    "playback",
+    "globalVolume",
+    "looping",
+    "seekBar",
+    "timer"
+   ],
+   "repeatEnabled": true
+  },
+  {
+   "type": "perTrackImage",
+   "seekable": true,
+   "seekMarginLeft": 5.0,
+   "seekMarginRight": 7.9999999999999964
+  },
+  {
+   "type": "trackList",
+   "tracks": [
+    "t0",
+    "t1",
+    "t2",
+    "t3",
+    "t4",
+    "t5",
+    "t6",
+    "t7",
+    "t8",
+    "t9",
+    "t10",
+    "t11",
+    "t12",
+    "t13",
+    "t14",
+    "t15"
+   ],
+   "soloGroup": 0
+  }
+ ]
+}</script>
+</trackswitch-player>
+<h2>codec_128k</h2>
+<trackswitch-player>
+<script type="application/json">{
+ "media": {
+  "t0": {
+   "type": "audio",
+   "title": "input",
+   "src": "../artifacts/xp/codec/128k/listen/input.flac?v=1789055975",
+   "imageID": "t0Plot",
+   "solo": true
+  },
+  "t0Plot": {
+   "type": "image",
+   "src": "media/codec_128k/input.png?v=1789055975"
+  },
+  "t1": {
+   "type": "audio",
+   "title": "master",
+   "src": "../artifacts/xp/codec/128k/listen/original.flac?v=1789055975",
+   "imageID": "t1Plot"
+  },
+  "t1Plot": {
+   "type": "image",
+   "src": "media/codec_128k/original.png?v=1789055975"
+  },
+  "t2": {
+   "type": "audio",
+   "title": "same-l",
+   "src": "../artifacts/xp/codec/128k/listen/same-l.flac?v=1789055975",
+   "imageID": "t2Plot"
+  },
+  "t2Plot": {
+   "type": "image",
+   "src": "media/codec_128k/same-l.png?v=1789055975"
+  },
+  "t3": {
+   "type": "audio",
+   "title": "same-l sub",
+   "src": "../artifacts/xp/codec/128k/listen/same-l-sub.flac?v=1789055975",
+   "imageID": "t3Plot"
+  },
+  "t3Plot": {
+   "type": "image",
+   "src": "media/codec_128k/same-l-sub.png?v=1789055975"
+  },
+  "t4": {
+   "type": "audio",
+   "title": "apollo then same-l",
+   "src": "../artifacts/xp/codec/128k/listen/apollo-same-l.flac?v=1789055975",
+   "imageID": "t4Plot"
+  },
+  "t4Plot": {
+   "type": "image",
+   "src": "media/codec_128k/apollo-same-l.png?v=1789055975"
+  },
+  "t5": {
+   "type": "audio",
+   "title": "earvae",
+   "src": "../artifacts/xp/codec/128k/listen/earvae.flac?v=1789055975",
+   "imageID": "t5Plot"
+  },
+  "t5Plot": {
+   "type": "image",
+   "src": "media/codec_128k/earvae.png?v=1789055975"
+  },
+  "t6": {
+   "type": "audio",
+   "title": "earvae sub",
+   "src": "../artifacts/xp/codec/128k/listen/earvae-sub.flac?v=1789055975",
+   "imageID": "t6Plot"
+  },
+  "t6Plot": {
+   "type": "image",
+   "src": "media/codec_128k/earvae-sub.png?v=1789055975"
+  },
+  "t7": {
+   "type": "audio",
+   "title": "apollo then earvae",
+   "src": "../artifacts/xp/codec/128k/listen/apollo-earvae.flac?v=1789055975",
+   "imageID": "t7Plot"
+  },
+  "t7Plot": {
+   "type": "image",
+   "src": "media/codec_128k/apollo-earvae.png?v=1789055975"
+  },
+  "t8": {
+   "type": "audio",
+   "title": "earvae2",
+   "src": "../artifacts/xp/codec/128k/listen/earvae2.flac?v=1789055975",
+   "imageID": "t8Plot"
+  },
+  "t8Plot": {
+   "type": "image",
+   "src": "media/codec_128k/earvae2.png?v=1789055975"
+  },
+  "t9": {
+   "type": "audio",
+   "title": "earvae2 sub",
+   "src": "../artifacts/xp/codec/128k/listen/earvae2-sub.flac?v=1789055975",
+   "imageID": "t9Plot"
+  },
+  "t9Plot": {
+   "type": "image",
+   "src": "media/codec_128k/earvae2-sub.png?v=1789055975"
+  },
+  "t10": {
+   "type": "audio",
+   "title": "apollo then earvae2",
+   "src": "../artifacts/xp/codec/128k/listen/apollo-earvae2.flac?v=1789055975",
+   "imageID": "t10Plot"
+  },
+  "t10Plot": {
+   "type": "image",
+   "src": "media/codec_128k/apollo-earvae2.png?v=1789055975"
+  },
+  "t11": {
+   "type": "audio",
+   "title": "codicodec",
+   "src": "../artifacts/xp/codec/128k/listen/codicodec.flac?v=1789055975",
+   "imageID": "t11Plot"
+  },
+  "t11Plot": {
+   "type": "image",
+   "src": "media/codec_128k/codicodec.png?v=1789055975"
+  },
+  "t12": {
+   "type": "audio",
+   "title": "codicodec sub",
+   "src": "../artifacts/xp/codec/128k/listen/codicodec-sub.flac?v=1789055975",
+   "imageID": "t12Plot"
+  },
+  "t12Plot": {
+   "type": "image",
+   "src": "media/codec_128k/codicodec-sub.png?v=1789055975"
+  },
+  "t13": {
+   "type": "audio",
+   "title": "apollo then codicodec",
+   "src": "../artifacts/xp/codec/128k/listen/apollo-codicodec.flac?v=1789055975",
+   "imageID": "t13Plot"
+  },
+  "t13Plot": {
+   "type": "image",
+   "src": "media/codec_128k/apollo-codicodec.png?v=1789055975"
+  },
+  "t14": {
+   "type": "audio",
+   "title": "apollo",
+   "src": "../artifacts/xp/codec/128k/listen/apollo.flac?v=1789055975",
+   "imageID": "t14Plot"
+  },
+  "t14Plot": {
+   "type": "image",
+   "src": "media/codec_128k/apollo.png?v=1789055975"
+  },
+  "t15": {
+   "type": "audio",
+   "title": "a2sb",
+   "src": "../artifacts/xp/codec/128k/listen/a2sb.flac?v=1789055975",
+   "imageID": "t15Plot"
+  },
+  "t15Plot": {
+   "type": "image",
+   "src": "media/codec_128k/a2sb.png?v=1789055975"
+  }
+ },
+ "views": [
+  {
+   "type": "navigationBar",
+   "controls": [
+    "playback",
+    "globalVolume",
+    "looping",
+    "seekBar",
+    "timer"
+   ],
+   "repeatEnabled": true
+  },
+  {
+   "type": "perTrackImage",
+   "seekable": true,
+   "seekMarginLeft": 5.0,
+   "seekMarginRight": 7.9999999999999964
+  },
+  {
+   "type": "trackList",
+   "tracks": [
+    "t0",
+    "t1",
+    "t2",
+    "t3",
+    "t4",
+    "t5",
+    "t6",
+    "t7",
+    "t8",
+    "t9",
+    "t10",
+    "t11",
+    "t12",
+    "t13",
+    "t14",
+    "t15"
+   ],
+   "soloGroup": 0
+  }
+ ]
+}</script>
+</trackswitch-player>
+<h2>aerofunk_32k</h2>
+<trackswitch-player>
+<script type="application/json">{
+ "media": {
+  "t0": {
+   "type": "audio",
+   "title": "input",
+   "src": "../artifacts/xp/aerofunk/32k/listen/input.flac?v=1789056066",
+   "imageID": "t0Plot",
+   "solo": true
+  },
+  "t0Plot": {
+   "type": "image",
+   "src": "media/aerofunk_32k/input.png?v=1789056066"
+  },
+  "t1": {
+   "type": "audio",
+   "title": "master",
+   "src": "../artifacts/xp/aerofunk/32k/listen/original.flac?v=1789056065",
+   "imageID": "t1Plot"
+  },
+  "t1Plot": {
+   "type": "image",
+   "src": "media/aerofunk_32k/original.png?v=1789056065"
+  },
+  "t2": {
+   "type": "audio",
+   "title": "same-l",
+   "src": "../artifacts/xp/aerofunk/32k/listen/same-l.flac?v=1789056066",
+   "imageID": "t2Plot"
+  },
+  "t2Plot": {
+   "type": "image",
+   "src": "media/aerofunk_32k/same-l.png?v=1789056066"
+  },
+  "t3": {
+   "type": "audio",
+   "title": "same-l sub",
+   "src": "../artifacts/xp/aerofunk/32k/listen/same-l-sub.flac?v=1789056067",
+   "imageID": "t3Plot"
+  },
+  "t3Plot": {
+   "type": "image",
+   "src": "media/aerofunk_32k/same-l-sub.png?v=1789056067"
+  },
+  "t4": {
+   "type": "audio",
+   "title": "apollo then same-l",
+   "src": "../artifacts/xp/aerofunk/32k/listen/apollo-same-l.flac?v=1789056067",
+   "imageID": "t4Plot"
+  },
+  "t4Plot": {
+   "type": "image",
+   "src": "media/aerofunk_32k/apollo-same-l.png?v=1789056067"
+  },
+  "t5": {
+   "type": "audio",
+   "title": "earvae",
+   "src": "../artifacts/xp/aerofunk/32k/listen/earvae.flac?v=1789056067",
+   "imageID": "t5Plot"
+  },
+  "t5Plot": {
+   "type": "image",
+   "src": "media/aerofunk_32k/earvae.png?v=1789056067"
+  },
+  "t6": {
+   "type": "audio",
+   "title": "earvae sub",
+   "src": "../artifacts/xp/aerofunk/32k/listen/earvae-sub.flac?v=1789056068",
+   "imageID": "t6Plot"
+  },
+  "t6Plot": {
+   "type": "image",
+   "src": "media/aerofunk_32k/earvae-sub.png?v=1789056068"
+  },
+  "t7": {
+   "type": "audio",
+   "title": "apollo then earvae",
+   "src": "../artifacts/xp/aerofunk/32k/listen/apollo-earvae.flac?v=1789056068",
+   "imageID": "t7Plot"
+  },
+  "t7Plot": {
+   "type": "image",
+   "src": "media/aerofunk_32k/apollo-earvae.png?v=1789056068"
+  },
+  "t8": {
+   "type": "audio",
+   "title": "earvae2",
+   "src": "../artifacts/xp/aerofunk/32k/listen/earvae2.flac?v=1789056069",
+   "imageID": "t8Plot"
+  },
+  "t8Plot": {
+   "type": "image",
+   "src": "media/aerofunk_32k/earvae2.png?v=1789056069"
+  },
+  "t9": {
+   "type": "audio",
+   "title": "earvae2 sub",
+   "src": "../artifacts/xp/aerofunk/32k/listen/earvae2-sub.flac?v=1789056069",
+   "imageID": "t9Plot"
+  },
+  "t9Plot": {
+   "type": "image",
+   "src": "media/aerofunk_32k/earvae2-sub.png?v=1789056069"
+  },
+  "t10": {
+   "type": "audio",
+   "title": "apollo then earvae2",
+   "src": "../artifacts/xp/aerofunk/32k/listen/apollo-earvae2.flac?v=1789056069",
+   "imageID": "t10Plot"
+  },
+  "t10Plot": {
+   "type": "image",
+   "src": "media/aerofunk_32k/apollo-earvae2.png?v=1789056069"
+  },
+  "t11": {
+   "type": "audio",
+   "title": "codicodec",
+   "src": "../artifacts/xp/aerofunk/32k/listen/codicodec.flac?v=1789056070",
+   "imageID": "t11Plot"
+  },
+  "t11Plot": {
+   "type": "image",
+   "src": "media/aerofunk_32k/codicodec.png?v=1789056070"
+  },
+  "t12": {
+   "type": "audio",
+   "title": "codicodec sub",
+   "src": "../artifacts/xp/aerofunk/32k/listen/codicodec-sub.flac?v=1789056071",
+   "imageID": "t12Plot"
+  },
+  "t12Plot": {
+   "type": "image",
+   "src": "media/aerofunk_32k/codicodec-sub.png?v=1789056071"
+  },
+  "t13": {
+   "type": "audio",
+   "title": "apollo then codicodec",
+   "src": "../artifacts/xp/aerofunk/32k/listen/apollo-codicodec.flac?v=1789056070",
+   "imageID": "t13Plot"
+  },
+  "t13Plot": {
+   "type": "image",
+   "src": "media/aerofunk_32k/apollo-codicodec.png?v=1789056070"
+  },
+  "t14": {
+   "type": "audio",
+   "title": "apollo",
+   "src": "../artifacts/xp/aerofunk/32k/listen/apollo.flac?v=1789056071",
+   "imageID": "t14Plot"
+  },
+  "t14Plot": {
+   "type": "image",
+   "src": "media/aerofunk_32k/apollo.png?v=1789056071"
+  },
+  "t15": {
+   "type": "audio",
+   "title": "a2sb",
+   "src": "../artifacts/xp/aerofunk/32k/listen/a2sb.flac?v=1789056072",
+   "imageID": "t15Plot"
+  },
+  "t15Plot": {
+   "type": "image",
+   "src": "media/aerofunk_32k/a2sb.png?v=1789056072"
+  }
+ },
+ "views": [
+  {
+   "type": "navigationBar",
+   "controls": [
+    "playback",
+    "globalVolume",
+    "looping",
+    "seekBar",
+    "timer"
+   ],
+   "repeatEnabled": true
+  },
+  {
+   "type": "perTrackImage",
+   "seekable": true,
+   "seekMarginLeft": 5.0,
+   "seekMarginRight": 7.9999999999999964
+  },
+  {
+   "type": "trackList",
+   "tracks": [
+    "t0",
+    "t1",
+    "t2",
+    "t3",
+    "t4",
+    "t5",
+    "t6",
+    "t7",
+    "t8",
+    "t9",
+    "t10",
+    "t11",
+    "t12",
+    "t13",
+    "t14",
+    "t15"
+   ],
+   "soloGroup": 0
+  }
+ ]
+}</script>
+</trackswitch-player>
+<h2>aerofunk_64k</h2>
+<trackswitch-player>
+<script type="application/json">{
+ "media": {
+  "t0": {
+   "type": "audio",
+   "title": "input",
+   "src": "../artifacts/xp/aerofunk/64k/listen/input.flac?v=1789056160",
+   "imageID": "t0Plot",
+   "solo": true
+  },
+  "t0Plot": {
+   "type": "image",
+   "src": "media/aerofunk_64k/input.png?v=1789056160"
+  },
+  "t1": {
+   "type": "audio",
+   "title": "master",
+   "src": "../artifacts/xp/aerofunk/64k/listen/original.flac?v=1789056160",
+   "imageID": "t1Plot"
+  },
+  "t1Plot": {
+   "type": "image",
+   "src": "media/aerofunk_64k/original.png?v=1789056160"
+  },
+  "t2": {
+   "type": "audio",
+   "title": "same-l",
+   "src": "../artifacts/xp/aerofunk/64k/listen/same-l.flac?v=1789056161",
+   "imageID": "t2Plot"
+  },
+  "t2Plot": {
+   "type": "image",
+   "src": "media/aerofunk_64k/same-l.png?v=1789056161"
+  },
+  "t3": {
+   "type": "audio",
+   "title": "same-l sub",
+   "src": "../artifacts/xp/aerofunk/64k/listen/same-l-sub.flac?v=1789056161",
+   "imageID": "t3Plot"
+  },
+  "t3Plot": {
+   "type": "image",
+   "src": "media/aerofunk_64k/same-l-sub.png?v=1789056161"
+  },
+  "t4": {
+   "type": "audio",
+   "title": "apollo then same-l",
+   "src": "../artifacts/xp/aerofunk/64k/listen/apollo-same-l.flac?v=1789056161",
+   "imageID": "t4Plot"
+  },
+  "t4Plot": {
+   "type": "image",
+   "src": "media/aerofunk_64k/apollo-same-l.png?v=1789056161"
+  },
+  "t5": {
+   "type": "audio",
+   "title": "earvae",
+   "src": "../artifacts/xp/aerofunk/64k/listen/earvae.flac?v=1789056162",
+   "imageID": "t5Plot"
+  },
+  "t5Plot": {
+   "type": "image",
+   "src": "media/aerofunk_64k/earvae.png?v=1789056162"
+  },
+  "t6": {
+   "type": "audio",
+   "title": "earvae sub",
+   "src": "../artifacts/xp/aerofunk/64k/listen/earvae-sub.flac?v=1789056163",
+   "imageID": "t6Plot"
+  },
+  "t6Plot": {
+   "type": "image",
+   "src": "media/aerofunk_64k/earvae-sub.png?v=1789056163"
+  },
+  "t7": {
+   "type": "audio",
+   "title": "apollo then earvae",
+   "src": "../artifacts/xp/aerofunk/64k/listen/apollo-earvae.flac?v=1789056162",
+   "imageID": "t7Plot"
+  },
+  "t7Plot": {
+   "type": "image",
+   "src": "media/aerofunk_64k/apollo-earvae.png?v=1789056162"
+  },
+  "t8": {
+   "type": "audio",
+   "title": "earvae2",
+   "src": "../artifacts/xp/aerofunk/64k/listen/earvae2.flac?v=1789056163",
+   "imageID": "t8Plot"
+  },
+  "t8Plot": {
+   "type": "image",
+   "src": "media/aerofunk_64k/earvae2.png?v=1789056163"
+  },
+  "t9": {
+   "type": "audio",
+   "title": "earvae2 sub",
+   "src": "../artifacts/xp/aerofunk/64k/listen/earvae2-sub.flac?v=1789056164",
+   "imageID": "t9Plot"
+  },
+  "t9Plot": {
+   "type": "image",
+   "src": "media/aerofunk_64k/earvae2-sub.png?v=1789056164"
+  },
+  "t10": {
+   "type": "audio",
+   "title": "apollo then earvae2",
+   "src": "../artifacts/xp/aerofunk/64k/listen/apollo-earvae2.flac?v=1789056163",
+   "imageID": "t10Plot"
+  },
+  "t10Plot": {
+   "type": "image",
+   "src": "media/aerofunk_64k/apollo-earvae2.png?v=1789056163"
+  },
+  "t11": {
+   "type": "audio",
+   "title": "codicodec",
+   "src": "../artifacts/xp/aerofunk/64k/listen/codicodec.flac?v=1789056164",
+   "imageID": "t11Plot"
+  },
+  "t11Plot": {
+   "type": "image",
+   "src": "media/aerofunk_64k/codicodec.png?v=1789056164"
+  },
+  "t12": {
+   "type": "audio",
+   "title": "codicodec sub",
+   "src": "../artifacts/xp/aerofunk/64k/listen/codicodec-sub.flac?v=1789056165",
+   "imageID": "t12Plot"
+  },
+  "t12Plot": {
+   "type": "image",
+   "src": "media/aerofunk_64k/codicodec-sub.png?v=1789056165"
+  },
+  "t13": {
+   "type": "audio",
+   "title": "apollo then codicodec",
+   "src": "../artifacts/xp/aerofunk/64k/listen/apollo-codicodec.flac?v=1789056164",
+   "imageID": "t13Plot"
+  },
+  "t13Plot": {
+   "type": "image",
+   "src": "media/aerofunk_64k/apollo-codicodec.png?v=1789056164"
+  },
+  "t14": {
+   "type": "audio",
+   "title": "apollo",
+   "src": "../artifacts/xp/aerofunk/64k/listen/apollo.flac?v=1789056165",
+   "imageID": "t14Plot"
+  },
+  "t14Plot": {
+   "type": "image",
+   "src": "media/aerofunk_64k/apollo.png?v=1789056165"
+  },
+  "t15": {
+   "type": "audio",
+   "title": "a2sb",
+   "src": "../artifacts/xp/aerofunk/64k/listen/a2sb.flac?v=1789056166",
+   "imageID": "t15Plot"
+  },
+  "t15Plot": {
+   "type": "image",
+   "src": "media/aerofunk_64k/a2sb.png?v=1789056166"
+  }
+ },
+ "views": [
+  {
+   "type": "navigationBar",
+   "controls": [
+    "playback",
+    "globalVolume",
+    "looping",
+    "seekBar",
+    "timer"
+   ],
+   "repeatEnabled": true
+  },
+  {
+   "type": "perTrackImage",
+   "seekable": true,
+   "seekMarginLeft": 5.0,
+   "seekMarginRight": 7.9999999999999964
+  },
+  {
+   "type": "trackList",
+   "tracks": [
+    "t0",
+    "t1",
+    "t2",
+    "t3",
+    "t4",
+    "t5",
+    "t6",
+    "t7",
+    "t8",
+    "t9",
+    "t10",
+    "t11",
+    "t12",
+    "t13",
+    "t14",
+    "t15"
+   ],
+   "soloGroup": 0
+  }
+ ]
+}</script>
+</trackswitch-player>
+<h2>aerofunk_128k</h2>
+<trackswitch-player>
+<script type="application/json">{
+ "media": {
+  "t0": {
+   "type": "audio",
+   "title": "input",
+   "src": "../artifacts/xp/aerofunk/128k/listen/input.flac?v=1789056255",
+   "imageID": "t0Plot",
+   "solo": true
+  },
+  "t0Plot": {
+   "type": "image",
+   "src": "media/aerofunk_128k/input.png?v=1789056255"
+  },
+  "t1": {
+   "type": "audio",
+   "title": "master",
+   "src": "../artifacts/xp/aerofunk/128k/listen/original.flac?v=1789056255",
+   "imageID": "t1Plot"
+  },
+  "t1Plot": {
+   "type": "image",
+   "src": "media/aerofunk_128k/original.png?v=1789056255"
+  },
+  "t2": {
+   "type": "audio",
+   "title": "same-l",
+   "src": "../artifacts/xp/aerofunk/128k/listen/same-l.flac?v=1789056255",
+   "imageID": "t2Plot"
+  },
+  "t2Plot": {
+   "type": "image",
+   "src": "media/aerofunk_128k/same-l.png?v=1789056255"
+  },
+  "t3": {
+   "type": "audio",
+   "title": "same-l sub",
+   "src": "../artifacts/xp/aerofunk/128k/listen/same-l-sub.flac?v=1789056256",
+   "imageID": "t3Plot"
+  },
+  "t3Plot": {
+   "type": "image",
+   "src": "media/aerofunk_128k/same-l-sub.png?v=1789056256"
+  },
+  "t4": {
+   "type": "audio",
+   "title": "apollo then same-l",
+   "src": "../artifacts/xp/aerofunk/128k/listen/apollo-same-l.flac?v=1789056256",
+   "imageID": "t4Plot"
+  },
+  "t4Plot": {
+   "type": "image",
+   "src": "media/aerofunk_128k/apollo-same-l.png?v=1789056256"
+  },
+  "t5": {
+   "type": "audio",
+   "title": "earvae",
+   "src": "../artifacts/xp/aerofunk/128k/listen/earvae.flac?v=1789056257",
+   "imageID": "t5Plot"
+  },
+  "t5Plot": {
+   "type": "image",
+   "src": "media/aerofunk_128k/earvae.png?v=1789056257"
+  },
+  "t6": {
+   "type": "audio",
+   "title": "earvae sub",
+   "src": "../artifacts/xp/aerofunk/128k/listen/earvae-sub.flac?v=1789056257",
+   "imageID": "t6Plot"
+  },
+  "t6Plot": {
+   "type": "image",
+   "src": "media/aerofunk_128k/earvae-sub.png?v=1789056257"
+  },
+  "t7": {
+   "type": "audio",
+   "title": "apollo then earvae",
+   "src": "../artifacts/xp/aerofunk/128k/listen/apollo-earvae.flac?v=1789056257",
+   "imageID": "t7Plot"
+  },
+  "t7Plot": {
+   "type": "image",
+   "src": "media/aerofunk_128k/apollo-earvae.png?v=1789056257"
+  },
+  "t8": {
+   "type": "audio",
+   "title": "earvae2",
+   "src": "../artifacts/xp/aerofunk/128k/listen/earvae2.flac?v=1789056258",
+   "imageID": "t8Plot"
+  },
+  "t8Plot": {
+   "type": "image",
+   "src": "media/aerofunk_128k/earvae2.png?v=1789056258"
+  },
+  "t9": {
+   "type": "audio",
+   "title": "earvae2 sub",
+   "src": "../artifacts/xp/aerofunk/128k/listen/earvae2-sub.flac?v=1789056258",
+   "imageID": "t9Plot"
+  },
+  "t9Plot": {
+   "type": "image",
+   "src": "media/aerofunk_128k/earvae2-sub.png?v=1789056258"
+  },
+  "t10": {
+   "type": "audio",
+   "title": "apollo then earvae2",
+   "src": "../artifacts/xp/aerofunk/128k/listen/apollo-earvae2.flac?v=1789056258",
+   "imageID": "t10Plot"
+  },
+  "t10Plot": {
+   "type": "image",
+   "src": "media/aerofunk_128k/apollo-earvae2.png?v=1789056258"
+  },
+  "t11": {
+   "type": "audio",
+   "title": "codicodec",
+   "src": "../artifacts/xp/aerofunk/128k/listen/codicodec.flac?v=1789056259",
+   "imageID": "t11Plot"
+  },
+  "t11Plot": {
+   "type": "image",
+   "src": "media/aerofunk_128k/codicodec.png?v=1789056259"
+  },
+  "t12": {
+   "type": "audio",
+   "title": "codicodec sub",
+   "src": "../artifacts/xp/aerofunk/128k/listen/codicodec-sub.flac?v=1789056260",
+   "imageID": "t12Plot"
+  },
+  "t12Plot": {
+   "type": "image",
+   "src": "media/aerofunk_128k/codicodec-sub.png?v=1789056260"
+  },
+  "t13": {
+   "type": "audio",
+   "title": "apollo then codicodec",
+   "src": "../artifacts/xp/aerofunk/128k/listen/apollo-codicodec.flac?v=1789056259",
+   "imageID": "t13Plot"
+  },
+  "t13Plot": {
+   "type": "image",
+   "src": "media/aerofunk_128k/apollo-codicodec.png?v=1789056259"
+  },
+  "t14": {
+   "type": "audio",
+   "title": "apollo",
+   "src": "../artifacts/xp/aerofunk/128k/listen/apollo.flac?v=1789056260",
+   "imageID": "t14Plot"
+  },
+  "t14Plot": {
+   "type": "image",
+   "src": "media/aerofunk_128k/apollo.png?v=1789056260"
+  },
+  "t15": {
+   "type": "audio",
+   "title": "a2sb",
+   "src": "../artifacts/xp/aerofunk/128k/listen/a2sb.flac?v=1789056260",
+   "imageID": "t15Plot"
+  },
+  "t15Plot": {
+   "type": "image",
+   "src": "media/aerofunk_128k/a2sb.png?v=1789056260"
+  }
+ },
+ "views": [
+  {
+   "type": "navigationBar",
+   "controls": [
+    "playback",
+    "globalVolume",
+    "looping",
+    "seekBar",
+    "timer"
+   ],
+   "repeatEnabled": true
+  },
+  {
+   "type": "perTrackImage",
+   "seekable": true,
+   "seekMarginLeft": 5.0,
+   "seekMarginRight": 7.9999999999999964
+  },
+  {
+   "type": "trackList",
+   "tracks": [
+    "t0",
+    "t1",
+    "t2",
+    "t3",
+    "t4",
+    "t5",
+    "t6",
+    "t7",
+    "t8",
+    "t9",
+    "t10",
+    "t11",
+    "t12",
+    "t13",
+    "t14",
+    "t15"
+   ],
+   "soloGroup": 0
+  }
+ ]
+}</script>
+</trackswitch-player>
+<h2>same-artist_32k</h2>
+<trackswitch-player>
+<script type="application/json">{
+ "media": {
+  "t0": {
+   "type": "audio",
+   "title": "input",
+   "src": "../artifacts/xp/same-artist/32k/listen/input.flac?v=1789056350",
+   "imageID": "t0Plot",
+   "solo": true
+  },
+  "t0Plot": {
+   "type": "image",
+   "src": "media/same-artist_32k/input.png?v=1789056350"
+  },
+  "t1": {
+   "type": "audio",
+   "title": "master",
+   "src": "../artifacts/xp/same-artist/32k/listen/original.flac?v=1789056350",
+   "imageID": "t1Plot"
+  },
+  "t1Plot": {
+   "type": "image",
+   "src": "media/same-artist_32k/original.png?v=1789056350"
+  },
+  "t2": {
+   "type": "audio",
+   "title": "same-l",
+   "src": "../artifacts/xp/same-artist/32k/listen/same-l.flac?v=1789056351",
+   "imageID": "t2Plot"
+  },
+  "t2Plot": {
+   "type": "image",
+   "src": "media/same-artist_32k/same-l.png?v=1789056351"
+  },
+  "t3": {
+   "type": "audio",
+   "title": "same-l sub",
+   "src": "../artifacts/xp/same-artist/32k/listen/same-l-sub.flac?v=1789056351",
+   "imageID": "t3Plot"
+  },
+  "t3Plot": {
+   "type": "image",
+   "src": "media/same-artist_32k/same-l-sub.png?v=1789056351"
+  },
+  "t4": {
+   "type": "audio",
+   "title": "apollo then same-l",
+   "src": "../artifacts/xp/same-artist/32k/listen/apollo-same-l.flac?v=1789056351",
+   "imageID": "t4Plot"
+  },
+  "t4Plot": {
+   "type": "image",
+   "src": "media/same-artist_32k/apollo-same-l.png?v=1789056351"
+  },
+  "t5": {
+   "type": "audio",
+   "title": "earvae",
+   "src": "../artifacts/xp/same-artist/32k/listen/earvae.flac?v=1789056352",
+   "imageID": "t5Plot"
+  },
+  "t5Plot": {
+   "type": "image",
+   "src": "media/same-artist_32k/earvae.png?v=1789056352"
+  },
+  "t6": {
+   "type": "audio",
+   "title": "earvae sub",
+   "src": "../artifacts/xp/same-artist/32k/listen/earvae-sub.flac?v=1789056352",
+   "imageID": "t6Plot"
+  },
+  "t6Plot": {
+   "type": "image",
+   "src": "media/same-artist_32k/earvae-sub.png?v=1789056352"
+  },
+  "t7": {
+   "type": "audio",
+   "title": "apollo then earvae",
+   "src": "../artifacts/xp/same-artist/32k/listen/apollo-earvae.flac?v=1789056352",
+   "imageID": "t7Plot"
+  },
+  "t7Plot": {
+   "type": "image",
+   "src": "media/same-artist_32k/apollo-earvae.png?v=1789056352"
+  },
+  "t8": {
+   "type": "audio",
+   "title": "earvae2",
+   "src": "../artifacts/xp/same-artist/32k/listen/earvae2.flac?v=1789056353",
+   "imageID": "t8Plot"
+  },
+  "t8Plot": {
+   "type": "image",
+   "src": "media/same-artist_32k/earvae2.png?v=1789056353"
+  },
+  "t9": {
+   "type": "audio",
+   "title": "earvae2 sub",
+   "src": "../artifacts/xp/same-artist/32k/listen/earvae2-sub.flac?v=1789056354",
+   "imageID": "t9Plot"
+  },
+  "t9Plot": {
+   "type": "image",
+   "src": "media/same-artist_32k/earvae2-sub.png?v=1789056354"
+  },
+  "t10": {
+   "type": "audio",
+   "title": "apollo then earvae2",
+   "src": "../artifacts/xp/same-artist/32k/listen/apollo-earvae2.flac?v=1789056353",
+   "imageID": "t10Plot"
+  },
+  "t10Plot": {
+   "type": "image",
+   "src": "media/same-artist_32k/apollo-earvae2.png?v=1789056353"
+  },
+  "t11": {
+   "type": "audio",
+   "title": "codicodec",
+   "src": "../artifacts/xp/same-artist/32k/listen/codicodec.flac?v=1789056354",
+   "imageID": "t11Plot"
+  },
+  "t11Plot": {
+   "type": "image",
+   "src": "media/same-artist_32k/codicodec.png?v=1789056354"
+  },
+  "t12": {
+   "type": "audio",
+   "title": "codicodec sub",
+   "src": "../artifacts/xp/same-artist/32k/listen/codicodec-sub.flac?v=1789056355",
+   "imageID": "t12Plot"
+  },
+  "t12Plot": {
+   "type": "image",
+   "src": "media/same-artist_32k/codicodec-sub.png?v=1789056355"
+  },
+  "t13": {
+   "type": "audio",
+   "title": "apollo then codicodec",
+   "src": "../artifacts/xp/same-artist/32k/listen/apollo-codicodec.flac?v=1789056354",
+   "imageID": "t13Plot"
+  },
+  "t13Plot": {
+   "type": "image",
+   "src": "media/same-artist_32k/apollo-codicodec.png?v=1789056354"
+  },
+  "t14": {
+   "type": "audio",
+   "title": "apollo",
+   "src": "../artifacts/xp/same-artist/32k/listen/apollo.flac?v=1789056355",
+   "imageID": "t14Plot"
+  },
+  "t14Plot": {
+   "type": "image",
+   "src": "media/same-artist_32k/apollo.png?v=1789056355"
+  },
+  "t15": {
+   "type": "audio",
+   "title": "a2sb",
+   "src": "../artifacts/xp/same-artist/32k/listen/a2sb.flac?v=1789056355",
+   "imageID": "t15Plot"
+  },
+  "t15Plot": {
+   "type": "image",
+   "src": "media/same-artist_32k/a2sb.png?v=1789056355"
+  }
+ },
+ "views": [
+  {
+   "type": "navigationBar",
+   "controls": [
+    "playback",
+    "globalVolume",
+    "looping",
+    "seekBar",
+    "timer"
+   ],
+   "repeatEnabled": true
+  },
+  {
+   "type": "perTrackImage",
+   "seekable": true,
+   "seekMarginLeft": 5.0,
+   "seekMarginRight": 7.9999999999999964
+  },
+  {
+   "type": "trackList",
+   "tracks": [
+    "t0",
+    "t1",
+    "t2",
+    "t3",
+    "t4",
+    "t5",
+    "t6",
+    "t7",
+    "t8",
+    "t9",
+    "t10",
+    "t11",
+    "t12",
+    "t13",
+    "t14",
+    "t15"
+   ],
+   "soloGroup": 0
+  }
+ ]
+}</script>
+</trackswitch-player>
+<h2>same-artist_64k</h2>
+<trackswitch-player>
+<script type="application/json">{
+ "media": {
+  "t0": {
+   "type": "audio",
+   "title": "input",
+   "src": "../artifacts/xp/same-artist/64k/listen/input.flac?v=1789056444",
+   "imageID": "t0Plot",
+   "solo": true
+  },
+  "t0Plot": {
+   "type": "image",
+   "src": "media/same-artist_64k/input.png?v=1789056444"
+  },
+  "t1": {
+   "type": "audio",
+   "title": "master",
+   "src": "../artifacts/xp/same-artist/64k/listen/original.flac?v=1789056444",
+   "imageID": "t1Plot"
+  },
+  "t1Plot": {
+   "type": "image",
+   "src": "media/same-artist_64k/original.png?v=1789056444"
+  },
+  "t2": {
+   "type": "audio",
+   "title": "same-l",
+   "src": "../artifacts/xp/same-artist/64k/listen/same-l.flac?v=1789056444",
+   "imageID": "t2Plot"
+  },
+  "t2Plot": {
+   "type": "image",
+   "src": "media/same-artist_64k/same-l.png?v=1789056444"
+  },
+  "t3": {
+   "type": "audio",
+   "title": "same-l sub",
+   "src": "../artifacts/xp/same-artist/64k/listen/same-l-sub.flac?v=1789056445",
+   "imageID": "t3Plot"
+  },
+  "t3Plot": {
+   "type": "image",
+   "src": "media/same-artist_64k/same-l-sub.png?v=1789056445"
+  },
+  "t4": {
+   "type": "audio",
+   "title": "apollo then same-l",
+   "src": "../artifacts/xp/same-artist/64k/listen/apollo-same-l.flac?v=1789056445",
+   "imageID": "t4Plot"
+  },
+  "t4Plot": {
+   "type": "image",
+   "src": "media/same-artist_64k/apollo-same-l.png?v=1789056445"
+  },
+  "t5": {
+   "type": "audio",
+   "title": "earvae",
+   "src": "../artifacts/xp/same-artist/64k/listen/earvae.flac?v=1789056445",
+   "imageID": "t5Plot"
+  },
+  "t5Plot": {
+   "type": "image",
+   "src": "media/same-artist_64k/earvae.png?v=1789056445"
+  },
+  "t6": {
+   "type": "audio",
+   "title": "earvae sub",
+   "src": "../artifacts/xp/same-artist/64k/listen/earvae-sub.flac?v=1789056446",
+   "imageID": "t6Plot"
+  },
+  "t6Plot": {
+   "type": "image",
+   "src": "media/same-artist_64k/earvae-sub.png?v=1789056446"
+  },
+  "t7": {
+   "type": "audio",
+   "title": "apollo then earvae",
+   "src": "../artifacts/xp/same-artist/64k/listen/apollo-earvae.flac?v=1789056446",
+   "imageID": "t7Plot"
+  },
+  "t7Plot": {
+   "type": "image",
+   "src": "media/same-artist_64k/apollo-earvae.png?v=1789056446"
+  },
+  "t8": {
+   "type": "audio",
+   "title": "earvae2",
+   "src": "../artifacts/xp/same-artist/64k/listen/earvae2.flac?v=1789056447",
+   "imageID": "t8Plot"
+  },
+  "t8Plot": {
+   "type": "image",
+   "src": "media/same-artist_64k/earvae2.png?v=1789056447"
+  },
+  "t9": {
+   "type": "audio",
+   "title": "earvae2 sub",
+   "src": "../artifacts/xp/same-artist/64k/listen/earvae2-sub.flac?v=1789056447",
+   "imageID": "t9Plot"
+  },
+  "t9Plot": {
+   "type": "image",
+   "src": "media/same-artist_64k/earvae2-sub.png?v=1789056447"
+  },
+  "t10": {
+   "type": "audio",
+   "title": "apollo then earvae2",
+   "src": "../artifacts/xp/same-artist/64k/listen/apollo-earvae2.flac?v=1789056447",
+   "imageID": "t10Plot"
+  },
+  "t10Plot": {
+   "type": "image",
+   "src": "media/same-artist_64k/apollo-earvae2.png?v=1789056447"
+  },
+  "t11": {
+   "type": "audio",
+   "title": "codicodec",
+   "src": "../artifacts/xp/same-artist/64k/listen/codicodec.flac?v=1789056448",
+   "imageID": "t11Plot"
+  },
+  "t11Plot": {
+   "type": "image",
+   "src": "media/same-artist_64k/codicodec.png?v=1789056448"
+  },
+  "t12": {
+   "type": "audio",
+   "title": "codicodec sub",
+   "src": "../artifacts/xp/same-artist/64k/listen/codicodec-sub.flac?v=1789056448",
+   "imageID": "t12Plot"
+  },
+  "t12Plot": {
+   "type": "image",
+   "src": "media/same-artist_64k/codicodec-sub.png?v=1789056448"
+  },
+  "t13": {
+   "type": "audio",
+   "title": "apollo then codicodec",
+   "src": "../artifacts/xp/same-artist/64k/listen/apollo-codicodec.flac?v=1789056448",
+   "imageID": "t13Plot"
+  },
+  "t13Plot": {
+   "type": "image",
+   "src": "media/same-artist_64k/apollo-codicodec.png?v=1789056448"
+  },
+  "t14": {
+   "type": "audio",
+   "title": "apollo",
+   "src": "../artifacts/xp/same-artist/64k/listen/apollo.flac?v=1789056449",
+   "imageID": "t14Plot"
+  },
+  "t14Plot": {
+   "type": "image",
+   "src": "media/same-artist_64k/apollo.png?v=1789056449"
+  },
+  "t15": {
+   "type": "audio",
+   "title": "a2sb",
+   "src": "../artifacts/xp/same-artist/64k/listen/a2sb.flac?v=1789056449",
+   "imageID": "t15Plot"
+  },
+  "t15Plot": {
+   "type": "image",
+   "src": "media/same-artist_64k/a2sb.png?v=1789056449"
+  }
+ },
+ "views": [
+  {
+   "type": "navigationBar",
+   "controls": [
+    "playback",
+    "globalVolume",
+    "looping",
+    "seekBar",
+    "timer"
+   ],
+   "repeatEnabled": true
+  },
+  {
+   "type": "perTrackImage",
+   "seekable": true,
+   "seekMarginLeft": 5.0,
+   "seekMarginRight": 7.9999999999999964
+  },
+  {
+   "type": "trackList",
+   "tracks": [
+    "t0",
+    "t1",
+    "t2",
+    "t3",
+    "t4",
+    "t5",
+    "t6",
+    "t7",
+    "t8",
+    "t9",
+    "t10",
+    "t11",
+    "t12",
+    "t13",
+    "t14",
+    "t15"
+   ],
+   "soloGroup": 0
+  }
+ ]
+}</script>
+</trackswitch-player>
+<h2>same-artist_128k</h2>
+<trackswitch-player>
+<script type="application/json">{
+ "media": {
+  "t0": {
+   "type": "audio",
+   "title": "input",
+   "src": "../artifacts/xp/same-artist/128k/listen/input.flac?v=1789056537",
+   "imageID": "t0Plot",
+   "solo": true
+  },
+  "t0Plot": {
+   "type": "image",
+   "src": "media/same-artist_128k/input.png?v=1789056537"
+  },
+  "t1": {
+   "type": "audio",
+   "title": "master",
+   "src": "../artifacts/xp/same-artist/128k/listen/original.flac?v=1789056537",
+   "imageID": "t1Plot"
+  },
+  "t1Plot": {
+   "type": "image",
+   "src": "media/same-artist_128k/original.png?v=1789056537"
+  },
+  "t2": {
+   "type": "audio",
+   "title": "same-l",
+   "src": "../artifacts/xp/same-artist/128k/listen/same-l.flac?v=1789056538",
+   "imageID": "t2Plot"
+  },
+  "t2Plot": {
+   "type": "image",
+   "src": "media/same-artist_128k/same-l.png?v=1789056538"
+  },
+  "t3": {
+   "type": "audio",
+   "title": "same-l sub",
+   "src": "../artifacts/xp/same-artist/128k/listen/same-l-sub.flac?v=1789056538",
+   "imageID": "t3Plot"
+  },
+  "t3Plot": {
+   "type": "image",
+   "src": "media/same-artist_128k/same-l-sub.png?v=1789056538"
+  },
+  "t4": {
+   "type": "audio",
+   "title": "apollo then same-l",
+   "src": "../artifacts/xp/same-artist/128k/listen/apollo-same-l.flac?v=1789056538",
+   "imageID": "t4Plot"
+  },
+  "t4Plot": {
+   "type": "image",
+   "src": "media/same-artist_128k/apollo-same-l.png?v=1789056538"
+  },
+  "t5": {
+   "type": "audio",
+   "title": "earvae",
+   "src": "../artifacts/xp/same-artist/128k/listen/earvae.flac?v=1789056539",
+   "imageID": "t5Plot"
+  },
+  "t5Plot": {
+   "type": "image",
+   "src": "media/same-artist_128k/earvae.png?v=1789056539"
+  },
+  "t6": {
+   "type": "audio",
+   "title": "earvae sub",
+   "src": "../artifacts/xp/same-artist/128k/listen/earvae-sub.flac?v=1789056540",
+   "imageID": "t6Plot"
+  },
+  "t6Plot": {
+   "type": "image",
+   "src": "media/same-artist_128k/earvae-sub.png?v=1789056540"
+  },
+  "t7": {
+   "type": "audio",
+   "title": "apollo then earvae",
+   "src": "../artifacts/xp/same-artist/128k/listen/apollo-earvae.flac?v=1789056539",
+   "imageID": "t7Plot"
+  },
+  "t7Plot": {
+   "type": "image",
+   "src": "media/same-artist_128k/apollo-earvae.png?v=1789056539"
+  },
+  "t8": {
+   "type": "audio",
+   "title": "earvae2",
+   "src": "../artifacts/xp/same-artist/128k/listen/earvae2.flac?v=1789056540",
+   "imageID": "t8Plot"
+  },
+  "t8Plot": {
+   "type": "image",
+   "src": "media/same-artist_128k/earvae2.png?v=1789056540"
+  },
+  "t9": {
+   "type": "audio",
+   "title": "earvae2 sub",
+   "src": "../artifacts/xp/same-artist/128k/listen/earvae2-sub.flac?v=1789056541",
+   "imageID": "t9Plot"
+  },
+  "t9Plot": {
+   "type": "image",
+   "src": "media/same-artist_128k/earvae2-sub.png?v=1789056541"
+  },
+  "t10": {
+   "type": "audio",
+   "title": "apollo then earvae2",
+   "src": "../artifacts/xp/same-artist/128k/listen/apollo-earvae2.flac?v=1789056540",
+   "imageID": "t10Plot"
+  },
+  "t10Plot": {
+   "type": "image",
+   "src": "media/same-artist_128k/apollo-earvae2.png?v=1789056540"
+  },
+  "t11": {
+   "type": "audio",
+   "title": "codicodec",
+   "src": "../artifacts/xp/same-artist/128k/listen/codicodec.flac?v=1789056541",
+   "imageID": "t11Plot"
+  },
+  "t11Plot": {
+   "type": "image",
+   "src": "media/same-artist_128k/codicodec.png?v=1789056541"
+  },
+  "t12": {
+   "type": "audio",
+   "title": "codicodec sub",
+   "src": "../artifacts/xp/same-artist/128k/listen/codicodec-sub.flac?v=1789056542",
+   "imageID": "t12Plot"
+  },
+  "t12Plot": {
+   "type": "image",
+   "src": "media/same-artist_128k/codicodec-sub.png?v=1789056542"
+  },
+  "t13": {
+   "type": "audio",
+   "title": "apollo then codicodec",
+   "src": "../artifacts/xp/same-artist/128k/listen/apollo-codicodec.flac?v=1789056541",
+   "imageID": "t13Plot"
+  },
+  "t13Plot": {
+   "type": "image",
+   "src": "media/same-artist_128k/apollo-codicodec.png?v=1789056541"
+  },
+  "t14": {
+   "type": "audio",
+   "title": "apollo",
+   "src": "../artifacts/xp/same-artist/128k/listen/apollo.flac?v=1789056542",
+   "imageID": "t14Plot"
+  },
+  "t14Plot": {
+   "type": "image",
+   "src": "media/same-artist_128k/apollo.png?v=1789056542"
+  },
+  "t15": {
+   "type": "audio",
+   "title": "a2sb",
+   "src": "../artifacts/xp/same-artist/128k/listen/a2sb.flac?v=1789056543",
+   "imageID": "t15Plot"
+  },
+  "t15Plot": {
+   "type": "image",
+   "src": "media/same-artist_128k/a2sb.png?v=1789056543"
+  }
+ },
+ "views": [
+  {
+   "type": "navigationBar",
+   "controls": [
+    "playback",
+    "globalVolume",
+    "looping",
+    "seekBar",
+    "timer"
+   ],
+   "repeatEnabled": true
+  },
+  {
+   "type": "perTrackImage",
+   "seekable": true,
+   "seekMarginLeft": 5.0,
+   "seekMarginRight": 7.9999999999999964
+  },
+  {
+   "type": "trackList",
+   "tracks": [
+    "t0",
+    "t1",
+    "t2",
+    "t3",
+    "t4",
+    "t5",
+    "t6",
+    "t7",
+    "t8",
+    "t9",
+    "t10",
+    "t11",
+    "t12",
+    "t13",
+    "t14",
+    "t15"
+   ],
+   "soloGroup": 0
+  }
+ ]
+}</script>
+</trackswitch-player>
+<script>
+if (!customElements.get(TrackSwitch.TRACKSWITCH_DEFAULT_ELEMENT_NAME)) {
+  TrackSwitch.defineTrackswitchDefaultElement();
+}
+
+// The bundle's own declarative boot never completes for parser-inserted
+// players carrying an inline config (dynamically created ones boot fine),
+// so kick each one explicitly; the element's config-load generation counter
+// makes this later call the one that wins.
+document.querySelectorAll("trackswitch-player").forEach((player) => {
+  if (!player.currentConfig) player.loadDeclarativeConfig();
+});
+
+// Collapsed sections hold their player config as an inline JSON script; the
+// player element is created around it the first time the section is opened,
+// and audio decodes on first play — memory follows what is actually
+// listened to. The config script must be inside the element before it
+// connects, so it is moved in first.
+document.querySelectorAll("details").forEach((section) => {
+  const config = section.querySelector("script[data-player-config]");
+  if (!config) return;
+  section.addEventListener("toggle", () => {
+    if (!section.open || section.dataset.loaded) return;
+    section.dataset.loaded = "1";
+    const player = document.createElement("trackswitch-player");
+    player.appendChild(config);
+    section.appendChild(player);
+  });
+});
+
+// At most one decoded player per page, torn down as soon as another one
+// STARTS loading — the freed audio does not wait for the new decode to
+// finish, so the memory peak is one decoded player plus the file currently
+// decoding, never two full players. destroyController drops the audio;
+// applyCurrentConfig re-mounts the idle UI (power button) from the same
+// config. A re-mounted player gets a fresh controller, so arming re-runs
+// from the sweep below; the "loaded" listener covers decodes faster than
+// one sweep tick.
+const unloadOtherPlayers = (active) => {
+  document.querySelectorAll("trackswitch-player").forEach((other) => {
+    if (other === active || !other.controller) return;
+    if (!other.controller.getState().isLoaded) return;
+    other.destroyController();
+    other.applyCurrentConfig();
+    delete other.dataset.soleLoadedArmed;
+  });
+};
+const armSoleLoadedPlayer = (player) => {
+  const controller = player.controller;
+  if (!controller || player.dataset.soleLoadedArmed) return;
+  player.dataset.soleLoadedArmed = "1";
+  controller.on("loaded", () => unloadOtherPlayers(player));
+};
+setInterval(() => {
+  const players = [...document.querySelectorAll("trackswitch-player")];
+  players.forEach(armSoleLoadedPlayer);
+  const loading = players.find(
+    (p) => p.controller && p.controller.getState().isLoading
+  );
+  if (loading) unloadOtherPlayers(loading);
+}, 500);
+
+</script>
+</body>
+</html>

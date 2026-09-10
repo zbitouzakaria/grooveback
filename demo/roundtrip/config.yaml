@@ -1,0 +1,55 @@
+# The autoencoder round-trip benchmark, one player per (source x bitrate)
+# (ADR-0011). Packs are written by scripts/run_xp.py; rebuild this page with:
+#   uv run --group notebooks python scripts/build_demo.py demo/roundtrip/config.yaml
+
+codec_32k:
+  dir: artifacts/xp/codec/32k/listen
+  tracks: &tracks
+    input: input.flac
+    master: original.flac
+    same-l: same-l.flac
+    same-l sub: same-l-sub.flac
+    apollo then same-l: apollo-same-l.flac
+    earvae: earvae.flac
+    earvae sub: earvae-sub.flac
+    apollo then earvae: apollo-earvae.flac
+    earvae2: earvae2.flac
+    earvae2 sub: earvae2-sub.flac
+    apollo then earvae2: apollo-earvae2.flac
+    codicodec: codicodec.flac
+    codicodec sub: codicodec-sub.flac
+    apollo then codicodec: apollo-codicodec.flac
+    apollo: apollo.flac
+    a2sb: a2sb.flac
+
+codec_64k:
+  dir: artifacts/xp/codec/64k/listen
+  tracks: *tracks
+
+codec_128k:
+  dir: artifacts/xp/codec/128k/listen
+  tracks: *tracks
+
+aerofunk_32k:
+  dir: artifacts/xp/aerofunk/32k/listen
+  tracks: *tracks
+
+aerofunk_64k:
+  dir: artifacts/xp/aerofunk/64k/listen
+  tracks: *tracks
+
+aerofunk_128k:
+  dir: artifacts/xp/aerofunk/128k/listen
+  tracks: *tracks
+
+same-artist_32k:
+  dir: artifacts/xp/same-artist/32k/listen
+  tracks: *tracks
+
+same-artist_64k:
+  dir: artifacts/xp/same-artist/64k/listen
+  tracks: *tracks
+
+same-artist_128k:
+  dir: artifacts/xp/same-artist/128k/listen
+  tracks: *tracks

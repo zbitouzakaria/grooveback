@@ -215,7 +215,13 @@ def best_lag(
     if not probe.any():
         raise ValueError("The middle of the estimate is silent; cannot align.")
     haystack = ref[start - max_lag : start + probe_samples + max_lag]
-    correlation = np.correlate(haystack, probe, "valid")
+    # Cross-correlation through the FFT: np.correlate's direct loop takes
+    # over a minute for these sizes on some Linux numpy builds (measured on a
+    # RunPod image), while the transform product is milliseconds everywhere
+    # and exact to float64 roundoff — far below the argmax's decision margin.
+    n_fft = 1 << (haystack.size + probe.size - 1).bit_length()
+    spectrum = np.fft.rfft(haystack, n_fft) * np.conj(np.fft.rfft(probe, n_fft))
+    correlation = np.fft.irfft(spectrum, n_fft)[: 2 * max_lag + 1]
     return max_lag - int(np.argmax(correlation))
 
 
@@ -246,14 +252,20 @@ def write_listening_pack(
     items: dict[str, np.ndarray],
     sample_rate: int,
     out_dir: str | Path,
+    suffix: str = ".wav",
     **kwargs,
 ) -> dict[str, Path]:
-    """Write a level-matched, headroom-safe set for listening."""
+    """Write a level-matched, headroom-safe set for listening.
+
+    `suffix=".flac"` writes 24-bit FLAC — at −14 LUFS the quantization floor
+    sits ~130 dB under program level, far below anything audible.
+    """
     out_dir = Path(out_dir)
     prepared = level_matched_set(items, sample_rate, **kwargs)
     written = {}
     for name, audio in prepared.items():
-        path = out_dir / f"{'mono_' if audio.shape[0] == 1 else ''}{name}.wav"
-        ga.save(path, audio, sample_rate)
+        path = out_dir / f"{'mono_' if audio.shape[0] == 1 else ''}{name}{suffix}"
+        ga.save(path, audio, sample_rate,
+                subtype="PCM_24" if suffix == ".flac" else "FLOAT")
         written[name] = path
     return written

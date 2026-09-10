@@ -21,6 +21,12 @@
       "runtimeExecutable": "python3",
       "runtimeArgs": ["-m", "http.server", "8880", "-d", "demo"],
       "port": 8880
+    },
+    {
+      "name": "pages",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8881", "-d", "docs/listen"],
+      "port": 8881
     }
   ]
 }

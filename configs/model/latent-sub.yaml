@@ -1,0 +1,9 @@
+# Subtract a mean MP3 damage direction from the input's latents, then decode
+# (ADR-0011). The damage vector is measured on a donor track at the input's
+# bitrate: mean over frames of encode(mp3(donor)) - encode(donor). It points
+# clean -> damaged, so subtracting moves toward clean.
+
+name: latent-sub
+ae: same-l
+damage_npy: ???   # (channels,) float32 .npy — scripts/run_xp.py caches these
+                  # under artifacts/xp/_donor/{bitrate}/damage-{ae}.npy

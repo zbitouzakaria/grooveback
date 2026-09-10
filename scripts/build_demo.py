@@ -129,21 +129,29 @@ def players_of(pack_name: str, spec: dict, pack_dir: Path) -> list[tuple[str, li
     return [(pack_name, list(spec["tracks"].items()))]
 
 
-def player_config(pack_name: str, tracks: list[tuple[str, str]], audio_base: str) -> dict:
-    """The trackswitch player JSON: solo the first track, one image per track."""
+def player_config(
+    pack_name: str, tracks: list[tuple[str, str]], audio_base: str, pack_dir: Path
+) -> dict:
+    """The trackswitch player JSON: solo the first track, one image per track.
+
+    Audio URLs carry the file's mtime as a version query: pack paths never
+    change across rebuilds, and a browser replaying a cached (or still
+    decoded) copy of an old render defeats the whole comparison.
+    """
     media, track_ids = {}, []
     for i, (label, filename) in enumerate(tracks):
         track_id = f"t{i}"
+        version = int((pack_dir / filename).stat().st_mtime)
         media[track_id] = {
             "type": "audio",
             "title": label,
-            "src": f"{audio_base}/{filename}",
+            "src": f"{audio_base}/{filename}?v={version}",
             "imageID": f"{track_id}Plot",
             **({"solo": True} if i == 0 else {}),
         }
         media[f"{track_id}Plot"] = {
             "type": "image",
-            "src": f"media/{pack_name}/{Path(filename).with_suffix('.png')}",
+            "src": f"media/{pack_name}/{Path(filename).with_suffix('.png')}?v={version}",
         }
         track_ids.append(track_id)
     return {
@@ -320,7 +328,7 @@ def build_page(config_path: Path) -> None:
         for title, tracks in players:
             # "</" cannot appear inside a script block; "<\/" is the same JSON value.
             config_json = json.dumps(
-                player_config(pack_name, tracks, audio_base), indent=1
+                player_config(pack_name, tracks, audio_base, pack_dir), indent=1
             ).replace("</", "<\\/")
             if lazy:
                 sections.append(

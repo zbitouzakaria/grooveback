@@ -1,17 +1,44 @@
-"""The SDEdit solver's wiring: what reaches the model, what comes back.
+"""The solvers' wiring: what reaches the model, what comes back.
 
-The real prior needs gated checkpoints and a GPU, so a recording fake stands
-in; the contract under test is ours, not Stability's.
+The real models need gated checkpoints and a GPU, so recording fakes stand
+in; the contract under test is ours, not the model authors'.
 """
 
 import numpy as np
 import pytest
 import torch
 
+from grooveback import latents as gl
 from grooveback.audio import loudness
-from grooveback.solvers import SDEDIT_MAX_SECONDS, sdedit
+from grooveback.solvers import SDEDIT_MAX_SECONDS, latent_sub, roundtrip, sdedit
 
 SR = 44_100
+
+
+class RecordingCodec:
+    """A registry-shaped autoencoder fake: encode returns the audio itself as
+    latents (so a `(2, samples)` input has 2 latent channels); decode returns
+    the latents, or an injected render."""
+
+    def __init__(self, render: np.ndarray | None = None):
+        self.encodes = []
+        self.decodes = []
+        self._render = render
+
+    def encode(self, audio, sample_rate, model):
+        self.encodes.append(audio.shape)
+        return audio.copy()
+
+    def decode(self, latents, model):
+        self.decodes.append(latents.copy())
+        return latents if self._render is None else self._render
+
+
+def register_fake(monkeypatch, codec: RecordingCodec) -> str:
+    """Register a fake autoencoder under the name 'fake' for one test."""
+    entry = gl._AE(load=None, encode=codec.encode, decode=codec.decode)
+    monkeypatch.setitem(gl.AUTOENCODERS, "fake", entry)
+    return "fake"
 
 
 class RecordingPrior:
@@ -199,3 +226,91 @@ def test_input_longer_than_the_cap_is_rejected_before_generation():
             noise_level=0.5, steps=8, cfg_scale=1.0,
         )
     assert model.calls == []
+
+
+def test_roundtrip_through_an_identity_codec_returns_the_input(monkeypatch):
+    """Latents are the audio and decode returns them, so any wiring change
+    shows up as an inequality. The input is shorter than the loudness meter's
+    400 ms block, so no gain is applied and equality is exact."""
+    codec = RecordingCodec()
+    ae = register_fake(monkeypatch, codec)
+    audio = np.stack([np.linspace(0, 1, 1_000), np.linspace(0, -1, 1_000)]).astype(np.float32)
+
+    out = roundtrip(object(), audio, SR, ae=ae)
+
+    assert out.dtype == np.float32
+    np.testing.assert_array_equal(out, audio)
+
+
+def test_roundtrip_trims_a_decoder_overrun_to_the_input_length(monkeypatch):
+    codec = RecordingCodec(render=np.ones((2, 1_005), dtype=np.float32))
+    ae = register_fake(monkeypatch, codec)
+    audio = np.ones((2, 1_000), dtype=np.float32)
+
+    out = roundtrip(object(), audio, SR, ae=ae)
+
+    assert out.shape == (2, 1_000)
+
+
+def test_roundtrip_pads_a_resampling_shortfall_with_zeros(monkeypatch):
+    """A 48 kHz model's output can come back a couple of samples short after
+    the resample home; the render must keep the input's exact length for the
+    pack gates, with silence at the tail rather than garbage."""
+    codec = RecordingCodec(render=np.ones((2, 998), dtype=np.float32))
+    ae = register_fake(monkeypatch, codec)
+    audio = np.ones((2, 1_000), dtype=np.float32)
+
+    out = roundtrip(object(), audio, SR, ae=ae)
+
+    assert out.shape == (2, 1_000)
+    np.testing.assert_array_equal(out[:, 998:], 0.0)
+
+
+def test_roundtrip_matches_output_loudness_to_the_input(monkeypatch):
+    """One second of tone, because loudness needs the meter's 400 ms block;
+    the decoder's quiet render must come back at the input's level."""
+    t = np.arange(SR, dtype=np.float32) / SR
+    tone = np.sin(2 * np.pi * 997.0 * t, dtype=np.float32)
+    loud_input = np.tile(0.5 * tone, (2, 1))
+    codec = RecordingCodec(render=np.tile(0.05 * tone, (2, 1)))
+    ae = register_fake(monkeypatch, codec)
+
+    out = roundtrip(object(), loud_input, SR, ae=ae)
+
+    assert loudness(out, SR) == pytest.approx(loudness(loud_input, SR), abs=0.01)
+
+
+def test_latent_sub_with_zero_damage_equals_the_round_trip(monkeypatch):
+    codec = RecordingCodec()
+    ae = register_fake(monkeypatch, codec)
+    audio = np.stack([np.linspace(0, 1, 1_000), np.linspace(0, -1, 1_000)]).astype(np.float32)
+
+    subtracted = latent_sub(object(), audio, SR, ae=ae, damage=np.zeros(2, dtype=np.float32))
+    plain = roundtrip(object(), audio, SR, ae=ae)
+
+    np.testing.assert_array_equal(subtracted, plain)
+
+
+def test_latent_sub_subtracts_the_damage_from_every_frame(monkeypatch):
+    """With identity encode/decode the output is audio minus the per-channel
+    damage value, which makes the arithmetic visible end to end."""
+    codec = RecordingCodec()
+    ae = register_fake(monkeypatch, codec)
+    audio = np.ones((2, 1_000), dtype=np.float32)
+
+    out = latent_sub(
+        object(), audio, SR, ae=ae, damage=np.array([0.25, 0.5], dtype=np.float32)
+    )
+
+    np.testing.assert_array_equal(out[0], 0.75)
+    np.testing.assert_array_equal(out[1], 0.5)
+
+
+def test_latent_sub_refuses_damage_from_another_autoencoder(monkeypatch):
+    codec = RecordingCodec()
+    ae = register_fake(monkeypatch, codec)
+    audio = np.zeros((2, 1_000), dtype=np.float32)
+
+    with pytest.raises(ValueError, match="different autoencoder"):
+        latent_sub(object(), audio, SR, ae=ae, damage=np.zeros(128, dtype=np.float32))
+    assert codec.decodes == []
