@@ -18,16 +18,20 @@ cd "$(dirname "$0")/.."
 mkdir -p third_party/audiosr
 uv venv --clear --python 3.11 third_party/audiosr/.venv
 
+# One resolution for everything: installing audiosr in a second command lets
+# the resolver quietly upgrade the already-installed torch (measured: 2.0.1
+# became 2.14.0), so the torch pins and audiosr must be solved together.
 PYTHON=third_party/audiosr/.venv/bin/python
 case "$(uname -s)-$(uname -m)" in
 Linux-x86_64)
     uv pip install --python "$PYTHON" \
         --extra-index-url https://download.pytorch.org/whl/cu118 \
-        torch==2.0.1+cu118 torchaudio==2.0.2+cu118 ;;
+        torch==2.0.1+cu118 torchaudio==2.0.2+cu118 audiosr==0.0.7 \
+        "numpy<2" "huggingface_hub<0.26" "setuptools<81" soundfile soxr ;;
 *)
-    uv pip install --python "$PYTHON" torch==2.0.1 torchaudio==2.0.2 ;;
+    uv pip install --python "$PYTHON" \
+        torch==2.0.1 torchaudio==2.0.2 audiosr==0.0.7 \
+        "numpy<2" "huggingface_hub<0.26" "setuptools<81" soundfile soxr ;;
 esac
-uv pip install --python "$PYTHON" \
-    audiosr==0.0.7 "numpy<2" "huggingface_hub<0.26" "setuptools<81" soundfile soxr
 
 "$PYTHON" -c "import audiosr" && echo "audiosr venv ready"
