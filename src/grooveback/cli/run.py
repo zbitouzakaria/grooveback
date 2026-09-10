@@ -4,7 +4,8 @@
         model.noise_level=0.3
     uv run python -m grooveback.cli.run -m input=data/degraded output_dir=artifacts/roundtrip \\
         model=roundtrip "model.ae=same-l,earvae,earvae2,codicodec"
-    uv run python -m grooveback.cli.run model=audiosr input=data/degraded output_dir=artifacts/audiosr
+    uv run python -m grooveback.cli.run model=audiosr input=data/degraded \\
+        output_dir=artifacts/audiosr
 
 Hydra composes `configs/config.yaml`: `model` selects the restoration method
 and its parameters, `mode` the run type. An output that already exists is
