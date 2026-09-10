@@ -27,8 +27,7 @@ space, and the round-trip applied to a supervised restorer's output.
 
 We cut three sources at 44.1 kHz: the 6 s severe codec asset (whole), a 180 s
 excerpt of the aerofunk track, and a 180 s excerpt of a third track whose
-artist also provides the damage donor below; the third source and the donor
-stay private and enter the code only through neutral gitignored symlinks. The
+artist also provides the damage donor below. The
 two 48 kHz masters are resampled once to the benchmark grid at ingestion
 (soxr VHQ), identically for every method downstream. LAME twins are built at
 32, 64 and 128 kbps under the ADR-0007 alignment gate (`best_lag == 0`,
