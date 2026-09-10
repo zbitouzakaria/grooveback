@@ -14,13 +14,19 @@ input loses its invented top band to that return resample; upsample such a
 file first if the band is wanted.
 
 Sampling flags left unset are not passed to the model, so the pinned
-package's own defaults apply. Chunking is ours — the pinned release has no
-long-audio path: chunks are cut on input boundaries, each render is trimmed
-to its chunk before the model's padding can accumulate, and consecutive
-chunks are joined by a short linear crossfade. The fade is equal-gain, not
-equal-power, so identical content passes through exactly (the identity gate
-in .claude/rules/audio.md); its cost on independently invented content is
+package's own defaults apply (seed 42, 200 ddim steps, guidance 3.5 in
+0.0.7). Chunking is ours — the pinned release has no long-audio path: chunks
+are cut on input boundaries, each render is trimmed to its chunk before the
+model's padding can accumulate, and consecutive chunks are joined by a short
+linear crossfade. The fade is equal-gain, not equal-power, so identical
+content passes through exactly (the identity gate in
+.claude/rules/audio.md); its cost on independently invented content is
 measured, not assumed (ADR-0012).
+
+The package discards level in both directions — input and output are each
+peak-normalized to 0.5 — so each chunk's render is scaled back to its
+chunk's level by a least-squares gain fit before joining (see
+restore_channel).
 """
 
 from __future__ import annotations
@@ -76,14 +82,24 @@ def restore_channel(
     spans = chunk_spans(channel.size, chunk_samples, fade_samples)
     out = np.zeros(channel.size, dtype=np.float32)
     for i, (start, end) in enumerate(spans):
+        chunk = channel[start:end]
         wav = tmp_dir / f"chunk_{i}.wav"
-        sf.write(str(wav), channel[start:end], NATIVE_RATE, subtype="FLOAT")
+        sf.write(str(wav), chunk, NATIVE_RATE, subtype="FLOAT")
         render = np.asarray(sr_fn(str(wav)), dtype=np.float32).squeeze()
         if render.ndim != 1 or render.size < end - start:
             raise RuntimeError(
                 f"model returned shape {render.shape} for a {end - start}-sample chunk."
             )
         piece = render[: end - start].copy()
+        # The package peak-normalizes each render to 0.5 whatever the input's
+        # level, so joining raw renders would jump in gain chunk to chunk.
+        # The render's kept band is the input's own content (the package
+        # splices it back in), so a least-squares gain fit against the chunk
+        # recovers the input's level exactly up to the invented band; it is
+        # exactly 1 when the render equals the chunk, and a silent chunk maps
+        # to silence.
+        projection = float(np.dot(piece, chunk))
+        piece *= float(np.dot(chunk, chunk)) / projection if projection > 0.0 else 0.0
         if start > 0:
             fade_in = np.linspace(0.0, 1.0, fade_samples, dtype=np.float32)
             out[start : start + fade_samples] *= 1.0 - fade_in

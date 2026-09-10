@@ -62,6 +62,15 @@ package's own defaults apply; `configs/model/audiosr.yaml` exposes them as
 nulls behind the Hydra entry point (`model=audiosr`), which also gains
 `model=apollo` so every waveform baseline is launchable the same way.
 
+One driver step follows from the package rather than from us: 0.0.7
+peak-normalizes both its input and its output to 0.5, discarding level in
+each direction per call, so raw chunk renders would join at unrelated
+gains. Each render is therefore scaled back to its chunk's level by a
+least-squares gain fit against the chunk — exact up to the invented band,
+because the render's kept band is the input's own content — before the
+crossfade. The fit is exactly 1 on identical content, so the identity gate
+is unaffected; a dedicated test pins the normalization case.
+
 ### The benchmark
 
 `audiosr` joins `apollo` and `a2sb` as an anchor in `scripts/run_xp.py`,
@@ -78,13 +87,24 @@ solo-key order.
 
 ## Measurements before trust
 
-To be recorded here from the run:
+**Recorded from the installed 0.0.7 source (2026-09-10):**
 
-- **Installed-source read** (0.0.7): the actual sampling defaults, the
-  presence of the paper's low-band replacement, and whether the short
-  inference path clips or peak-rescales input past full scale — the twins
-  carry MP3-decode overshoot above ±1.0, and a clip would call for a
-  down-only pre-gain in the driver (a contingency, not a default).
+- The API defaults are `seed=42, ddim_steps=200, guidance_scale=3.5`
+  (`super_resolution`'s signature) — 200 steps, not the 50 the project's
+  survey reading of the CLI suggested; unset knobs in this benchmark
+  therefore run 200 steps.
+- The paper's low-band replacement is present, twice: the generated mel's
+  low band is replaced with the input's (`mel_replace_ops`), and the
+  vocoder output is post-processed against the lowpassed input waveform
+  (`postprocessing` in `generate_batch`).
+- Nothing clips: the loader peak-normalizes input to 0.5 (also dropping all
+  channels but the first — moot here, the driver feeds mono chunks) and
+  `generate_batch` peak-normalizes its output to 0.5. The anticipated
+  pre-gain contingency is unnecessary; the per-chunk gain fit above is the
+  consequence instead.
+
+**Pending from the run:**
+
 - **Seam consistency**: the 6 s codec source at 64 kbps rendered whole
   versus forced-chunked (`--chunk-seconds 2.56`), same seed; per-1 kHz band
   energy above the codec edge and LSD between the two renders. Agreement
@@ -92,9 +112,8 @@ To be recorded here from the run:
   to an unfaded cut at the boundary.
 - **Alignment and level**: `best_lag(render, input) == 0` (a vocoder frame
   shift would need compensation before any waveform metric is meaningful),
-  render peaks not pinned at ±1.0, and the render's integrated loudness
-  against the input's — a systematic drift would add a gain match in the
-  wrapper before scoring.
+  and the render's integrated loudness against the input's — the gain fit
+  should keep them within tenths of a dB.
 
 ## Results
 
