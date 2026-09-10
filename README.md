@@ -2,6 +2,10 @@
 
 **Restoring records that survive only as MP3/AAC/Opus rips.**
 
+🎧 **[Listen to the demo](https://zbitouzakaria.github.io/grooveback/listen/)** — *εar-VAE(Apollo(input)), our
+first contribution beyond evaluating the literature, sounds cleaner than the state of the art on really degraded
+inputs (32 kbps MP3).*
+
 As a DJ and listener, I keep running into the same problem: records I love that only exist, now, as rips from
 YouTube. Someone played their vinyl through an imperfect rig, compressed the transfer to 128 or 192 kbps MP3, and
 uploaded it; YouTube then re-encoded that to AAC or Opus. The result is double lossy compression, stacked on whatever
