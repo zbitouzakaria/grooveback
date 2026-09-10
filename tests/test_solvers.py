@@ -17,16 +17,16 @@ SR = 44_100
 
 class RecordingCodec:
     """A registry-shaped autoencoder fake: encode returns the audio itself as
-    latents (so a `(2, samples)` input has 2 latent channels) and records the
-    sample/seed flags; decode returns the latents, or an injected render."""
+    latents (so a `(2, samples)` input has 2 latent channels); decode returns
+    the latents, or an injected render."""
 
     def __init__(self, render: np.ndarray | None = None):
         self.encodes = []
         self.decodes = []
         self._render = render
 
-    def encode(self, audio, sample_rate, model, sample, seed):
-        self.encodes.append({"sample": sample, "seed": seed})
+    def encode(self, audio, sample_rate, model):
+        self.encodes.append(audio.shape)
         return audio.copy()
 
     def decode(self, latents, model):
@@ -34,9 +34,9 @@ class RecordingCodec:
         return latents if self._render is None else self._render
 
 
-def register_fake(monkeypatch, codec: RecordingCodec, sampled: bool = True) -> str:
+def register_fake(monkeypatch, codec: RecordingCodec) -> str:
     """Register a fake autoencoder under the name 'fake' for one test."""
-    entry = gl._AE(load=None, encode=codec.encode, decode=codec.decode, sampled=sampled)
+    entry = gl._AE(load=None, encode=codec.encode, decode=codec.decode)
     monkeypatch.setitem(gl.AUTOENCODERS, "fake", entry)
     return "fake"
 
@@ -278,26 +278,6 @@ def test_roundtrip_matches_output_loudness_to_the_input(monkeypatch):
     out = roundtrip(object(), loud_input, SR, ae=ae)
 
     assert loudness(out, SR) == pytest.approx(loudness(loud_input, SR), abs=0.01)
-
-
-def test_roundtrip_sample_flag_and_seed_reach_the_encoder(monkeypatch):
-    codec = RecordingCodec()
-    ae = register_fake(monkeypatch, codec, sampled=True)
-    audio = np.zeros((2, 1_000), dtype=np.float32)
-
-    roundtrip(object(), audio, SR, ae=ae, sample=True, seed=3)
-
-    assert codec.encodes == [{"sample": True, "seed": 3}]
-
-
-def test_roundtrip_sampled_encode_is_refused_when_the_codec_has_none(monkeypatch):
-    codec = RecordingCodec()
-    ae = register_fake(monkeypatch, codec, sampled=False)
-    audio = np.zeros((2, 1_000), dtype=np.float32)
-
-    with pytest.raises(ValueError, match="no sampled variant"):
-        roundtrip(object(), audio, SR, ae=ae, sample=True)
-    assert codec.encodes == []
 
 
 def test_latent_sub_with_zero_damage_equals_the_round_trip(monkeypatch):

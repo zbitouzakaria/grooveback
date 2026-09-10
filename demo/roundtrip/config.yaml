@@ -9,14 +9,16 @@ codec_32k:
     master: original.flac
     same-l: same-l.flac
     same-l sub: same-l-sub.flac
+    apollo then same-l: apollo-same-l.flac
     earvae: earvae.flac
-    earvae sample: earvae-sample.flac
     earvae sub: earvae-sub.flac
+    apollo then earvae: apollo-earvae.flac
     earvae2: earvae2.flac
-    earvae2 sample: earvae2-sample.flac
     earvae2 sub: earvae2-sub.flac
+    apollo then earvae2: apollo-earvae2.flac
     codicodec: codicodec.flac
     codicodec sub: codicodec-sub.flac
+    apollo then codicodec: apollo-codicodec.flac
     apollo: apollo.flac
     a2sb: a2sb.flac
 

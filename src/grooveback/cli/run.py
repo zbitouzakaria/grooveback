@@ -79,21 +79,13 @@ def _sdedit_setup(cfg: DictConfig):
 
 
 def _roundtrip_setup(cfg: DictConfig):
-    tag = f"{cfg.model.ae}-sample" if cfg.model.sample else cfg.model.ae
-    suffix = f"_{cfg.model.name}_{tag}.wav"
+    suffix = f"_{cfg.model.name}_{cfg.model.ae}.wav"
 
     def load():
         return gl.load_ae(cfg.model.ae, device=cfg.device)
 
     def restore(model, signal, sample_rate):
-        return roundtrip(
-            model,
-            signal,
-            sample_rate,
-            ae=cfg.model.ae,
-            sample=cfg.model.sample,
-            seed=cfg.model.seed,
-        )
+        return roundtrip(model, signal, sample_rate, ae=cfg.model.ae)
 
     return suffix, load, restore
 

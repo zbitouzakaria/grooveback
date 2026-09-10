@@ -48,23 +48,12 @@ def _match_input_loudness(out: np.ndarray, audio: np.ndarray, sample_rate: int) 
     return out
 
 
-def roundtrip(
-    model,
-    audio: np.ndarray,
-    sample_rate: int,
-    *,
-    ae: str,
-    sample: bool = False,
-    seed: int = 0,
-) -> np.ndarray:
+def roundtrip(model, audio: np.ndarray, sample_rate: int, *, ae: str) -> np.ndarray:
     """`decode(encode(x))` through one autoencoder — the cheapest restoration
     its latent space offers: the decoder invents plausible content where the
     input carries none (ADR-0011).
-
-    `sample=True` draws the encoder's posterior where one exists (εar-VAE,
-    εar-VAE2) instead of taking the deterministic encode.
     """
-    latents = gl.ae_encode(ae, audio, sample_rate, model, sample=sample, seed=seed)
+    latents = gl.ae_encode(ae, audio, sample_rate, model)
     out = gl.ae_decode(ae, latents, model)
     out = _fit_to_input(out, audio.shape[-1])
     return _match_input_loudness(out, audio, sample_rate)

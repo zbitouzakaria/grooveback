@@ -105,10 +105,6 @@ def roundtrip(audio: np.ndarray, sample_rate: int, model) -> np.ndarray:
     return decode(encode(audio, sample_rate, model), model)
 
 
-def _same_encode(audio, sample_rate, model, sample, seed):
-    return encode(audio, sample_rate, model)
-
-
 # --- εar-VAE ---------------------------------------------------------------
 # Wang et al., arXiv:2509.14912. Vendored as a submodule because it ships no
 # installable package; its model code needs dac and alias_free_torch, which
@@ -153,17 +149,19 @@ def load_earvae(device: str = "auto"):
     return model.to(select_device(device)).eval()
 
 
-def _earvae_encode(audio, sample_rate, model, sample, seed):
-    """Audio to εar-VAE latents `(64, frames)`; posterior mean unless sampling."""
+def _earvae_encode(audio, sample_rate, model):
+    """Audio to εar-VAE latents `(64, frames)` — always the posterior mean.
+
+    A sampled-encode variant was benchmarked once and removed: the posterior
+    is collapsed, sampled and mean encodes agree to 0.01 dB (ADR-0011).
+    """
     if sample_rate != EARVAE_SAMPLE_RATE:
         raise ValueError(f"εar-VAE expects {EARVAE_SAMPLE_RATE} Hz, got {sample_rate} Hz.")
     _require_finite(audio, "Input audio")
     device = next(model.parameters()).device
     batch = torch.from_numpy(np.ascontiguousarray(audio)).unsqueeze(0).to(device)
-    if sample:
-        torch.manual_seed(seed)
     with torch.inference_mode():
-        latents = model.encode(batch, use_sample=sample)
+        latents = model.encode(batch, use_sample=False)
     return latents.squeeze(0).float().cpu().numpy()
 
 
@@ -230,8 +228,8 @@ def load_earvae2(device: str = "auto"):
     return model.to(select_device(device)).eval()
 
 
-def _earvae2_encode(audio, sample_rate, model, sample, seed):
-    """Audio to εar-VAE2 latents `(128, frames)` — deterministic unless sampling."""
+def _earvae2_encode(audio, sample_rate, model):
+    """Audio to εar-VAE2 latents `(128, frames)`, deterministic encode."""
     if sample_rate != SAME_SAMPLE_RATE:
         raise ValueError(
             f"the registry expects {SAME_SAMPLE_RATE} Hz, got {sample_rate} Hz."
@@ -243,10 +241,8 @@ def _earvae2_encode(audio, sample_rate, model, sample, seed):
     pad = (-batch.shape[-1]) % model.samples_per_latent
     if pad:
         batch = torch.nn.functional.pad(batch, (0, pad))
-    if sample:
-        torch.manual_seed(seed)
     with torch.inference_mode():
-        latents = model.encode_audio(batch, **EARVAE2_CHUNK, deterministic=not sample)
+        latents = model.encode_audio(batch, **EARVAE2_CHUNK, deterministic=True)
     return latents.squeeze(0).float().cpu().numpy()
 
 
@@ -329,7 +325,7 @@ def _codi_to_channels_first(waveform) -> np.ndarray:
     return np.ascontiguousarray(waveform.astype(np.float32))
 
 
-def _codicodec_encode(audio, sample_rate, handle, sample, seed):
+def _codicodec_encode(audio, sample_rate, handle):
     """Audio to CoDiCodec latents `(tokens*dim, frames)` — joint stereo."""
     import einops
 
@@ -371,15 +367,13 @@ class _AE(NamedTuple):
     load: object
     encode: object
     decode: object
-    sampled: bool
-    """Whether the encoder has a sampled-posterior variant (ADR-0011)."""
 
 
 AUTOENCODERS = {
-    "same-l": _AE(lambda device: load_same("same-l", device), _same_encode, decode, sampled=False),
-    "earvae": _AE(load_earvae, _earvae_encode, _earvae_decode, sampled=True),
-    "earvae2": _AE(load_earvae2, _earvae2_encode, _earvae2_decode, sampled=True),
-    "codicodec": _AE(load_codicodec, _codicodec_encode, _codicodec_decode, sampled=False),
+    "same-l": _AE(lambda device: load_same("same-l", device), encode, decode),
+    "earvae": _AE(load_earvae, _earvae_encode, _earvae_decode),
+    "earvae2": _AE(load_earvae2, _earvae2_encode, _earvae2_decode),
+    "codicodec": _AE(load_codicodec, _codicodec_encode, _codicodec_decode),
 }
 
 
@@ -394,19 +388,14 @@ def load_ae(name: str, device: str = "auto"):
     return _entry(name).load(device)
 
 
-def ae_encode(
-    name: str, audio: np.ndarray, sample_rate: int, model, *, sample: bool = False, seed: int = 0
-) -> np.ndarray:
+def ae_encode(name: str, audio: np.ndarray, sample_rate: int, model) -> np.ndarray:
     """Audio `(channels, samples)` at 44.1 kHz to `(channels, frames)` latents.
 
-    `sample=True` draws from the encoder's posterior where one exists (εar-VAE,
-    εar-VAE2) and refuses on deterministic encoders rather than silently
-    returning the mean.
+    Always the deterministic encode (mean posterior where the model is a
+    VAE) — a sampled variant was benchmarked once and removed as redundant
+    (ADR-0011).
     """
-    entry = _entry(name)
-    if sample and not entry.sampled:
-        raise ValueError(f"{name} encodes deterministically; there is no sampled variant.")
-    return entry.encode(audio, sample_rate, model, sample, seed)
+    return _entry(name).encode(audio, sample_rate, model)
 
 
 def ae_decode(name: str, latents: np.ndarray, model) -> np.ndarray:

@@ -30,10 +30,18 @@ def save(
 ) -> None:
     """Write `(channels, samples)` audio, creating parent directories.
 
-    The default float WAV keeps renders bit-exact; benchmark artifacts pass
-    `subtype="PCM_24"` with a `.flac` path — the 24-bit floor sits ~130 dB
-    below program level, far under anything scored or heard.
+    The default float WAV carries peaks past full scale bit-exactly, which
+    decoder overshoot and loudness matching both produce. Integer subtypes
+    (`PCM_24` FLAC for listening packs) cannot: libsndfile would clip them
+    silently, so audio past full scale is refused here instead — the caller
+    must bring the set under the ceiling first.
     """
+    peak = float(np.max(np.abs(audio))) if audio.size else 0.0
+    if subtype != "FLOAT" and peak > 1.0:
+        raise ValueError(
+            f"peak {peak:.3f} clips in {subtype}; scale below full scale "
+            "first, or write FLOAT."
+        )
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     sf.write(str(path), audio.T, sample_rate, subtype=subtype)

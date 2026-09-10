@@ -8,7 +8,7 @@ device: auto
 sources: [codec, aerofunk, nesta]
 bitrates: [32k, 64k, 128k]
 autoencoders: [same-l, earvae, earvae2, codicodec]
-sampled: [earvae, earvae2]   # these also render a seeded {ae}-sample variant
+chains: [apollo]             # each ae also renders {chain}-{ae}: ae(chain(input))
 anchors: [apollo, a2sb]
 
 hydra:

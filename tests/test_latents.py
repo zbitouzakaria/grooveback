@@ -88,16 +88,6 @@ def test_load_ae_rejects_unknown_names():
         gl.load_ae("same-xl")
 
 
-def test_sampled_encode_is_refused_on_deterministic_models():
-    """SAME's bottleneck is an affine map; asking it for a sampled encode must
-    refuse rather than silently return the mean. The sentinel model proves the
-    refusal happens before anything touches it."""
-    model = object()
-
-    with pytest.raises(ValueError, match="no sampled variant"):
-        gl.ae_encode("same-l", np.zeros((2, 500), dtype=np.float32), SR, model, sample=True)
-
-
 def test_mean_damage_is_the_frame_mean_of_the_latent_difference():
     clean = np.zeros((2, 2), dtype=np.float32)
     degraded = np.array([[1.0, 3.0], [2.0, 4.0]], dtype=np.float32)

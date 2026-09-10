@@ -57,6 +57,27 @@ def test_load_returns_2d_even_for_mono(tmp_path):
     assert loaded.shape == audio.shape
 
 
+def test_save_refuses_audio_past_full_scale_in_integer_subtypes(tmp_path):
+    """24-bit FLAC clips silently at ±1.0 where float WAV carries the
+    overshoot — the failure mode that corrupted the first ADR-0011 render
+    set. Refusing loudly is the audio.md doctrine; a caller with a hot
+    signal must scale it under the ceiling first."""
+    audio = 1.5 * tone(amplitude=1.0, seconds=0.5)
+
+    with pytest.raises(ValueError, match="clips in PCM_24"):
+        ga.save(tmp_path / "hot.flac", audio, SR, subtype="PCM_24")
+    assert not (tmp_path / "hot.flac").exists()
+
+
+def test_save_float_carries_peaks_past_full_scale_exactly(tmp_path):
+    audio = 1.5 * tone(amplitude=1.0, seconds=0.5)
+
+    ga.save(tmp_path / "hot.wav", audio, SR)
+    loaded, _ = ga.load(tmp_path / "hot.wav")
+
+    np.testing.assert_array_equal(loaded, audio)
+
+
 def test_save_flac_pcm24_round_trip_is_transparent(tmp_path):
     """24-bit FLAC is the benchmark's storage format. The quantization step at
     full scale is 2^-23 ≈ 1.2e-7, so an atol of 1e-6 leaves an order of

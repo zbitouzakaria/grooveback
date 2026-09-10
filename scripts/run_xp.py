@@ -4,16 +4,21 @@
 
 Cut one chunk per source, make MP3 twins at three bitrates, restore each twin
 with every method, and score everything against the original chunk. Methods
-are the autoencoder round-trips (plus a sampled-encode variant where the
-model has one, and a mean-damage subtraction per ADR-0011), anchored by
-apollo and a2sb:
+are the autoencoder round-trips, a mean-damage subtraction, and the chained
+{anchor}-{ae} renders (the autoencoder run on an anchor's output), anchored
+by apollo and a2sb (ADR-0011):
 
-  artifacts/xp/{source}/original.flac            the clean chunk
-  artifacts/xp/{source}/{bitrate}/input.flac     the MP3 round-trip
-  artifacts/xp/{source}/{bitrate}/{method}.flac  one render per method
-  artifacts/xp/{source}/{bitrate}/listen/        level-matched copies to A/B
+  artifacts/xp/{source}/original.wav             the clean chunk
+  artifacts/xp/{source}/{bitrate}/input.wav      the MP3 round-trip
+  artifacts/xp/{source}/{bitrate}/{method}.wav   one render per method
+  artifacts/xp/{source}/{bitrate}/listen/        level-matched FLAC to A/B
   artifacts/xp/_donor/{bitrate}/damage-{ae}.npy  mean damage directions
   artifacts/xp/results.json                      the metrics per render
+
+Renders and twins are float WAV: decoder overshoot and loudness matching
+both push peaks past full scale, which integer formats would clip silently
+(ga.save refuses). Only the listening packs, pulled under -1 dBFS by one
+common gain, are FLAC.
 
 Everything in `configs/benchmark.yaml` is overridable from the CLI, which is
 how a GPU pod renders one slice (`anchors=[]`) while another takes a2sb only
@@ -63,13 +68,7 @@ XP = Path("artifacts/xp")
 
 
 def render_path(name: str, bitrate: str, method: str) -> Path:
-    return XP / name / bitrate / f"{method}.flac"
-
-
-def save_flac(path: Path, audio: np.ndarray) -> None:
-    """24-bit FLAC — the disk lever: ~130 dB below program level, transparent
-    to every metric and to listening, at roughly half the float-WAV size."""
-    ga.save(path, audio, SR, subtype="PCM_24")
+    return XP / name / bitrate / f"{method}.wav"
 
 
 def band_above(x: np.ndarray, lo_hz: float) -> np.ndarray:
@@ -88,12 +87,12 @@ def cached(path: Path) -> np.ndarray | None:
 def cut_chunk(name: str) -> np.ndarray:
     path, start_s, duration_s = SOURCES[name]
     expected = int(duration_s * SR)
-    flac = XP / name / "original.flac"
-    if flac.exists():
-        chunk = ga.load(flac)[0]
+    wav = XP / name / "original.wav"
+    if wav.exists():
+        chunk = ga.load(wav)[0]
         if chunk.shape[1] != expected:
             raise RuntimeError(
-                f"{flac} is {chunk.shape[1]} samples, the cut now says {expected} "
+                f"{wav} is {chunk.shape[1]} samples, the cut now says {expected} "
                 f"— delete artifacts/xp/{name} to re-cut."
             )
         return chunk
@@ -107,31 +106,28 @@ def cut_chunk(name: str) -> np.ndarray:
     chunk = source[:, start : start + expected]
     if chunk.shape[1] < expected:
         raise ValueError(f"{path} is too short for {duration_s:.0f} s from {start_s:.0f} s.")
-    save_flac(flac, chunk)
+    ga.save(wav, chunk, SR)
     return chunk
 
 
 def build_twin(name: str, bitrate: str, original: np.ndarray) -> np.ndarray:
     """MP3-compress the chunk and read it back, verified sample-aligned."""
-    flac = XP / name / bitrate / "input.flac"
-    if not flac.exists():
-        mp3 = flac.with_suffix(".mp3")
-        tmp = flac.with_suffix(".tmp.wav")
+    wav = XP / name / bitrate / "input.wav"
+    if not wav.exists():
+        mp3 = wav.with_suffix(".mp3")
         mp3.parent.mkdir(parents=True, exist_ok=True)
         subprocess.run(["ffmpeg", "-y", "-loglevel", "error",
-                        "-i", str(XP / name / "original.flac"),
+                        "-i", str(XP / name / "original.wav"),
                         "-c:a", "libmp3lame", "-b:a", bitrate, str(mp3)], check=True)
         subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(mp3),
-                        "-c:a", "pcm_f32le", str(tmp)], check=True)
-        save_flac(flac, ga.load(tmp)[0])
-        tmp.unlink()
-    degraded = ga.load(flac)[0][:, : original.shape[1]]
+                        "-c:a", "pcm_f32le", str(wav)], check=True)
+    degraded = ga.load(wav)[0][:, : original.shape[1]]
     # One sample of shift would wreck the waveform metrics, so refuse to score
     # a twin that is not exactly aligned. ffmpeg's decoder honours the LAME
     # header, so in practice the round-trip lands at lag 0.
     lag = best_lag(original[:, : degraded.shape[1]], degraded)
     if lag != 0:
-        raise RuntimeError(f"{flac} is {lag} samples off its original.")
+        raise RuntimeError(f"{wav} is {lag} samples off its original.")
     return degraded
 
 
@@ -155,13 +151,10 @@ def damage_vector(ae: str, bitrate: str, model) -> np.ndarray:
     return damage
 
 
-def ae_tags(ae: str, sampled: list[str]) -> list[str]:
-    """The render names one autoencoder produces."""
-    tags = [ae]
-    if ae in sampled:
-        tags.append(f"{ae}-sample")
-    tags.append(f"{ae}-sub")
-    return tags
+def ae_tags(ae: str, chains: list[str]) -> list[str]:
+    """The render names one autoencoder produces: the round-trip, the
+    round-trip of each chained anchor's render, and the damage subtraction."""
+    return [ae] + [f"{chain}-{ae}" for chain in chains] + [f"{ae}-sub"]
 
 
 @hydra.main(config_path="../configs", config_name="benchmark", version_base=None)
@@ -176,30 +169,7 @@ def main(cfg: DictConfig) -> None:
     edges = {key: codec_edge_hz(chunks[key[0]], twins[key], sample_rate=SR)
              for key in twins}
 
-    # Render whatever is missing, loading each model at most once.
-    for ae in cfg.autoencoders:
-        todo = [(name, bitrate, tag)
-                for name, bitrate in twins
-                for tag in ae_tags(ae, cfg.sampled)
-                if not render_path(name, bitrate, tag).exists()]
-        if not todo:
-            continue
-        model = gl.load_ae(ae, device=cfg.device)
-        for name, bitrate, tag in todo:
-            print(f"render {tag}: {name} {bitrate}", flush=True)
-            twin = twins[(name, bitrate)]
-            if tag.endswith("-sub"):
-                out = latent_sub(model, twin, SR, ae=ae,
-                                 damage=damage_vector(ae, bitrate, model))
-            else:
-                out = roundtrip(model, twin, SR, ae=ae, sample=tag.endswith("-sample"))
-            save_flac(render_path(name, bitrate, tag), out)
-        del model
-        # The allocator keeps the freed model's blocks cached; the next
-        # autoencoder then OOMs on a card the two would separately fit.
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-
+    # Anchors render first — the chained {anchor}-{ae} renders read them.
     if "apollo" in cfg.anchors:
         todo = [key for key in twins if not render_path(*key, "apollo").exists()]
         if todo:
@@ -207,7 +177,7 @@ def main(cfg: DictConfig) -> None:
             for name, bitrate in todo:
                 print(f"render apollo: {name} {bitrate}", flush=True)
                 out = run_apollo(twins[(name, bitrate)], SR, model=model)
-                save_flac(render_path(name, bitrate, "apollo"), out)
+                ga.save(render_path(name, bitrate, "apollo"), out, SR)
             del model
 
     if "a2sb" in cfg.anchors:
@@ -222,10 +192,43 @@ def main(cfg: DictConfig) -> None:
                 out = run_a2sb(twins[(name, bitrate)], SR, n_steps=50,
                                cutoff_hz=edges[(name, bitrate)] - 250,
                                device="mps" if cfg.device == "auto" else cfg.device)
-                save_flac(render_path(name, bitrate, "a2sb"), out)
+                ga.save(render_path(name, bitrate, "a2sb"), out, SR)
+
+    # Autoencoder arms, loading each model at most once.
+    for ae in cfg.autoencoders:
+        todo = [(name, bitrate, tag)
+                for name, bitrate in twins
+                for tag in ae_tags(ae, cfg.chains)
+                if not render_path(name, bitrate, tag).exists()]
+        if not todo:
+            continue
+        model = gl.load_ae(ae, device=cfg.device)
+        for name, bitrate, tag in todo:
+            print(f"render {tag}: {name} {bitrate}", flush=True)
+            twin = twins[(name, bitrate)]
+            if tag.endswith("-sub"):
+                out = latent_sub(model, twin, SR, ae=ae,
+                                 damage=damage_vector(ae, bitrate, model))
+            elif tag == ae:
+                out = roundtrip(model, twin, SR, ae=ae)
+            else:
+                chain = tag[: -len(ae) - 1]
+                source = cached(render_path(name, bitrate, chain))
+                if source is None:
+                    raise RuntimeError(
+                        f"{chain} render missing for {name} {bitrate}; "
+                        "render the anchors first."
+                    )
+                out = roundtrip(model, source, SR, ae=ae)
+            ga.save(render_path(name, bitrate, tag), out, SR)
+        del model
+        # The allocator keeps the freed model's blocks cached; the next
+        # autoencoder then OOMs on a card the two would separately fit.
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
     # Score whatever exists against the original, and write listening sets.
-    methods = [tag for ae in cfg.autoencoders for tag in ae_tags(ae, cfg.sampled)]
+    methods = [tag for ae in cfg.autoencoders for tag in ae_tags(ae, cfg.chains)]
     methods += list(cfg.anchors)
     results: dict = {}
     for name in cfg.sources:
