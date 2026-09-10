@@ -4,7 +4,7 @@ Date: 2026-09-10
 
 ## Status
 
-Proposed — renders and the listening verdict pending
+Proposed — rendered and scored; the listening verdict is pending
 
 ## Context
 
@@ -103,23 +103,133 @@ solo-key order.
   pre-gain contingency is unnecessary; the per-chunk gain fit above is the
   consequence instead.
 
-**Pending from the run:**
+**Recorded from the renders (L4/A100 run, 2026-09-10):**
 
-- **Seam consistency**: the 6 s codec source at 64 kbps rendered whole
-  versus forced-chunked (`--chunk-seconds 2.56`), same seed; per-1 kHz band
-  energy above the codec edge and LSD between the two renders. Agreement
-  within ~1 dB per band keeps the fade; a real power loss switches the join
-  to an unfaded cut at the boundary.
-- **Alignment and level**: `best_lag(render, input) == 0` (a vocoder frame
-  shift would need compensation before any waveform metric is meaningful),
-  and the render's integrated loudness against the input's — the gain fit
-  should keep them within tenths of a dB.
+- **Seam consistency** (codec 64 kbps twin, whole versus `--chunk-seconds
+  2.56`, same seed): between 11 and 16 kHz the two renders agree within
+  1.2 dB per 1 kHz band. Above 16 kHz they differ by +8 to +14 dB — in
+  content at −44 dBFS and below — with the chunked render the louder one
+  everywhere, which rules out crossfade power loss (a fade can only lose
+  power); the difference is per-draw variation with window size. The
+  LSD between the two, 13.1 dB, is driven by those quiet bands. The fade is
+  kept.
+- **Alignment**: `best_lag == 0` for both renders — no vocoder frame shift.
+- **Level**: the gain fit anchors the kept band exactly — the render's band
+  energies below 8 kHz match the twin's within 0.3 dB. Integrated loudness
+  still reads ~3 LU above the twin on the codec source because the invented
+  top band adds K-weighted energy; that is the method's content, recorded
+  rather than corrected (correcting whole-file loudness would deflate the
+  kept band).
+- **The crossover, measured**: on the codec 64 kbps twin (true edge 11 kHz)
+  the render exceeds the twin by +4.5 dB in the 8–11 kHz band and matches it
+  below — AudioSR's roll-off detection placed the replacement crossover
+  near 8 kHz and re-synthesized the twin's real 8–11 kHz content. The sharp
+  LAME edge misleads its detector, the same failure A2SB's detector shows
+  (ADR-0007); here it is recorded as the shipped method's behavior.
+- **Cost**: ~4 min per 10.24 s chunk-call at 200 steps on an L4
+  (a 6 s stereo pack ≈ 8 min); ~30 s per call on an A100 SXM (a 180 s
+  stereo pack, 36 calls ≈ 18 min). The full grid plus smokes and seam
+  renders came to ≈ $1.80 of rented GPU.
 
-## Results
+## Results (2026-09-10 run)
 
-Pending: the five ADR-0007 metrics and fill-band decomposition for the six
-packs, and the monitor listening verdict against apollo, a2sb and the
-εar-VAE arms.
+Each table is one source at one bitrate; columns are the five ADR-0007
+metrics against the master, LSD lower-is-better. The fill-band decomposition
+lives in `results.json`.
+
+**codec @ 32k** (edge 5.5 kHz)
+
+| | BSS-SDR | SDR | SI-SNR | Spectral SNR | LSD ↓ |
+|---|---|---|---|---|---|
+| degraded input | 12.1 | 10.2 | 9.8 | 11.3 | 41.5 |
+| earvae | 7.9 | 7.1 | 6.3 | 9.4 | 40.8 |
+| apollo-earvae | 4.7 | 4.8 | 3.7 | 9.9 | 9.4 |
+| earvae-sub | 7.1 | 6.7 | 5.7 | 9.9 | 16.5 |
+| apollo | 5.8 | 6.0 | 5.0 | 12.3 | 8.6 |
+| a2sb | 11.5 | 9.9 | 9.4 | 11.8 | 35.0 |
+| audiosr | 2.3 | 2.4 | 1.4 | 3.7 | 33.7 |
+
+**codec @ 64k** (edge 11 kHz)
+
+| | BSS-SDR | SDR | SI-SNR | Spectral SNR | LSD ↓ |
+|---|---|---|---|---|---|
+| degraded input | 14.2 | 12.6 | 12.5 | 14.0 | 33.1 |
+| earvae | 7.9 | 7.2 | 6.4 | 10.3 | 32.6 |
+| apollo-earvae | 5.0 | 5.0 | 4.0 | 10.1 | 9.4 |
+| earvae-sub | 7.7 | 7.0 | 6.1 | 10.7 | 16.2 |
+| apollo | 7.1 | 7.2 | 6.5 | 13.7 | 8.2 |
+| a2sb | 13.9 | 12.4 | 12.2 | 14.0 | 29.9 |
+| audiosr | 4.2 | 4.4 | 3.7 | 5.3 | 24.2 |
+
+**codec @ 128k** (edge 16.5 kHz)
+
+| | BSS-SDR | SDR | SI-SNR | Spectral SNR | LSD ↓ |
+|---|---|---|---|---|---|
+| degraded input | 17.0 | 16.3 | 16.5 | 18.6 | 20.5 |
+| earvae | 7.8 | 7.1 | 6.3 | 11.2 | 21.2 |
+| apollo-earvae | 5.2 | 5.2 | 4.2 | 10.2 | 9.0 |
+| earvae-sub | 7.8 | 7.0 | 6.3 | 11.3 | 9.7 |
+| apollo | 8.6 | 8.9 | 8.4 | 15.3 | 6.8 |
+| a2sb | 16.5 | 15.9 | 16.1 | 18.6 | 14.6 |
+| audiosr | 13.6 | 13.0 | 12.8 | 15.7 | 16.8 |
+
+**aerofunk @ 32k** (edge 5.5 kHz)
+
+| | BSS-SDR | SDR | SI-SNR | Spectral SNR | LSD ↓ |
+|---|---|---|---|---|---|
+| degraded input | 19.0 | 14.8 | 14.9 | 15.4 | 23.6 |
+| earvae | 16.8 | 13.6 | 13.6 | 14.8 | 23.2 |
+| apollo-earvae | 15.7 | 13.2 | 12.9 | 15.8 | 11.2 |
+| earvae-sub | 15.3 | 12.8 | 12.7 | 15.2 | 13.1 |
+| apollo | 16.8 | 14.0 | 13.9 | 16.8 | 10.4 |
+| a2sb | 18.3 | 14.5 | 14.6 | 15.7 | 18.6 |
+| audiosr | 7.8 | 7.7 | 7.1 | 8.6 | 19.8 |
+
+**aerofunk @ 64k** (edge 11 kHz)
+
+| | BSS-SDR | SDR | SI-SNR | Spectral SNR | LSD ↓ |
+|---|---|---|---|---|---|
+| degraded input | 18.6 | 17.0 | 17.3 | 18.6 | 16.7 |
+| earvae | 15.3 | 13.5 | 13.3 | 16.4 | 16.6 |
+| apollo-earvae | 14.7 | 13.2 | 12.9 | 17.2 | 10.0 |
+| earvae-sub | 14.7 | 13.1 | 12.9 | 16.8 | 9.2 |
+| apollo | 16.9 | 15.9 | 15.8 | 20.3 | 8.9 |
+| a2sb | 18.1 | 16.6 | 16.9 | 18.4 | 14.0 |
+| audiosr | 10.2 | 10.3 | 9.9 | 11.1 | 15.2 |
+
+**aerofunk @ 128k** (edge 16.5 kHz)
+
+| | BSS-SDR | SDR | SI-SNR | Spectral SNR | LSD ↓ |
+|---|---|---|---|---|---|
+| degraded input | 23.1 | 21.4 | 23.0 | 23.2 | 7.3 |
+| earvae | 15.2 | 13.7 | 13.5 | 17.7 | 9.6 |
+| apollo-earvae | 14.8 | 13.4 | 13.2 | 17.6 | 9.1 |
+| earvae-sub | 15.2 | 13.7 | 13.5 | 17.7 | 8.2 |
+| apollo | 20.2 | 19.9 | 20.0 | 24.3 | 6.7 |
+| a2sb | 22.5 | 20.9 | 22.4 | 22.4 | 7.0 |
+| audiosr | 20.6 | 19.6 | 20.3 | 21.6 | 8.7 |
+
+What the metrics say, ahead of listening:
+
+- The ADR-0007 pattern holds: audiosr never approaches the untouched input
+  on the waveform metrics, and in five of six packs it posts the lowest
+  waveform scores on the board (the exception is aerofunk at 128 kbps,
+  where it lands near a2sb).
+- The two fill views split, each punishing the opposite sin: audiosr's fill
+  LSD beats the input's silence in every pack and beats a2sb's in five of
+  six — it fills more informatively than the Schrödinger bridge — while its
+  fill spectral SNR is negative in every pack (−7 to −17 dB), meaning the
+  filled band carries the wrong energy and texture sample for sample.
+  Apollo dominates both fill views everywhere.
+- The kept band pays for the misplaced crossover at 32 and 64 kbps
+  (spectral SNR 3.7 and 5.3 against the input's 11.3 and 14.0 on the codec
+  source); at 128 kbps, where the crossover sits below the true edge by
+  less, the kept band is nearly intact (21.6 vs 23.2).
+
+## Listening verdict
+
+Pending: the monitor session against apollo, a2sb and the εar-VAE arms, on
+the `demo/xp` page.
 
 ## Consequences
 
