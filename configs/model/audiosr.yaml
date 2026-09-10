@@ -1,0 +1,9 @@
+# AudioSR (Liu et al., arXiv:2309.07314), diffusion bandwidth extension
+# (any -> 48 kHz), run vanilla from its own venv (scripts/audiosr_setup.sh).
+# null means the knob is not passed and the pinned package's own default
+# applies — the sdedit `steps: null` pattern (ADR-0012).
+
+name: audiosr
+ddim_steps: null
+guidance_scale: null
+seed: null
