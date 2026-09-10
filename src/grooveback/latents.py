@@ -116,7 +116,9 @@ def _same_encode(audio, sample_rate, model, sample, seed):
 
 EARVAE_SAMPLE_RATE = 44_100
 EARVAE_REPO = _REPO / "third_party" / "earvae"
-EARVAE_CHECKPOINT = ("earlab/EAR_VAE", "ear_vae_44k.pyt")
+EARVAE_CHECKPOINT = ("earlab/EAR_VAE", "pretrained_weight/ear_vae_44k.pyt")
+"""The 44.1 kHz v1 weights (the paper's model). The repo also ships a 48 kHz
+v2 (`pretrained_weight/ear_vae_v2_48k.pyt` + `config/ear_vae_v2.json`)."""
 
 
 def _earvae_import():
