@@ -268,6 +268,9 @@ def _earvae2_decode(latents, model):
 # (1024, frames) so the frame axis sits last like every other model here.
 
 CODICODEC_SAMPLE_RATE = 48_000
+CODICODEC_MAX_BATCH = 4
+"""Patches decoded at once. The package defaults (64 encode / 32 decode) are
+sized for large GPUs; 180 s of latents OOMs a 22 GiB L4 at the default."""
 
 
 class CodiHandle(NamedTuple):
@@ -301,12 +304,14 @@ def load_codicodec(device: str = "auto"):
     encdec = EncoderDecoder(device=select_device(device))
     probe = np.zeros((2, CODICODEC_SAMPLE_RATE), dtype=np.float32)
     with torch.inference_mode():
-        latents = encdec.encode(probe)
+        latents = encdec.encode(probe, max_batch_size=CODICODEC_MAX_BATCH)
     if latents.ndim != 3:
         raise RuntimeError(
             f"codicodec returned {latents.ndim}-D latents; expected [frames, tokens, dim]."
         )
-    decoded = _codi_to_channels_first(encdec.decode(latents, denoising_steps=1))
+    decoded = _codi_to_channels_first(
+        encdec.decode(latents, max_batch_size=CODICODEC_MAX_BATCH, denoising_steps=1)
+    )
     if decoded.shape[0] != 2:
         raise RuntimeError(
             f"codicodec decoded {decoded.shape[0]} channels; the benchmark needs stereo."
@@ -333,7 +338,9 @@ def _codicodec_encode(audio, sample_rate, handle, sample, seed):
     _require_finite(audio, "Input audio")
     native = ga.resample(audio, sr_in=sample_rate, sr_out=CODICODEC_SAMPLE_RATE)
     with torch.inference_mode():
-        latents = handle.encdec.encode(np.ascontiguousarray(native))
+        latents = handle.encdec.encode(
+            np.ascontiguousarray(native), max_batch_size=CODICODEC_MAX_BATCH
+        )
     if isinstance(latents, torch.Tensor):
         latents = latents.float().cpu().numpy()
     return np.ascontiguousarray(einops.rearrange(latents, "t l d -> (l d) t"))
@@ -347,7 +354,10 @@ def _codicodec_decode(latents, handle):
     # The decoder synthesizes from noise; a fixed seed keeps renders repeatable.
     torch.manual_seed(0)
     with torch.inference_mode():
-        waveform = handle.encdec.decode(torch.from_numpy(np.ascontiguousarray(grid)))
+        waveform = handle.encdec.decode(
+            torch.from_numpy(np.ascontiguousarray(grid)),
+            max_batch_size=CODICODEC_MAX_BATCH,
+        )
     out = _codi_to_channels_first(waveform)
     out = ga.resample(out, sr_in=CODICODEC_SAMPLE_RATE, sr_out=SAME_SAMPLE_RATE)
     _require_finite(out, "Decoded audio")

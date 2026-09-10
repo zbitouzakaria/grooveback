@@ -30,6 +30,7 @@ from pathlib import Path
 
 import hydra
 import numpy as np
+import torch
 from omegaconf import DictConfig
 
 from grooveback import audio as ga
@@ -194,6 +195,10 @@ def main(cfg: DictConfig) -> None:
                 out = roundtrip(model, twin, SR, ae=ae, sample=tag.endswith("-sample"))
             save_flac(render_path(name, bitrate, tag), out)
         del model
+        # The allocator keeps the freed model's blocks cached; the next
+        # autoencoder then OOMs on a card the two would separately fit.
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
     if "apollo" in cfg.anchors:
         todo = [key for key in twins if not render_path(*key, "apollo").exists()]
