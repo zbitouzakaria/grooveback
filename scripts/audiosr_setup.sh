@@ -11,6 +11,8 @@
 #     cached_download, removed from the hub client in 0.26
 #   - setuptools<81: the librosa version audiosr pulls imports pkg_resources,
 #     which uv venvs do not ship and setuptools 81 removed
+#   - matplotlib, progressbar, unidecode: imported by the package but
+#     missing from its pip metadata (they are in its repo requirements)
 #   - soundfile, soxr: used by our driver (scripts/audiosr_restore.py)
 set -eu
 
@@ -27,11 +29,13 @@ Linux-x86_64)
     uv pip install --python "$PYTHON" \
         --extra-index-url https://download.pytorch.org/whl/cu118 \
         torch==2.0.1+cu118 torchaudio==2.0.2+cu118 audiosr==0.0.7 \
-        "numpy<2" "huggingface_hub<0.26" "setuptools<81" soundfile soxr ;;
+        "numpy<2" "huggingface_hub<0.26" "setuptools<81" \
+        matplotlib progressbar unidecode soundfile soxr ;;
 *)
     uv pip install --python "$PYTHON" \
         torch==2.0.1 torchaudio==2.0.2 audiosr==0.0.7 \
-        "numpy<2" "huggingface_hub<0.26" "setuptools<81" soundfile soxr ;;
+        "numpy<2" "huggingface_hub<0.26" "setuptools<81" \
+        matplotlib progressbar unidecode soundfile soxr ;;
 esac
 
 "$PYTHON" -c "import audiosr" && echo "audiosr venv ready"
