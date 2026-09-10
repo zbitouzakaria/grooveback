@@ -10,6 +10,12 @@ imported directly: its model needs only torch, numpy and huggingface_hub.
 environment and one-command entry point; this module shells out to it and
 nothing more. The model is mono; the fork restores a stereo file one channel
 at a time in a single inference run, so output keeps the input's channels.
+
+**AudioSR** (Liu et al.) also targets missing bandwidth, as mel-domain
+diffusion with a vocoder. It installs from pip into its own venv — its torch
+2.0.1 pins conflict with the project's — and our driver
+(scripts/audiosr_restore.py) runs it behind a subprocess, per channel, at the
+package's own defaults.
 """
 
 from __future__ import annotations
@@ -230,5 +236,69 @@ def run_a2sb(
     out = np.zeros((audio.shape[0], audio.shape[1]), dtype=np.float32)
     n = min(audio.shape[1], restored.shape[1])
     # Broadcasting copies a mono render across the input's channels.
+    out[:, :n] = restored[:, :n]
+    return out
+
+
+# --- AudioSR ---------------------------------------------------------------
+# Liu et al., arXiv:2309.07314 — diffusion bandwidth extension, any -> 48 kHz.
+# The pip package pins torch 2.0.1, which conflicts with the project's stack,
+# so it runs in its own venv (scripts/audiosr_setup.sh) behind a subprocess.
+# The driver is ours: scripts/audiosr_restore.py.
+
+AUDIOSR_VENV_PYTHON = _REPO / "third_party" / "audiosr" / ".venv" / "bin" / "python"
+AUDIOSR_RESTORE = _REPO / "scripts" / "audiosr_restore.py"
+
+
+def run_audiosr(
+    audio: np.ndarray,
+    sample_rate: int,
+    ddim_steps: int | None = None,
+    guidance_scale: float | None = None,
+    seed: int | None = None,
+    device: str | None = None,
+) -> np.ndarray:
+    """Restore `(channels, samples)` audio with AudioSR, at the package's
+    own defaults.
+
+    A knob left at None is not passed at all, so the pinned package's default
+    applies. Any sample rate is accepted — AudioSR is any -> 48 kHz by
+    design — and the output keeps the input's rate, length and channel count;
+    the 48 kHz round trip, chunking and per-channel restoration live in the
+    driver.
+    """
+    from grooveback import audio as ga
+
+    if not AUDIOSR_VENV_PYTHON.exists():
+        raise FileNotFoundError(
+            f"AudioSR environment missing at {AUDIOSR_VENV_PYTHON}. Create it:\n"
+            "  scripts/audiosr_setup.sh"
+        )
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        wav_in, wav_out = tmp / "in.wav", tmp / "out.wav"
+        ga.save(wav_in, audio, sample_rate)
+        cmd = [str(AUDIOSR_VENV_PYTHON), str(AUDIOSR_RESTORE), str(wav_in), str(wav_out)]
+        if ddim_steps is not None:
+            cmd.append(f"--steps={ddim_steps}")
+        if guidance_scale is not None:
+            cmd.append(f"--guidance-scale={guidance_scale}")
+        if seed is not None:
+            cmd.append(f"--seed={seed}")
+        if device is not None:
+            cmd.append(f"--device={device}")
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0 or not wav_out.exists():
+            raise RuntimeError(
+                f"AudioSR failed.\n{(result.stderr or result.stdout)[-2000:]}"
+            )
+        for line in result.stdout.splitlines():
+            if line.startswith("restore:"):
+                print(f"audiosr: {line[9:]}")
+        restored, _ = ga.load(wav_out)
+
+    out = np.zeros((audio.shape[0], audio.shape[1]), dtype=np.float32)
+    n = min(audio.shape[1], restored.shape[1])
     out[:, :n] = restored[:, :n]
     return out
