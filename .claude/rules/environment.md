@@ -52,6 +52,7 @@ trivial. The MacBook is 16 GB unified memory.
 | SAME-S / SAME-L | ~10x slower than realtime | seconds per clip on an L4 |
 | A2SB, full track | does not fit | A100 |
 | AudioSR (50 steps, the pinned setting) | no | ~1 min per 10 s chunk on an L4; ~8 s on an A100 — 180 s stereo ≈ 5 min |
+| HP-codecX | no | light: 180 s stereo ≈ 3 min on an L4 (ten 40 s segments, one process) |
 | Any fine-tuning | no | yes |
 
 Past local timings are sizing data, not a recommendation.
