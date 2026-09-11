@@ -12,6 +12,7 @@ by stable-audio-3** — see ADR-0007.
 | Apollo | `third_party/apollo` (git submodule) | imported directly; chunking and its tests live in the fork |
 | A2SB | `third_party/a2sb` (gitignored clone, fork branch `runnable-anywhere`, own venv) | `baselines.run_a2sb` → its `restore.py`, behind a subprocess — its pins genuinely conflict |
 | AudioSR | pip `audiosr` in its own venv at `third_party/audiosr/.venv` (gitignored, no fork) | `baselines.run_audiosr` → `scripts/audiosr_restore.py`, behind a subprocess — its torch 2.0.1 pins genuinely conflict (ADR-0012) |
+| SonicMaster | `third_party/sonicmaster` (gitignored release clone, own venv + HF checkpoint) | `baselines.run_sonicmaster` → its unmodified `infer_single.py`, behind a subprocess — its torch 2.4.0 pins conflict; needs HF_TOKEN for the gated stable-audio-open VAE (ADR-0014) |
 | SAME | `stable-audio-3`, a git dependency pinned by commit in `pyproject.toml` | `grooveback.latents`, in-process |
 | εar-VAE | `third_party/earvae` (git submodule; deps in group `aes`) | `grooveback.latents` registry, in-process |
 | εar-VAE2 | `third_party/earvae2` (git submodule) | `grooveback.latents` registry, in-process |
@@ -22,6 +23,7 @@ git submodule update --init --recursive
 git clone -b runnable-anywhere git@github.com:zbitouzakaria/diffusion-audio-restoration.git third_party/a2sb
 cd third_party/a2sb && ./setup.sh
 scripts/audiosr_setup.sh
+scripts/sonicmaster_setup.sh
 ```
 
 ## Running things

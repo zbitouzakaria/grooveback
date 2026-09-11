@@ -1,0 +1,12 @@
+# SonicMaster (Melechovsky et al., arXiv:2508.03448), text-instructed flow
+# matching for music restoration and mastering, run from its release clone
+# and venv (scripts/sonicmaster_setup.sh). prompt null is the automatic
+# mode — the empty instruction its training explicitly covers; the other
+# nulls mean the flag is not passed and the release default applies
+# (10 steps, guidance 1.0, seed 0 — ADR-0014).
+
+name: sonicmaster
+prompt: null
+num_inference_steps: null
+guidance_scale: null
+seed: null

@@ -48,5 +48,6 @@ the source of truth stays obvious.
 | 0011 | **Autoencoder round-trips and mean damage subtraction** — four open autoencoders at 32/64/128k, the damage-direction formula, chains as solvers |
 | 0012 | AudioSR baseline — the second bandwidth-extension anchor, run vanilla from its own venv |
 | 0013 | HP-codecX — evaluated and excluded: mono, seedless, so no coherent stereo top band exists |
+| 0014 | SonicMaster under controlled conditions — the learned mastering floor; supersedes ADR-0005's demo note |
 | 0009 | **SDEdit solver: built, measured, rejected** — the prior keeps anything plausible; harness, fork and findings remain |
 | 0010 | Listen in the browser with trackswitch — the demo pages and their level-match gate |
