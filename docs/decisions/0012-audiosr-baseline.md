@@ -126,6 +126,17 @@ solo-key order.
   near 8 kHz and re-synthesized the twin's real 8–11 kHz content. The sharp
   LAME edge misleads its detector, the same failure A2SB's detector shows
   (ADR-0007); here it is recorded as the shipped method's behavior.
+- **Driver fidelity, verified against upstream directly** (2026-09-11,
+  after the listening session raised the question): the codec 64 kbps twin
+  rendered through upstream's own one-call path — its torchaudio resample,
+  channel 0 of the stereo file, output saved untouched at its peak-0.5
+  convention — differs from the driver's left channel by 1.2 dB LSD, with
+  band energies agreeing within 0.2 dB in every band and identical scores
+  against the master (LSD 24.9 both). Up to one gain scalar, the driver's
+  output *is* upstream's. The same call at the CLI's 50 steps lands 9.9 dB
+  LSD from the 200-step arm: the API default invents 5–14 dB more energy
+  above 11 kHz than the CLI default — sampling steps change how much this
+  model fills, not only how well.
 - **Cost**: ~4 min per 10.24 s chunk-call at 200 steps on an L4
   (a 6 s stereo pack ≈ 8 min); ~30 s per call on an A100 SXM (a 180 s
   stereo pack, 36 calls ≈ 18 min). The full grid plus smokes and seam
