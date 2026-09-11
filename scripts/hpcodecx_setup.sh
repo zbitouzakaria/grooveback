@@ -24,16 +24,23 @@ uv pip install --python "$PYTHON" \
     torch==2.1.2 torchaudio==2.1.2 "numpy<2" \
     -r third_party/hpcodecx/requirements.txt
 
+# The weight files live on the version-specific record 22144250; the concept
+# record's /records/<id>/files/... path serves an HTML landing page that curl
+# happily saves, so every download is size-checked afterwards.
 WEIGHTS=third_party/hpcodecx/runs
+ZENODO=https://zenodo.org/api/records/22144250/files
 mkdir -p "$WEIGHTS/hp-codec/best_finetuning/dac" \
     "$WEIGHTS/hp-codecx/best/transformermodel"
-if [ ! -f "$WEIGHTS/hp-codec/best_finetuning/dac/package.pth" ]; then
-    curl -L -C - -o "$WEIGHTS/hp-codec/best_finetuning/dac/package.pth" \
-        "https://zenodo.org/records/22144249/files/hp-codec.package.pth?download=1"
-fi
-if [ ! -f "$WEIGHTS/hp-codecx/best/transformermodel/package.pth" ]; then
-    curl -L -C - -o "$WEIGHTS/hp-codecx/best/transformermodel/package.pth" \
-        "https://zenodo.org/records/22144249/files/hp-codecx.package.pth?download=1"
-fi
+fetch() {
+    if [ ! -f "$1" ] || [ "$(wc -c < "$1")" -lt 100000000 ]; then
+        curl -L -C - -o "$1" "$ZENODO/$2/content"
+    fi
+    if [ "$(wc -c < "$1")" -lt 100000000 ]; then
+        echo "$1 came back tiny — an error page, not a checkpoint" >&2
+        exit 1
+    fi
+}
+fetch "$WEIGHTS/hp-codec/best_finetuning/dac/package.pth" hp-codec.package.pth
+fetch "$WEIGHTS/hp-codecx/best/transformermodel/package.pth" hp-codecx.package.pth
 
 "$PYTHON" -c "import audiotools, argbind, torch" && echo "hpcodecx venv ready"
