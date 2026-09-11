@@ -66,6 +66,31 @@ def test_stereo_render_comes_back_unmixed(monkeypatch, tmp_path):
     )
 
 
+def test_segmented_input_reconstructs_through_the_joins(monkeypatch, tmp_path):
+    """The audio.md identity gate at the segmentation seam: with the model
+    faked as identity (the dummy 48 kHz pair copied back), cutting a long
+    input into segments and crossfading the joins must reconstruct it. A
+    3 s input against 1 s segments forces two joins plus a partial last
+    segment; tolerance as in the resample round-trip test, edges excluded."""
+    monkeypatch.setattr(
+        baselines, "HPCODECX_VENV_PYTHON", fake_venv_python(tmp_path, COPY_PAIRS)
+    )
+    t = np.arange(3 * SR, dtype=np.float32) / SR
+    stereo = np.stack(
+        [
+            (0.5 * np.sin(2 * np.pi * 440.0 * t)).astype(np.float32),
+            (0.5 * np.sin(2 * np.pi * 990.0 * t)).astype(np.float32),
+        ]
+    )
+
+    out = baselines.run_hpcodecx(stereo, SR, segment_seconds=1.0)
+
+    assert out.shape == stereo.shape
+    np.testing.assert_allclose(
+        out[:, 1_000:-1_000], stereo[:, 1_000:-1_000], rtol=0, atol=1e-4
+    )
+
+
 def test_missing_env_says_how_to_build_it(monkeypatch, tmp_path):
     monkeypatch.setattr(baselines, "HPCODECX_VENV_PYTHON", tmp_path / "nowhere")
 

@@ -266,24 +266,52 @@ def hpcodecx_clone_sha() -> str:
     return result.stdout.strip() or "unknown"
 
 
+HPCODECX_MAX_SECONDS = 50.0
+"""The transformer's positional table holds 5,000 tokens at 100 tokens/s.
+An 18,000-token input dies on a broadcast mismatch (measured), so longer
+files are segmented below the cap."""
+
+HPCODECX_FADE_SECONDS = 0.1
+
+
+def _hpcodecx_spans(n_samples: int, segment_samples: int, fade_samples: int):
+    """`[(start, end)]` covering the input at 16 kHz, consecutive spans
+    overlapping by the fade; one span when the input fits the cap."""
+    if n_samples <= segment_samples:
+        return [(0, n_samples)]
+    spans = []
+    start = 0
+    while start + segment_samples < n_samples:
+        spans.append((start, start + segment_samples))
+        start += segment_samples - fade_samples
+    spans.append((start, n_samples))
+    return spans
+
+
 def run_hpcodecx(
-    audio: np.ndarray, sample_rate: int, top_p: float | None = None
+    audio: np.ndarray,
+    sample_rate: int,
+    top_p: float | None = None,
+    segment_seconds: float = 40.0,
 ) -> np.ndarray:
     """Restore `(channels, samples)` audio with HP-codecX, at the release
     defaults.
 
     The framing is fixed by the model: the input is downsampled to 16 kHz —
     content above 8 kHz never reaches it — and everything above the 8 kHz
-    branch split is generated (ADR-0013). Each channel is restored
-    separately in one subprocess; the output keeps the input's rate, length
-    and channel count, and its low band is the input's own, so no level
-    correction applies. Sampling is nucleus (`top_p`, None -> the release's
-    0.95) with no seed anywhere upstream: renders are non-reproducible
-    draws.
+    branch split is generated (ADR-0013). The output keeps the input's
+    rate, length and channel count, and its low band is the input's own, so
+    no level correction applies. Sampling is nucleus (`top_p`, None -> the
+    release's 0.95) with no seed anywhere upstream: renders are
+    non-reproducible draws.
 
-    predict.py reads its input directory sorted, in (16 kHz, 48 kHz) pairs;
-    the 48 kHz twin only fixes the output length, so it is the input
-    upsampled.
+    The transformer holds at most 50 s (its 5,000-token table), so longer
+    audio is cut into `segment_seconds` segments joined by a short
+    equal-gain crossfade — identical content passes through exactly, and
+    the seam's cost on this seedless model is measured, not assumed
+    (ADR-0013). Every channel's segments go through one predict.py call:
+    the script consumes a sorted directory of (16 kHz, 48 kHz) pairs, the
+    48 kHz twin fixing each output's length.
     """
     from grooveback import audio as ga
 
@@ -292,16 +320,34 @@ def run_hpcodecx(
             f"HP-codecX environment missing at {HPCODECX_VENV_PYTHON}. Create it:\n"
             "  scripts/hpcodecx_setup.sh"
         )
+    if not 0 < segment_seconds <= HPCODECX_MAX_SECONDS:
+        raise ValueError(
+            f"segment_seconds must be within (0, {HPCODECX_MAX_SECONDS:.0f}] — "
+            f"the transformer's token table — got {segment_seconds}."
+        )
     print(f"hpcodecx: clone @ {hpcodecx_clone_sha()}")
+
+    # Whole-file resamples, then cuts: per-segment resampling would put a
+    # filter transient at every seam. A 16 kHz index maps to 48 kHz as x3,
+    # so the pair files stay sample-aligned.
+    low = ga.resample(audio, sr_in=sample_rate, sr_out=16_000)
+    high = ga.resample(audio, sr_in=sample_rate, sr_out=48_000)
+    segment = int(round(segment_seconds * 16_000))
+    fade = int(round(HPCODECX_FADE_SECONDS * 16_000))
+    spans = _hpcodecx_spans(low.shape[1], segment, fade)
+    if len(spans) > 1:
+        print(f"hpcodecx: {len(spans)} segments of {segment_seconds:g} s per "
+              f"channel, {HPCODECX_FADE_SECONDS:g} s crossfade")
 
     with tempfile.TemporaryDirectory() as tmp:
         in_dir, out_dir = Path(tmp) / "in", Path(tmp) / "out"
         for channel in range(audio.shape[0]):
-            mono = audio[channel : channel + 1]
-            ga.save(in_dir / f"ch{channel}_16.wav",
-                    ga.resample(mono, sr_in=sample_rate, sr_out=16_000), 16_000)
-            ga.save(in_dir / f"ch{channel}_48.wav",
-                    ga.resample(mono, sr_in=sample_rate, sr_out=48_000), 48_000)
+            for i, (start, end) in enumerate(spans):
+                stem = f"ch{channel}_s{i:02d}"
+                ga.save(in_dir / f"{stem}_16.wav",
+                        low[channel : channel + 1, start:end], 16_000)
+                ga.save(in_dir / f"{stem}_48.wav",
+                        high[channel : channel + 1, start * 3 : end * 3], 48_000)
         cmd = [
             str(HPCODECX_VENV_PYTHON), "scripts/predict.py",
             "--path", "runs/hp-codecx", "--model_tag", "best",
@@ -311,12 +357,31 @@ def run_hpcodecx(
         if top_p is not None:
             cmd += ["--top_p", str(top_p)]
         result = subprocess.run(cmd, cwd=HPCODECX_DIR, capture_output=True, text=True)
-        rendered = [out_dir / f"ch{c}_48.wav" for c in range(audio.shape[0])]
-        if result.returncode != 0 or not all(w.exists() for w in rendered):
+        if result.returncode != 0:
             raise RuntimeError(
                 f"HP-codecX failed.\n{(result.stderr or result.stdout)[-2000:]}"
             )
-        restored = np.concatenate([ga.load(w)[0][:1] for w in rendered])
+
+        restored = np.zeros((audio.shape[0], high.shape[1]), dtype=np.float32)
+        fade48 = fade * 3
+        fade_in = np.linspace(0.0, 1.0, fade48, dtype=np.float32)
+        for channel in range(audio.shape[0]):
+            for i, (start, end) in enumerate(spans):
+                wav = out_dir / f"ch{channel}_s{i:02d}_48.wav"
+                if not wav.exists():
+                    raise RuntimeError(
+                        f"HP-codecX failed: {wav.name} was not rendered.\n"
+                        f"{(result.stderr or result.stdout)[-2000:]}"
+                    )
+                piece = ga.load(wav)[0][0]
+                a, b = start * 3, end * 3
+                piece = piece[: b - a].copy()
+                if piece.size < b - a:
+                    piece = np.pad(piece, (0, b - a - piece.size))
+                if start > 0:
+                    restored[channel, a : a + fade48] *= 1.0 - fade_in
+                    piece[:fade48] *= fade_in
+                restored[channel, a:b] += piece
     restored = ga.resample(restored, sr_in=48_000, sr_out=sample_rate)
 
     out = np.zeros((audio.shape[0], audio.shape[1]), dtype=np.float32)
