@@ -130,12 +130,21 @@ solo-key order.
   top band adds K-weighted energy; that is the method's content, recorded
   rather than corrected (correcting whole-file loudness would deflate the
   kept band).
-- **The crossover, measured**: on the codec 64 kbps twin (true edge 11 kHz)
-  the render exceeds the twin by +4.5 dB in the 8–11 kHz band and matches it
-  below — AudioSR's roll-off detection placed the replacement crossover
-  near 8 kHz and re-synthesized the twin's real 8–11 kHz content. The sharp
-  LAME edge misleads its detector, the same failure A2SB's detector shows
-  (ADR-0007); here it is recorded as the shipped method's behavior.
+- **The crossover, measured** (codec 64 kbps twin, true edge 11 kHz;
+  per-500 Hz-band correlation between render and twin locates where copying
+  stops): detection lands at 10.0 kHz, but the input-copy replacement acts
+  in two stages — the input is first lowpassed at the detected frequency
+  with an order-8 IIR of a per-call randomly drawn family (energy rescale
+  clamped to ±20 %), and the copy boundary is then re-detected on that
+  already-rolled-off signal, landing at ~8.5 kHz. Below 8.5 kHz the render
+  is the input verbatim (correlation 1.000, band energies within 0.4 dB).
+  Between 8.5 kHz and the edge the render is **re-synthesized at matched
+  energy** — correlation ≈ 0 with band deltas of +0.3–0.5 dB, invisible in
+  a spectrogram but new material — with a +10 dB bump at the 9.5–10.5 kHz
+  knee. Above the edge, pure invention. The twin's real 8.5–11 kHz content
+  is therefore discarded and reconstructed; the sharp LAME edge narrows the
+  detector's reach the same way it misleads A2SB's (ADR-0007), recorded
+  here as the shipped method's behavior.
 - **Driver fidelity, verified against upstream directly** (2026-09-11,
   after the listening session raised the question): the codec 64 kbps twin
   rendered through upstream's own one-call path — its torchaudio resample,
