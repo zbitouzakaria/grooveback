@@ -30,6 +30,10 @@ multirun/
 # not code we import.
 third_party/a2sb/
 
+# The AudioSR venv (pip `audiosr`, built by scripts/audiosr_setup.sh); the
+# directory holds nothing but the environment we shell out to.
+third_party/audiosr/
+
 # A reference clone of Stability-AI/stable-audio-3. The project depends on
 # the pinned git dependency in pyproject.toml, not on this checkout.
 third_party/stable-audio-3/

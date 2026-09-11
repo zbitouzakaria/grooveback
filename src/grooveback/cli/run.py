@@ -4,6 +4,8 @@
         model.noise_level=0.3
     uv run python -m grooveback.cli.run -m input=data/degraded output_dir=artifacts/roundtrip \\
         model=roundtrip "model.ae=same-l,earvae,earvae2,codicodec"
+    uv run python -m grooveback.cli.run model=audiosr input=data/degraded \\
+        output_dir=artifacts/audiosr
 
 Hydra composes `configs/config.yaml`: `model` selects the restoration method
 and its parameters, `mode` the run type. An output that already exists is
@@ -22,6 +24,7 @@ from tqdm import tqdm
 
 from grooveback import audio as ga
 from grooveback import latents as gl
+from grooveback.baselines import load_apollo, run_apollo, run_audiosr
 from grooveback.priors import PRIOR_VARIANTS, load_prior
 from grooveback.solvers import latent_sub, roundtrip, sdedit
 
@@ -104,10 +107,51 @@ def _latent_sub_setup(cfg: DictConfig):
     return suffix, load, restore
 
 
+def _apollo_setup(cfg: DictConfig):
+    suffix = f"_{cfg.model.name}.wav"
+
+    def load():
+        return load_apollo(device=cfg.device)
+
+    def restore(model, signal, sample_rate):
+        return run_apollo(
+            signal,
+            sample_rate,
+            model=model,
+            chunk_seconds=cfg.model.chunk_seconds,
+            overlap_seconds=cfg.model.overlap_seconds,
+            chunk_pad_seconds=cfg.model.chunk_pad_seconds,
+            batch_size=cfg.model.batch_size,
+        )
+
+    return suffix, load, restore
+
+
+def _audiosr_setup(cfg: DictConfig):
+    suffix = f"_{cfg.model.name}.wav"
+
+    def load():
+        return None  # the subprocess owns the model (baselines.run_audiosr)
+
+    def restore(model, signal, sample_rate):
+        return run_audiosr(
+            signal,
+            sample_rate,
+            ddim_steps=cfg.model.ddim_steps,
+            guidance_scale=cfg.model.guidance_scale,
+            seed=cfg.model.seed,
+            device=None if cfg.device == "auto" else cfg.device,
+        )
+
+    return suffix, load, restore
+
+
 SETUPS = {
     "sdedit": _sdedit_setup,
     "roundtrip": _roundtrip_setup,
     "latent-sub": _latent_sub_setup,
+    "apollo": _apollo_setup,
+    "audiosr": _audiosr_setup,
 }
 
 

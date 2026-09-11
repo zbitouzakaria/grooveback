@@ -6,7 +6,7 @@ Cut one chunk per source, make MP3 twins at three bitrates, restore each twin
 with every method, and score everything against the original chunk. Methods
 are the autoencoder round-trips, a mean-damage subtraction, and the chained
 {anchor}-{ae} renders (the autoencoder run on an anchor's output), anchored
-by apollo and a2sb (ADR-0011):
+by apollo, a2sb and audiosr (ADR-0011, ADR-0012):
 
   artifacts/xp/{source}/original.wav             the clean chunk
   artifacts/xp/{source}/{bitrate}/input.wav      the MP3 round-trip
@@ -40,7 +40,7 @@ from omegaconf import DictConfig
 
 from grooveback import audio as ga
 from grooveback import latents as gl
-from grooveback.baselines import load_apollo, run_a2sb, run_apollo
+from grooveback.baselines import load_apollo, run_a2sb, run_apollo, run_audiosr
 from grooveback.evaluation import (
     best_lag,
     bss_sdr_db,
@@ -196,6 +196,19 @@ def main(cfg: DictConfig) -> None:
                                cutoff_hz=edges[(name, bitrate)] - 250,
                                device="mps" if cfg.device == "auto" else cfg.device)
                 ga.save(render_path(name, bitrate, "a2sb"), out, SR)
+
+    if "audiosr" in cfg.anchors:
+        for name, bitrate in twins:
+            if not render_path(name, bitrate, "audiosr").exists():
+                print(f"render audiosr: {name} {bitrate}", flush=True)
+                # Vanilla and no wall: what AudioSR's own roll-off detection
+                # does with a sharp LAME edge is a finding (ADR-0012) —
+                # unlike A2SB's, which provably misreads one. 50 steps is
+                # upstream's CLI default, chosen by ear over the API's 200,
+                # which invents 5-14 dB more top-band energy (ADR-0012).
+                out = run_audiosr(twins[(name, bitrate)], SR, ddim_steps=50,
+                                  device=None if cfg.device == "auto" else cfg.device)
+                ga.save(render_path(name, bitrate, "audiosr"), out, SR)
 
     # Autoencoder arms, loading each model at most once.
     for ae in cfg.autoencoders:
