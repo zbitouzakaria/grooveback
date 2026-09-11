@@ -1,9 +1,11 @@
 # AudioSR (Liu et al., arXiv:2309.07314), diffusion bandwidth extension
-# (any -> 48 kHz), run vanilla from its own venv (scripts/audiosr_setup.sh).
-# null means the knob is not passed and the pinned package's own default
-# applies — the sdedit `steps: null` pattern (ADR-0012).
+# (any -> 48 kHz), run from its own venv (scripts/audiosr_setup.sh).
+# ddim_steps 50 is upstream's CLI default, the benchmark's standing setting:
+# the API's own default (200) invents 5-14 dB more top-band energy and lost
+# by ear (ADR-0012). null means the knob is not passed and the pinned
+# package's default applies.
 
 name: audiosr
-ddim_steps: null
+ddim_steps: 50
 guidance_scale: null
 seed: null

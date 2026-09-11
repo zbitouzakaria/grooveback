@@ -201,11 +201,12 @@ def main(cfg: DictConfig) -> None:
         for name, bitrate in twins:
             if not render_path(name, bitrate, "audiosr").exists():
                 print(f"render audiosr: {name} {bitrate}", flush=True)
-                # Vanilla, at the package's own defaults, and no wall: what
-                # AudioSR's own roll-off detection does with a sharp LAME
-                # edge is a finding (ADR-0012) — unlike A2SB's, which
-                # provably misreads one.
-                out = run_audiosr(twins[(name, bitrate)], SR,
+                # Vanilla and no wall: what AudioSR's own roll-off detection
+                # does with a sharp LAME edge is a finding (ADR-0012) —
+                # unlike A2SB's, which provably misreads one. 50 steps is
+                # upstream's CLI default, chosen by ear over the API's 200,
+                # which invents 5-14 dB more top-band energy (ADR-0012).
+                out = run_audiosr(twins[(name, bitrate)], SR, ddim_steps=50,
                                   device=None if cfg.device == "auto" else cfg.device)
                 ga.save(render_path(name, bitrate, "audiosr"), out, SR)
 
