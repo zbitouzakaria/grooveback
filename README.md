@@ -126,7 +126,7 @@ in-band damage, the **missing band** above a cutoff, a **round-trip** (an autoen
 | [Apollo](#ref-apollo) | 2024 | band-split GAN regression, waveform | full band | ✓ | open | ✓ [baseline findings](docs/decisions/0006-baseline-findings.md), [MP3-twin benchmark](docs/decisions/0007-benchmark-codec-restoration.md) |
 | [A2SB](#ref-a2sb) | 2025 | Schrödinger bridge, vocoder-free | missing band + gaps | — | open¹ | ✓ [baseline findings](docs/decisions/0006-baseline-findings.md), [MP3-twin benchmark](docs/decisions/0007-benchmark-codec-restoration.md) |
 | [Latent upsample/upmix](#ref-latentup) | 2025 | supervised latent-to-latent BWE/upmix | missing band | — | none | — |
-| [SonicMaster](#ref-sonicmaster) | 2025 | text-guided flow matching, all-in-one | in-band faults² | — | open | demo — [baselines and prior viability](docs/decisions/0005-baselines-and-prior-viability-on-real-library-material.md) |
+| [SonicMaster](#ref-sonicmaster) | 2025 | text-guided flow matching, all-in-one | in-band faults² | — | open | ✓ [controlled run](docs/decisions/0014-sonicmaster-controlled-run.md) |
 | [εar-VAE](#ref-earvae) | 2025 | perceptual VAE, phase + M/S losses | round-trip | — | open | — |
 | [AudioLBM](#ref-audiolbm) | 2025 | latent bridge SR, cascaded to 192 kHz | missing band | — | none | — |
 | [HP-codecX](#ref-hpcodec) | 2025 | codec tokens + transformer LM | missing band | — | open | ✓ [excluded — mono](docs/decisions/0013-hpcodecx-baseline.md) |

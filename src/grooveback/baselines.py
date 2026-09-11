@@ -16,6 +16,12 @@ diffusion with a vocoder. It installs from pip into its own venv — its torch
 2.0.1 pins conflict with the project's — and our driver
 (scripts/audiosr_restore.py) runs it behind a subprocess, per channel, at the
 package's own defaults.
+
+**SonicMaster** (Melechovsky et al.) maps degraded music to mastered music
+with text-instructed flow matching — the learned mastering floor
+(ADR-0014). Natively 44.1 kHz stereo with its own chunking; a release clone
+with its own venv (torch 2.4.0 pins), its unmodified infer_single.py behind
+a subprocess.
 """
 
 from __future__ import annotations
@@ -296,6 +302,96 @@ def run_audiosr(
         for line in result.stdout.splitlines():
             if line.startswith("restore:"):
                 print(f"audiosr: {line[9:]}")
+        restored, _ = ga.load(wav_out)
+
+    out = np.zeros((audio.shape[0], audio.shape[1]), dtype=np.float32)
+    n = min(audio.shape[1], restored.shape[1])
+    out[:, :n] = restored[:, :n]
+    return out
+
+
+# --- SonicMaster -------------------------------------------------------------
+# Melechovsky et al., arXiv:2508.03448 — text-instructed flow matching over
+# the Stable Audio Open VAE, mapping degraded music to mastered music. Its
+# torch 2.4.0 pins conflict with the project's stack: release clone with its
+# own venv (scripts/sonicmaster_setup.sh), its unmodified infer_single.py
+# behind a subprocess. Inference downloads the gated stable-audio-open VAE,
+# so HF_TOKEN must be in the environment.
+
+SONICMASTER_SAMPLE_RATE = 44_100
+SONICMASTER_DIR = _REPO / "third_party" / "sonicmaster"
+SONICMASTER_VENV_PYTHON = SONICMASTER_DIR / ".venv" / "bin" / "python"
+
+
+def sonicmaster_clone_sha() -> str:
+    """Short HEAD of the release clone, printed with every run for provenance."""
+    result = subprocess.run(
+        ["git", "-C", str(SONICMASTER_DIR), "rev-parse", "--short", "HEAD"],
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip() or "unknown"
+
+
+def run_sonicmaster(
+    audio: np.ndarray,
+    sample_rate: int,
+    prompt: str | None = None,
+    num_inference_steps: int | None = None,
+    guidance_scale: float | None = None,
+    seed: int | None = None,
+) -> np.ndarray:
+    """Restore `(channels, samples)` audio with SonicMaster, at the release
+    defaults.
+
+    `prompt=None` runs the automatic mode: the empty instruction, which the
+    training explicitly covers (10 % of prompts were dropped to "", another
+    10 % replaced by generic mastering sentences) — general restoration with
+    nothing specified. Knobs left at None are not passed, so the release
+    defaults apply (10 inference steps, guidance 1.0, seed 0 — the model is
+    deterministic given its input). The model is natively 44.1 kHz stereo,
+    chunks long input itself (30 s windows, 10 s carry-conditioned linear
+    crossfade), and clamps its output to full scale; the output level is its
+    own mastering decision and is returned as emitted.
+    """
+    from grooveback import audio as ga
+
+    if sample_rate != SONICMASTER_SAMPLE_RATE:
+        raise ValueError(
+            f"SonicMaster expects {SONICMASTER_SAMPLE_RATE} Hz, got {sample_rate} Hz."
+        )
+    if not SONICMASTER_VENV_PYTHON.exists():
+        raise FileNotFoundError(
+            f"SonicMaster environment missing at {SONICMASTER_VENV_PYTHON}. Create it:\n"
+            "  scripts/sonicmaster_setup.sh"
+        )
+    mode = f"prompt={prompt!r}" if prompt is not None else "automatic (empty prompt)"
+    print(f"sonicmaster: clone @ {sonicmaster_clone_sha()} {mode}")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        wav_in, wav_out = tmp / "in.wav", tmp / "out.wav"
+        ga.save(wav_in, audio, sample_rate)
+        cmd = [
+            str(SONICMASTER_VENV_PYTHON), "infer_single.py",
+            "--ckpt", "weights",
+            "--input", str(wav_in),
+            "--prompt", prompt if prompt is not None else "",
+            "--output", str(wav_out),
+        ]
+        if num_inference_steps is not None:
+            cmd += ["--num_inference_steps", str(num_inference_steps)]
+        if guidance_scale is not None:
+            cmd += ["--guidance_scale", str(guidance_scale)]
+        if seed is not None:
+            cmd += ["--seed", str(seed)]
+        result = subprocess.run(
+            cmd, cwd=SONICMASTER_DIR, capture_output=True, text=True
+        )
+        if result.returncode != 0 or not wav_out.exists():
+            raise RuntimeError(
+                f"SonicMaster failed.\n{(result.stderr or result.stdout)[-2000:]}"
+            )
         restored, _ = ga.load(wav_out)
 
     out = np.zeros((audio.shape[0], audio.shape[1]), dtype=np.float32)

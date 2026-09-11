@@ -13,6 +13,7 @@ codec_32k:
     5 - Apollo → εar-VAE: apollo-earvae.flac
     6 - εar-VAE − MP3 damage: earvae-sub.flac
     7 - AudioSR: audiosr.flac
+    8 - SonicMaster: sonicmaster.flac
 
 codec_64k:
   dir: artifacts/xp/codec/64k/listen

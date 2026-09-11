@@ -49,6 +49,9 @@ so no paired metrics at this stage. Aligning them comes later.
 Tested on electronic material via its Hugging Face demo. It duplicates and stacks kicks, including under an explicit
 negative prompt. Not adopted. Recorded so it does not get re-tested later.
 
+*Superseded by [ADR-0014](0014-sonicmaster-controlled-run.md): re-tested under controlled conditions on the
+benchmark.*
+
 ## Consequences
 
 - Every later method has something to beat, established before it is designed.

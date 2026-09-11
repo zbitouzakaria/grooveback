@@ -34,6 +34,10 @@ third_party/a2sb/
 # directory holds nothing but the environment we shell out to.
 third_party/audiosr/
 
+# SonicMaster release clone with its venv and checkpoint
+# (scripts/sonicmaster_setup.sh); a tool we shell out to.
+third_party/sonicmaster/
+
 # A reference clone of Stability-AI/stable-audio-3. The project depends on
 # the pinned git dependency in pyproject.toml, not on this checkout.
 third_party/stable-audio-3/
