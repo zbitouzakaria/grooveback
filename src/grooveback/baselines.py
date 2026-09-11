@@ -321,6 +321,11 @@ def run_audiosr(
 SONICMASTER_SAMPLE_RATE = 44_100
 SONICMASTER_DIR = _REPO / "third_party" / "sonicmaster"
 SONICMASTER_VENV_PYTHON = SONICMASTER_DIR / ".venv" / "bin" / "python"
+SONICMASTER_VAE_BATCH = 2
+"""Chunks VAE-encoded at once during the release's pre-encode pass. Its
+default of 10 OOMs a 22 GiB L4 on a 180 s file; the encode is the VAE's
+deterministic mode, so the batch size cannot change the output — the
+CODICODEC_MAX_BATCH situation (ADR-0011) again."""
 
 
 def sonicmaster_clone_sha() -> str:
@@ -378,6 +383,7 @@ def run_sonicmaster(
             "--input", str(wav_in),
             "--prompt", prompt if prompt is not None else "",
             "--output", str(wav_out),
+            "--vae_batch_size", str(SONICMASTER_VAE_BATCH),
         ]
         if num_inference_steps is not None:
             cmd += ["--num_inference_steps", str(num_inference_steps)]
