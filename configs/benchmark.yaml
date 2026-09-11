@@ -11,7 +11,7 @@ sources: [codec, aerofunk]
 bitrates: [32k, 64k, 128k]
 autoencoders: [earvae]
 chains: [apollo]             # each ae also renders {chain}-{ae}: ae(chain(input))
-anchors: [apollo, a2sb, audiosr]
+anchors: [apollo, a2sb, audiosr, hpcodecx]
 
 hydra:
   output_subdir: null

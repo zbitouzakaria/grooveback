@@ -47,5 +47,6 @@ the source of truth stays obvious.
 | 0010 | Listen in the browser with trackswitch.js — the A/B instrument behind `demo/` |
 | 0011 | **Autoencoder round-trips and mean damage subtraction** — four open autoencoders at 32/64/128k, the damage-direction formula, chains as solvers |
 | 0012 | AudioSR baseline — the second bandwidth-extension anchor, run vanilla from its own venv |
+| 0013 | HP-codecX baseline — token-LM bandwidth extension, fixed 16→48 kHz framing, completes the survey column |
 | 0009 | **SDEdit solver: built, measured, rejected** — the prior keeps anything plausible; harness, fork and findings remain |
 | 0010 | Listen in the browser with trackswitch — the demo pages and their level-match gate |

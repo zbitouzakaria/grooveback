@@ -24,7 +24,7 @@ from tqdm import tqdm
 
 from grooveback import audio as ga
 from grooveback import latents as gl
-from grooveback.baselines import load_apollo, run_apollo, run_audiosr
+from grooveback.baselines import load_apollo, run_apollo, run_audiosr, run_hpcodecx
 from grooveback.priors import PRIOR_VARIANTS, load_prior
 from grooveback.solvers import latent_sub, roundtrip, sdedit
 
@@ -146,12 +146,25 @@ def _audiosr_setup(cfg: DictConfig):
     return suffix, load, restore
 
 
+def _hpcodecx_setup(cfg: DictConfig):
+    suffix = f"_{cfg.model.name}.wav"
+
+    def load():
+        return None  # the subprocess owns the models (baselines.run_hpcodecx)
+
+    def restore(model, signal, sample_rate):
+        return run_hpcodecx(signal, sample_rate, top_p=cfg.model.top_p)
+
+    return suffix, load, restore
+
+
 SETUPS = {
     "sdedit": _sdedit_setup,
     "roundtrip": _roundtrip_setup,
     "latent-sub": _latent_sub_setup,
     "apollo": _apollo_setup,
     "audiosr": _audiosr_setup,
+    "hpcodecx": _hpcodecx_setup,
 }
 
 

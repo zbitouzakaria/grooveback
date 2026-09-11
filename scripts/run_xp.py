@@ -6,7 +6,7 @@ Cut one chunk per source, make MP3 twins at three bitrates, restore each twin
 with every method, and score everything against the original chunk. Methods
 are the autoencoder round-trips, a mean-damage subtraction, and the chained
 {anchor}-{ae} renders (the autoencoder run on an anchor's output), anchored
-by apollo, a2sb and audiosr (ADR-0011, ADR-0012):
+by apollo, a2sb, audiosr and hpcodecx (ADR-0011, ADR-0012, ADR-0013):
 
   artifacts/xp/{source}/original.wav             the clean chunk
   artifacts/xp/{source}/{bitrate}/input.wav      the MP3 round-trip
@@ -40,7 +40,13 @@ from omegaconf import DictConfig
 
 from grooveback import audio as ga
 from grooveback import latents as gl
-from grooveback.baselines import load_apollo, run_a2sb, run_apollo, run_audiosr
+from grooveback.baselines import (
+    load_apollo,
+    run_a2sb,
+    run_apollo,
+    run_audiosr,
+    run_hpcodecx,
+)
 from grooveback.evaluation import (
     best_lag,
     bss_sdr_db,
@@ -209,6 +215,17 @@ def main(cfg: DictConfig) -> None:
                 out = run_audiosr(twins[(name, bitrate)], SR, ddim_steps=50,
                                   device=None if cfg.device == "auto" else cfg.device)
                 ga.save(render_path(name, bitrate, "audiosr"), out, SR)
+
+    if "hpcodecx" in cfg.anchors:
+        for name, bitrate in twins:
+            if not render_path(name, bitrate, "hpcodecx").exists():
+                print(f"render hpcodecx: {name} {bitrate}", flush=True)
+                # Vanilla on every rung. The framing is fixed at 16 kHz in /
+                # 48 kHz out: above 64 kbps the downsample deletes real
+                # content before the model runs — recorded as the shipped
+                # method's behavior, not pre-empted (ADR-0013).
+                out = run_hpcodecx(twins[(name, bitrate)], SR)
+                ga.save(render_path(name, bitrate, "hpcodecx"), out, SR)
 
     # Autoencoder arms, loading each model at most once.
     for ae in cfg.autoencoders:

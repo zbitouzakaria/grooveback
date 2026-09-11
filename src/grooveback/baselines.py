@@ -16,6 +16,11 @@ diffusion with a vocoder. It installs from pip into its own venv — its torch
 2.0.1 pins conflict with the project's — and our driver
 (scripts/audiosr_restore.py) runs it behind a subprocess, per channel, at the
 package's own defaults.
+
+**HP-codecX** (Giniès et al.) targets missing bandwidth as next-token
+prediction, with a fixed 16 kHz -> 48 kHz framing. A release clone with its
+own venv (its torch.package checkpoints need the torch 2.1 era); this module
+shells out to its unmodified predict.py.
 """
 
 from __future__ import annotations
@@ -236,6 +241,86 @@ def run_a2sb(
     out = np.zeros((audio.shape[0], audio.shape[1]), dtype=np.float32)
     n = min(audio.shape[1], restored.shape[1])
     # Broadcasting copies a mono render across the input's channels.
+    out[:, :n] = restored[:, :n]
+    return out
+
+
+# --- HP-codecX -------------------------------------------------------------
+# Giniès et al., arXiv:2511.21580 — bandwidth extension as next-token
+# prediction over a harmonic/percussive codec, fixed 16 kHz in -> 48 kHz out.
+# Zenodo code drop (no package), torch.package checkpoints pinned to the
+# torch 2.1 era: its own clone and venv (scripts/hpcodecx_setup.sh), and its
+# unmodified scripts/predict.py behind a subprocess.
+
+HPCODECX_DIR = _REPO / "third_party" / "hpcodecx"
+HPCODECX_VENV_PYTHON = HPCODECX_DIR / ".venv" / "bin" / "python"
+
+
+def hpcodecx_clone_sha() -> str:
+    """Short HEAD of the release clone, printed with every run for provenance."""
+    result = subprocess.run(
+        ["git", "-C", str(HPCODECX_DIR), "rev-parse", "--short", "HEAD"],
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip() or "unknown"
+
+
+def run_hpcodecx(
+    audio: np.ndarray, sample_rate: int, top_p: float | None = None
+) -> np.ndarray:
+    """Restore `(channels, samples)` audio with HP-codecX, at the release
+    defaults.
+
+    The framing is fixed by the model: the input is downsampled to 16 kHz —
+    content above 8 kHz never reaches it — and everything above the 8 kHz
+    branch split is generated (ADR-0013). Each channel is restored
+    separately in one subprocess; the output keeps the input's rate, length
+    and channel count, and its low band is the input's own, so no level
+    correction applies. Sampling is nucleus (`top_p`, None -> the release's
+    0.95) with no seed anywhere upstream: renders are non-reproducible
+    draws.
+
+    predict.py reads its input directory sorted, in (16 kHz, 48 kHz) pairs;
+    the 48 kHz twin only fixes the output length, so it is the input
+    upsampled.
+    """
+    from grooveback import audio as ga
+
+    if not HPCODECX_VENV_PYTHON.exists():
+        raise FileNotFoundError(
+            f"HP-codecX environment missing at {HPCODECX_VENV_PYTHON}. Create it:\n"
+            "  scripts/hpcodecx_setup.sh"
+        )
+    print(f"hpcodecx: clone @ {hpcodecx_clone_sha()}")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        in_dir, out_dir = Path(tmp) / "in", Path(tmp) / "out"
+        for channel in range(audio.shape[0]):
+            mono = audio[channel : channel + 1]
+            ga.save(in_dir / f"ch{channel}_16.wav",
+                    ga.resample(mono, sr_in=sample_rate, sr_out=16_000), 16_000)
+            ga.save(in_dir / f"ch{channel}_48.wav",
+                    ga.resample(mono, sr_in=sample_rate, sr_out=48_000), 48_000)
+        cmd = [
+            str(HPCODECX_VENV_PYTHON), "scripts/predict.py",
+            "--path", "runs/hp-codecx", "--model_tag", "best",
+            "--codec_path", "runs/hp-codec/best_finetuning",
+            "--input", str(in_dir), "--output", str(out_dir),
+        ]
+        if top_p is not None:
+            cmd += ["--top_p", str(top_p)]
+        result = subprocess.run(cmd, cwd=HPCODECX_DIR, capture_output=True, text=True)
+        rendered = [out_dir / f"ch{c}_48.wav" for c in range(audio.shape[0])]
+        if result.returncode != 0 or not all(w.exists() for w in rendered):
+            raise RuntimeError(
+                f"HP-codecX failed.\n{(result.stderr or result.stdout)[-2000:]}"
+            )
+        restored = np.concatenate([ga.load(w)[0][:1] for w in rendered])
+    restored = ga.resample(restored, sr_in=48_000, sr_out=sample_rate)
+
+    out = np.zeros((audio.shape[0], audio.shape[1]), dtype=np.float32)
+    n = min(audio.shape[1], restored.shape[1])
     out[:, :n] = restored[:, :n]
     return out
 

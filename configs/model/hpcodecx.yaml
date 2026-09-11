@@ -1,0 +1,8 @@
+# HP-codecX (Giniès et al., arXiv:2511.21580), bandwidth extension as
+# next-token prediction over a harmonic/percussive codec — fixed 16 kHz in,
+# 48 kHz out, run from its release clone and venv (scripts/hpcodecx_setup.sh).
+# null means the flag is not passed and the release default applies
+# (nucleus sampling, top_p 0.95; no seed exists upstream — ADR-0013).
+
+name: hpcodecx
+top_p: null
