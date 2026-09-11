@@ -43,4 +43,9 @@ fetch() {
 fetch "$WEIGHTS/hp-codec/best_finetuning/dac/package.pth" hp-codec.package.pth
 fetch "$WEIGHTS/hp-codecx/best/transformermodel/package.pth" hp-codecx.package.pth
 
+# The Zenodo packages froze train-time classes that predate the repo's
+# inference helpers; convert them to the weights format audiotools also
+# loads, which instantiates the current repo code instead (ADR-0013).
+( cd third_party/hpcodecx && .venv/bin/python ../../scripts/hpcodecx_convert.py )
+
 "$PYTHON" -c "import audiotools, argbind, torch" && echo "hpcodecx venv ready"
