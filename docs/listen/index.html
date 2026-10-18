@@ -20,70 +20,103 @@
 <p class="note">Every track is level-matched to −14 LUFS with one common headroom gain per
 player, master included. Solo is exclusive: keys 1–9 or a click switch tracks in place.
 Space plays, R toggles repeat, loop a section with the loop controls or A/B/L.</p>
+<p>This page is the listening companion to
+<a href="https://github.com/zbitouzakaria/grooveback">grooveback</a>, a project about
+restoring music that only survives as lossy rips — records whose best remaining copy
+is an MP3 someone uploaded years ago. Each set below is one controlled experiment: a
+track with a clean master is compressed to MP3 at a known bitrate, and every method
+tries to restore that MP3. You hear the same excerpt in six versions, and switching
+keeps the playhead, so any difference you hear is the method.</p>
+<p>The six tracks of every set:</p>
+<ol class="note">
+<li><b>Ground Truth</b> — the clean master the MP3 was made from: the target.</li>
+<li><b>Degraded Input</b> — the MP3 itself, the file every method receives. The
+spectrogram shows the visible damage: above the codec's cutoff frequency nothing is
+kept. The audible damage also sits below the cutoff, where the codec smears
+transients and thins out detail.</li>
+<li><b>Apollo</b> — the strongest published model for this damage: a supervised
+network trained on clean/MP3 pairs, restoring the full band in one pass.</li>
+<li><b>A²SB</b> — NVIDIA's diffusion model for bandwidth extension. By design it
+only generates content above the cutoff and passes the band below through
+unchanged.</li>
+<li><b>Apollo → εar-VAE</b> — this project's construction: Apollo's output passed
+through the εar-VAE autoencoder (encode, then decode). The autoencoder is trained on
+clean music only, so its decoder smooths the artifacts Apollo introduces on heavily
+damaged input.</li>
+<li><b>εar-VAE − MP3 damage</b> — the other construction: the input is encoded into
+the autoencoder's latent space, the average shift that MP3 compression causes in
+that space (measured on a different track) is subtracted, and the result is decoded.
+It repairs spectral balance rather than fine detail.</li>
+</ol>
+<p class="note">The spectrogram under the buttons belongs to the selected track —
+watch the region above the cutoff change as you switch, and click it to seek.
+Headphones or monitors recommended: laptop speakers hide most of what these methods
+disagree about.</p>
 <h2>codec_32k</h2>
+<p class="note">A 6-second clip — the test asset from Apollo's release, the brighter of the two sources, short enough to loop and compare quickly. At 32 kbps the codec keeps nothing above roughly 5.5 kHz: any treble in a restoration is invented, and the kept band is heavily smeared. This severe case is where Apollo → εar-VAE earns its place — by ear it is cleaner than Apollo alone, because the autoencoder smooths the artifacts Apollo introduces at this damage level. Compare tracks 2, 3 and 5 against 1.</p>
 <trackswitch-player>
 <script type="application/json">{
  "media": {
   "t0": {
    "type": "audio",
    "title": "1 - Ground Truth",
-   "src": "audio/codec_32k/original.flac?v=1789053804",
+   "src": "audio/codec_32k/original.flac?v=1789057143",
    "imageID": "t0Plot",
    "solo": true
   },
   "t0Plot": {
    "type": "image",
-   "src": "media/codec_32k/original.png?v=1789053804"
+   "src": "media/codec_32k/original.png?v=1789057143"
   },
   "t1": {
    "type": "audio",
    "title": "2 - Degraded Input",
-   "src": "audio/codec_32k/input.flac?v=1789053804",
+   "src": "audio/codec_32k/input.flac?v=1789057143",
    "imageID": "t1Plot"
   },
   "t1Plot": {
    "type": "image",
-   "src": "media/codec_32k/input.png?v=1789053804"
+   "src": "media/codec_32k/input.png?v=1789057143"
   },
   "t2": {
    "type": "audio",
    "title": "3 - Apollo",
-   "src": "audio/codec_32k/apollo.flac?v=1789053804",
+   "src": "audio/codec_32k/apollo.flac?v=1789057143",
    "imageID": "t2Plot"
   },
   "t2Plot": {
    "type": "image",
-   "src": "media/codec_32k/apollo.png?v=1789053804"
+   "src": "media/codec_32k/apollo.png?v=1789057143"
   },
   "t3": {
    "type": "audio",
    "title": "4 - A\u00b2SB",
-   "src": "audio/codec_32k/a2sb.flac?v=1789053804",
+   "src": "audio/codec_32k/a2sb.flac?v=1789057143",
    "imageID": "t3Plot"
   },
   "t3Plot": {
    "type": "image",
-   "src": "media/codec_32k/a2sb.png?v=1789053804"
+   "src": "media/codec_32k/a2sb.png?v=1789057143"
   },
   "t4": {
    "type": "audio",
    "title": "5 - Apollo \u2192 \u03b5ar-VAE",
-   "src": "audio/codec_32k/apollo-earvae.flac?v=1789053804",
+   "src": "audio/codec_32k/apollo-earvae.flac?v=1789057143",
    "imageID": "t4Plot"
   },
   "t4Plot": {
    "type": "image",
-   "src": "media/codec_32k/apollo-earvae.png?v=1789053804"
+   "src": "media/codec_32k/apollo-earvae.png?v=1789057143"
   },
   "t5": {
    "type": "audio",
    "title": "6 - \u03b5ar-VAE \u2212 MP3 damage",
-   "src": "audio/codec_32k/earvae-sub.flac?v=1789053804",
+   "src": "audio/codec_32k/earvae-sub.flac?v=1789057143",
    "imageID": "t5Plot"
   },
   "t5Plot": {
    "type": "image",
-   "src": "media/codec_32k/earvae-sub.png?v=1789053804"
+   "src": "media/codec_32k/earvae-sub.png?v=1789057143"
   }
  },
  "views": [
@@ -120,69 +153,70 @@ Space plays, R toggles repeat, loop a section with the loop controls or A/B/L.</
 }</script>
 </trackswitch-player>
 <h2>codec_64k</h2>
+<p class="note">A 6-second clip — the test asset from Apollo's release, the brighter of the two sources, short enough to loop and compare quickly. At 64 kbps the kept band reaches about 11 kHz. This is the crossover case: by ear, Apollo and Apollo → εar-VAE split the verdict — the smoothing still removes some of Apollo's artifacts, but begins to soften detail Apollo got right.</p>
 <trackswitch-player>
 <script type="application/json">{
  "media": {
   "t0": {
    "type": "audio",
    "title": "1 - Ground Truth",
-   "src": "audio/codec_64k/original.flac?v=1789053805",
+   "src": "audio/codec_64k/original.flac?v=1789057143",
    "imageID": "t0Plot",
    "solo": true
   },
   "t0Plot": {
    "type": "image",
-   "src": "media/codec_64k/original.png?v=1789053805"
+   "src": "media/codec_64k/original.png?v=1789057143"
   },
   "t1": {
    "type": "audio",
    "title": "2 - Degraded Input",
-   "src": "audio/codec_64k/input.flac?v=1789053805",
+   "src": "audio/codec_64k/input.flac?v=1789057143",
    "imageID": "t1Plot"
   },
   "t1Plot": {
    "type": "image",
-   "src": "media/codec_64k/input.png?v=1789053805"
+   "src": "media/codec_64k/input.png?v=1789057143"
   },
   "t2": {
    "type": "audio",
    "title": "3 - Apollo",
-   "src": "audio/codec_64k/apollo.flac?v=1789053805",
+   "src": "audio/codec_64k/apollo.flac?v=1789057143",
    "imageID": "t2Plot"
   },
   "t2Plot": {
    "type": "image",
-   "src": "media/codec_64k/apollo.png?v=1789053805"
+   "src": "media/codec_64k/apollo.png?v=1789057143"
   },
   "t3": {
    "type": "audio",
    "title": "4 - A\u00b2SB",
-   "src": "audio/codec_64k/a2sb.flac?v=1789053805",
+   "src": "audio/codec_64k/a2sb.flac?v=1789057143",
    "imageID": "t3Plot"
   },
   "t3Plot": {
    "type": "image",
-   "src": "media/codec_64k/a2sb.png?v=1789053805"
+   "src": "media/codec_64k/a2sb.png?v=1789057143"
   },
   "t4": {
    "type": "audio",
    "title": "5 - Apollo \u2192 \u03b5ar-VAE",
-   "src": "audio/codec_64k/apollo-earvae.flac?v=1789053805",
+   "src": "audio/codec_64k/apollo-earvae.flac?v=1789057143",
    "imageID": "t4Plot"
   },
   "t4Plot": {
    "type": "image",
-   "src": "media/codec_64k/apollo-earvae.png?v=1789053805"
+   "src": "media/codec_64k/apollo-earvae.png?v=1789057143"
   },
   "t5": {
    "type": "audio",
    "title": "6 - \u03b5ar-VAE \u2212 MP3 damage",
-   "src": "audio/codec_64k/earvae-sub.flac?v=1789053805",
+   "src": "audio/codec_64k/earvae-sub.flac?v=1789057143",
    "imageID": "t5Plot"
   },
   "t5Plot": {
    "type": "image",
-   "src": "media/codec_64k/earvae-sub.png?v=1789053805"
+   "src": "media/codec_64k/earvae-sub.png?v=1789057143"
   }
  },
  "views": [
@@ -219,69 +253,70 @@ Space plays, R toggles repeat, loop a section with the loop controls or A/B/L.</
 }</script>
 </trackswitch-player>
 <h2>codec_128k</h2>
+<p class="note">A 6-second clip — the test asset from Apollo's release, the brighter of the two sources, short enough to loop and compare quickly. At 128 kbps the kept band reaches about 16.5 kHz — this is what a typical rip looks like — and the remaining damage is subtle and sits inside the kept band. Here Apollo alone stays closest to the master: there is little left to smooth, so the autoencoder only moves the sound away from it. Expect small differences.</p>
 <trackswitch-player>
 <script type="application/json">{
  "media": {
   "t0": {
    "type": "audio",
    "title": "1 - Ground Truth",
-   "src": "audio/codec_128k/original.flac?v=1789053805",
+   "src": "audio/codec_128k/original.flac?v=1789057143",
    "imageID": "t0Plot",
    "solo": true
   },
   "t0Plot": {
    "type": "image",
-   "src": "media/codec_128k/original.png?v=1789053805"
+   "src": "media/codec_128k/original.png?v=1789057143"
   },
   "t1": {
    "type": "audio",
    "title": "2 - Degraded Input",
-   "src": "audio/codec_128k/input.flac?v=1789053805",
+   "src": "audio/codec_128k/input.flac?v=1789057143",
    "imageID": "t1Plot"
   },
   "t1Plot": {
    "type": "image",
-   "src": "media/codec_128k/input.png?v=1789053805"
+   "src": "media/codec_128k/input.png?v=1789057143"
   },
   "t2": {
    "type": "audio",
    "title": "3 - Apollo",
-   "src": "audio/codec_128k/apollo.flac?v=1789053805",
+   "src": "audio/codec_128k/apollo.flac?v=1789057143",
    "imageID": "t2Plot"
   },
   "t2Plot": {
    "type": "image",
-   "src": "media/codec_128k/apollo.png?v=1789053805"
+   "src": "media/codec_128k/apollo.png?v=1789057143"
   },
   "t3": {
    "type": "audio",
    "title": "4 - A\u00b2SB",
-   "src": "audio/codec_128k/a2sb.flac?v=1789053805",
+   "src": "audio/codec_128k/a2sb.flac?v=1789057143",
    "imageID": "t3Plot"
   },
   "t3Plot": {
    "type": "image",
-   "src": "media/codec_128k/a2sb.png?v=1789053805"
+   "src": "media/codec_128k/a2sb.png?v=1789057143"
   },
   "t4": {
    "type": "audio",
    "title": "5 - Apollo \u2192 \u03b5ar-VAE",
-   "src": "audio/codec_128k/apollo-earvae.flac?v=1789053805",
+   "src": "audio/codec_128k/apollo-earvae.flac?v=1789057143",
    "imageID": "t4Plot"
   },
   "t4Plot": {
    "type": "image",
-   "src": "media/codec_128k/apollo-earvae.png?v=1789053805"
+   "src": "media/codec_128k/apollo-earvae.png?v=1789057143"
   },
   "t5": {
    "type": "audio",
    "title": "6 - \u03b5ar-VAE \u2212 MP3 damage",
-   "src": "audio/codec_128k/earvae-sub.flac?v=1789053805",
+   "src": "audio/codec_128k/earvae-sub.flac?v=1789057143",
    "imageID": "t5Plot"
   },
   "t5Plot": {
    "type": "image",
-   "src": "media/codec_128k/earvae-sub.png?v=1789053805"
+   "src": "media/codec_128k/earvae-sub.png?v=1789057143"
   }
  },
  "views": [
@@ -318,69 +353,70 @@ Space plays, R toggles repeat, loop a section with the loop controls or A/B/L.</
 }</script>
 </trackswitch-player>
 <h2>aerofunk_32k</h2>
+<p class="note">A three-minute excerpt of an electronic track, compared against its clean master — long enough to judge the methods on real musical material. At 32 kbps the codec keeps nothing above roughly 5.5 kHz: any treble in a restoration is invented, and the kept band is heavily smeared. This severe case is where Apollo → εar-VAE earns its place — by ear it is cleaner than Apollo alone, because the autoencoder smooths the artifacts Apollo introduces at this damage level. Compare tracks 2, 3 and 5 against 1.</p>
 <trackswitch-player>
 <script type="application/json">{
  "media": {
   "t0": {
    "type": "audio",
    "title": "1 - Ground Truth",
-   "src": "audio/aerofunk_32k/original.flac?v=1789053808",
+   "src": "audio/aerofunk_32k/original.flac?v=1789057141",
    "imageID": "t0Plot",
    "solo": true
   },
   "t0Plot": {
    "type": "image",
-   "src": "media/aerofunk_32k/original.png?v=1789053808"
+   "src": "media/aerofunk_32k/original.png?v=1789057141"
   },
   "t1": {
    "type": "audio",
    "title": "2 - Degraded Input",
-   "src": "audio/aerofunk_32k/input.flac?v=1789053808",
+   "src": "audio/aerofunk_32k/input.flac?v=1789057141",
    "imageID": "t1Plot"
   },
   "t1Plot": {
    "type": "image",
-   "src": "media/aerofunk_32k/input.png?v=1789053808"
+   "src": "media/aerofunk_32k/input.png?v=1789057141"
   },
   "t2": {
    "type": "audio",
    "title": "3 - Apollo",
-   "src": "audio/aerofunk_32k/apollo.flac?v=1789053809",
+   "src": "audio/aerofunk_32k/apollo.flac?v=1789057141",
    "imageID": "t2Plot"
   },
   "t2Plot": {
    "type": "image",
-   "src": "media/aerofunk_32k/apollo.png?v=1789053809"
+   "src": "media/aerofunk_32k/apollo.png?v=1789057141"
   },
   "t3": {
    "type": "audio",
    "title": "4 - A\u00b2SB",
-   "src": "audio/aerofunk_32k/a2sb.flac?v=1789053809",
+   "src": "audio/aerofunk_32k/a2sb.flac?v=1789057141",
    "imageID": "t3Plot"
   },
   "t3Plot": {
    "type": "image",
-   "src": "media/aerofunk_32k/a2sb.png?v=1789053809"
+   "src": "media/aerofunk_32k/a2sb.png?v=1789057141"
   },
   "t4": {
    "type": "audio",
    "title": "5 - Apollo \u2192 \u03b5ar-VAE",
-   "src": "audio/aerofunk_32k/apollo-earvae.flac?v=1789053809",
+   "src": "audio/aerofunk_32k/apollo-earvae.flac?v=1789057141",
    "imageID": "t4Plot"
   },
   "t4Plot": {
    "type": "image",
-   "src": "media/aerofunk_32k/apollo-earvae.png?v=1789053809"
+   "src": "media/aerofunk_32k/apollo-earvae.png?v=1789057141"
   },
   "t5": {
    "type": "audio",
    "title": "6 - \u03b5ar-VAE \u2212 MP3 damage",
-   "src": "audio/aerofunk_32k/earvae-sub.flac?v=1789053810",
+   "src": "audio/aerofunk_32k/earvae-sub.flac?v=1789057141",
    "imageID": "t5Plot"
   },
   "t5Plot": {
    "type": "image",
-   "src": "media/aerofunk_32k/earvae-sub.png?v=1789053810"
+   "src": "media/aerofunk_32k/earvae-sub.png?v=1789057141"
   }
  },
  "views": [
@@ -417,69 +453,70 @@ Space plays, R toggles repeat, loop a section with the loop controls or A/B/L.</
 }</script>
 </trackswitch-player>
 <h2>aerofunk_64k</h2>
+<p class="note">A three-minute excerpt of an electronic track, compared against its clean master — long enough to judge the methods on real musical material. At 64 kbps the kept band reaches about 11 kHz. This is the crossover case: by ear, Apollo and Apollo → εar-VAE split the verdict — the smoothing still removes some of Apollo's artifacts, but begins to soften detail Apollo got right.</p>
 <trackswitch-player>
 <script type="application/json">{
  "media": {
   "t0": {
    "type": "audio",
    "title": "1 - Ground Truth",
-   "src": "audio/aerofunk_64k/original.flac?v=1789053813",
+   "src": "audio/aerofunk_64k/original.flac?v=1789057143",
    "imageID": "t0Plot",
    "solo": true
   },
   "t0Plot": {
    "type": "image",
-   "src": "media/aerofunk_64k/original.png?v=1789053813"
+   "src": "media/aerofunk_64k/original.png?v=1789057143"
   },
   "t1": {
    "type": "audio",
    "title": "2 - Degraded Input",
-   "src": "audio/aerofunk_64k/input.flac?v=1789053813",
+   "src": "audio/aerofunk_64k/input.flac?v=1789057143",
    "imageID": "t1Plot"
   },
   "t1Plot": {
    "type": "image",
-   "src": "media/aerofunk_64k/input.png?v=1789053813"
+   "src": "media/aerofunk_64k/input.png?v=1789057143"
   },
   "t2": {
    "type": "audio",
    "title": "3 - Apollo",
-   "src": "audio/aerofunk_64k/apollo.flac?v=1789053814",
+   "src": "audio/aerofunk_64k/apollo.flac?v=1789057142",
    "imageID": "t2Plot"
   },
   "t2Plot": {
    "type": "image",
-   "src": "media/aerofunk_64k/apollo.png?v=1789053814"
+   "src": "media/aerofunk_64k/apollo.png?v=1789057142"
   },
   "t3": {
    "type": "audio",
    "title": "4 - A\u00b2SB",
-   "src": "audio/aerofunk_64k/a2sb.flac?v=1789053814",
+   "src": "audio/aerofunk_64k/a2sb.flac?v=1789057141",
    "imageID": "t3Plot"
   },
   "t3Plot": {
    "type": "image",
-   "src": "media/aerofunk_64k/a2sb.png?v=1789053814"
+   "src": "media/aerofunk_64k/a2sb.png?v=1789057141"
   },
   "t4": {
    "type": "audio",
    "title": "5 - Apollo \u2192 \u03b5ar-VAE",
-   "src": "audio/aerofunk_64k/apollo-earvae.flac?v=1789053814",
+   "src": "audio/aerofunk_64k/apollo-earvae.flac?v=1789057141",
    "imageID": "t4Plot"
   },
   "t4Plot": {
    "type": "image",
-   "src": "media/aerofunk_64k/apollo-earvae.png?v=1789053814"
+   "src": "media/aerofunk_64k/apollo-earvae.png?v=1789057141"
   },
   "t5": {
    "type": "audio",
    "title": "6 - \u03b5ar-VAE \u2212 MP3 damage",
-   "src": "audio/aerofunk_64k/earvae-sub.flac?v=1789053815",
+   "src": "audio/aerofunk_64k/earvae-sub.flac?v=1789057143",
    "imageID": "t5Plot"
   },
   "t5Plot": {
    "type": "image",
-   "src": "media/aerofunk_64k/earvae-sub.png?v=1789053815"
+   "src": "media/aerofunk_64k/earvae-sub.png?v=1789057143"
   }
  },
  "views": [
@@ -516,69 +553,70 @@ Space plays, R toggles repeat, loop a section with the loop controls or A/B/L.</
 }</script>
 </trackswitch-player>
 <h2>aerofunk_128k</h2>
+<p class="note">A three-minute excerpt of an electronic track, compared against its clean master — long enough to judge the methods on real musical material. At 128 kbps the kept band reaches about 16.5 kHz — this is what a typical rip looks like — and the remaining damage is subtle and sits inside the kept band. Here Apollo alone stays closest to the master: there is little left to smooth, so the autoencoder only moves the sound away from it. Expect small differences.</p>
 <trackswitch-player>
 <script type="application/json">{
  "media": {
   "t0": {
    "type": "audio",
    "title": "1 - Ground Truth",
-   "src": "audio/aerofunk_128k/original.flac?v=1789053818",
+   "src": "audio/aerofunk_128k/original.flac?v=1789057141",
    "imageID": "t0Plot",
    "solo": true
   },
   "t0Plot": {
    "type": "image",
-   "src": "media/aerofunk_128k/original.png?v=1789053818"
+   "src": "media/aerofunk_128k/original.png?v=1789057141"
   },
   "t1": {
    "type": "audio",
    "title": "2 - Degraded Input",
-   "src": "audio/aerofunk_128k/input.flac?v=1789053818",
+   "src": "audio/aerofunk_128k/input.flac?v=1789057141",
    "imageID": "t1Plot"
   },
   "t1Plot": {
    "type": "image",
-   "src": "media/aerofunk_128k/input.png?v=1789053818"
+   "src": "media/aerofunk_128k/input.png?v=1789057141"
   },
   "t2": {
    "type": "audio",
    "title": "3 - Apollo",
-   "src": "audio/aerofunk_128k/apollo.flac?v=1789053818",
+   "src": "audio/aerofunk_128k/apollo.flac?v=1789057140",
    "imageID": "t2Plot"
   },
   "t2Plot": {
    "type": "image",
-   "src": "media/aerofunk_128k/apollo.png?v=1789053818"
+   "src": "media/aerofunk_128k/apollo.png?v=1789057140"
   },
   "t3": {
    "type": "audio",
    "title": "4 - A\u00b2SB",
-   "src": "audio/aerofunk_128k/a2sb.flac?v=1789053819",
+   "src": "audio/aerofunk_128k/a2sb.flac?v=1789057140",
    "imageID": "t3Plot"
   },
   "t3Plot": {
    "type": "image",
-   "src": "media/aerofunk_128k/a2sb.png?v=1789053819"
+   "src": "media/aerofunk_128k/a2sb.png?v=1789057140"
   },
   "t4": {
    "type": "audio",
    "title": "5 - Apollo \u2192 \u03b5ar-VAE",
-   "src": "audio/aerofunk_128k/apollo-earvae.flac?v=1789053819",
+   "src": "audio/aerofunk_128k/apollo-earvae.flac?v=1789057140",
    "imageID": "t4Plot"
   },
   "t4Plot": {
    "type": "image",
-   "src": "media/aerofunk_128k/apollo-earvae.png?v=1789053819"
+   "src": "media/aerofunk_128k/apollo-earvae.png?v=1789057140"
   },
   "t5": {
    "type": "audio",
    "title": "6 - \u03b5ar-VAE \u2212 MP3 damage",
-   "src": "audio/aerofunk_128k/earvae-sub.flac?v=1789053819",
+   "src": "audio/aerofunk_128k/earvae-sub.flac?v=1789057141",
    "imageID": "t5Plot"
   },
   "t5Plot": {
    "type": "image",
-   "src": "media/aerofunk_128k/earvae-sub.png?v=1789053819"
+   "src": "media/aerofunk_128k/earvae-sub.png?v=1789057141"
   }
  },
  "views": [
