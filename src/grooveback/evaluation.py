@@ -85,6 +85,26 @@ def bss_sdr_db(
     return float(scores.mean().item())
 
 
+def bss_si_sdr_db(reference: np.ndarray, estimate: np.ndarray) -> float:
+    """Scale-invariant SDR per channel, averaged — the Apollo paper's SI-SNR.
+
+    Same definition as `si_snr_db`, but each channel is scored as its own
+    source and the dB values averaged, as the paper's evaluation wrapper
+    does; `si_snr_db` pools the channels into one vector, which weights the
+    louder channel more.
+    """
+    _as_matched_vectors(reference, estimate)  # shape check only
+    import fast_bss_eval
+    import torch
+
+    scores = fast_bss_eval.si_sdr(
+        torch.from_numpy(np.ascontiguousarray(reference)).double(),
+        torch.from_numpy(np.ascontiguousarray(estimate)).double(),
+        zero_mean=True,
+    )
+    return float(scores.mean().item())
+
+
 def _stft_magnitudes(x: np.ndarray, n_fft: int, hop: int) -> np.ndarray:
     """Hann-windowed magnitude spectrogram, `(frames, bins)`."""
     if x.size < n_fft:
