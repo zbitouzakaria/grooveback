@@ -97,8 +97,12 @@ def build(
 ) -> None:
     """Write `per_category` clean/MP3 pairs per category under `out`."""
     stem_paths = {
-        (path.parent.name, path.stem): path for path in sorted(musdb_test.glob("*/*.flac"))
+        (path.parent.name, path.stem): path
+        for path in sorted(musdb_test.glob("*/*"))
+        if path.suffix in (".wav", ".flac") and path.stem in (*INSTRUMENTS, "vocals")
     }
+    if not stem_paths:
+        raise FileNotFoundError(f"no {{track}}/{{stem}}.wav or .flac stems under {musdb_test}")
     sessions = {
         key: vad_starts(sf.read(path, always_2d=True)[0].T)
         for key, path in stem_paths.items()
@@ -146,7 +150,7 @@ def main(argv: list[str] | None = None) -> None:
     )
     commands = parser.add_subparsers(dest="command", required=True)
     build_args = commands.add_parser("build")
-    build_args.add_argument("musdb_test", type=Path, help="{track}/{stem}.flac")
+    build_args.add_argument("musdb_test", type=Path, help="{track}/{stem}.wav or .flac")
     build_args.add_argument("out", type=Path)
     build_args.add_argument("--kbps", type=int, default=24)
     build_args.add_argument("--per-category", type=int, default=250)
@@ -162,6 +166,8 @@ def main(argv: list[str] | None = None) -> None:
               per_category=args.per_category, seed=args.seed)
         return
 
+    if not any(args.test_set.glob("*/*/ori_wav.wav")):
+        parser.error(f"no {{category}}/{{index}}/ori_wav.wav pairs under {args.test_set}")
     rows = score(args.test_set, load_apollo(device=args.device))
     args.csv.parent.mkdir(parents=True, exist_ok=True)
     with args.csv.open("w", newline="") as f:

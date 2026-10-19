@@ -30,13 +30,13 @@ def tone(freq: float, amplitude: float, seconds: float = 6.0) -> np.ndarray:
 
 @pytest.fixture
 def musdb_test(tmp_path):
-    """Two tracks of 15 s white-noise stems in MUSDB's {track}/{stem} layout."""
+    """Two tracks of 15 s white-noise stems in MUSDB18-HQ's {track}/{stem}.wav layout."""
     rng = np.random.default_rng(0)
     for track in ("a", "b"):
         (tmp_path / "musdb" / track).mkdir(parents=True)
         for stem in ("bass", "drums", "other", "vocals"):
             noise = rng.uniform(-0.1, 0.1, size=(15 * SR, 2))
-            sf.write(tmp_path / "musdb" / track / f"{stem}.flac", noise, SR, subtype="PCM_16")
+            sf.write(tmp_path / "musdb" / track / f"{stem}.wav", noise, SR, subtype="PCM_16")
     return tmp_path / "musdb"
 
 
