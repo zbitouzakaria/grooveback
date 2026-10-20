@@ -1,24 +1,14 @@
-"""Apollo's test protocol, rebuilt on the MUSDB18-HQ test split.
+"""Score Apollo on MP3 twins of the MUSDB18-HQ test mixtures.
 
-    uv run python -m grooveback.cli.musdb_eval build musdb18hq/test testset/24k --kbps 24
-    uv run python -m grooveback.cli.musdb_eval score testset/24k scores.csv
+    uv run python -m grooveback.cli.musdb_eval musdb18hq/test scores.csv --kbps 24
 
-The paper scores 6 s clips from MUSDB18-HQ and MoisesDB in four categories,
-MP3-compressed at 24-128 kbps; that set was never released. `build` rebuilds
-it on MUSDB18-HQ alone from the authors' released code:
-
-- sessions: the 6 s windows, at a 3 s hop, that Apollo-data-preprocess's VAD
-  keeps from each stem
-- clips: per category, stems from random tracks and sessions, each gained by
-  a whole number of dB in [-10, 10] and summed — the training mixer in
-  look2hear/datas
-- damage: their `codec_simu` — torchaudio's sox MP3 there and back, cut to
-  length, rolled into alignment by their `match2`
-- both rescaled by their joint peak
-
-and writes their test layout, `{category}/{index}/ori_wav.wav` and
-`codec_wav.wav`. `score` runs Apollo once over each whole clip, as their
-test.py does, and scores it and the untouched input with their SDR and SI-SNR.
+Every 6 s session of each test mixture that Apollo-data-preprocess's VAD
+keeps is MP3-compressed with Apollo's own `codec_simu`, both signals are
+rescaled by their joint peak as in their data module, and Apollo restores the
+MP3 in one pass, as their test.py does. Apollo's output and the untouched MP3
+are scored against the clean session with the paper's SDR and SI-SNR
+(look2hear/metrics/wrapper.py). The released checkpoint was not trained on
+these songs.
 """
 
 from __future__ import annotations
@@ -31,21 +21,18 @@ import numpy as np
 import soundfile as sf
 import torch
 
-from grooveback import audio as ga
 from grooveback.baselines import load_apollo, run_apollo
 from grooveback.evaluation import bss_sdr_db, bss_si_sdr_db
 
 SR = 44_100
 CLIP_SAMPLES = 6 * SR
-INSTRUMENTS = ("bass", "drums", "other")
-CATEGORIES = ("vocal", "single-stem", "multi-stems", "multi-stems+vocal")
 
 
 def vad_starts(audio: np.ndarray, win: int = 441) -> list[int]:
-    """Starts of the 6 s sessions Apollo's preprocessing keeps from a stem.
+    """Starts of the 6 s sessions Apollo's preprocessing keeps from a track.
 
     musdb_preprocess.VAD: over 10 ms frames, a session is kept when more than
-    half its frames are louder than the 15th percentile of the stem's
+    half its frames are louder than the 15th percentile of the track's
     non-silent frames.
     """
     n = audio.shape[-1] // SR * SR
@@ -61,16 +48,6 @@ def vad_starts(audio: np.ndarray, win: int = 441) -> list[int]:
         for s in range(count)
         if (power[s * hop : s * hop + size] > threshold).mean() > 0.5
     ]
-
-
-def pick_stems(category: str, rng: np.random.Generator) -> list[str]:
-    if category == "vocal":
-        return ["vocals"]
-    if category == "single-stem":
-        return [str(rng.choice(INSTRUMENTS))]
-    count = rng.integers(2, 4) if category == "multi-stems" else rng.integers(1, 4)
-    stems = [str(stem) for stem in rng.choice(INSTRUMENTS, size=count, replace=False)]
-    return stems + ["vocals"] if category == "multi-stems+vocal" else stems
 
 
 def codec_simu(clip: np.ndarray, kbps: int) -> np.ndarray:
@@ -92,55 +69,33 @@ def codec_simu(clip: np.ndarray, kbps: int) -> np.ndarray:
     return torch.roll(coded, -lag, -1).numpy()
 
 
-def build(
-    musdb_test: Path, out: Path, *, kbps: int, per_category: int, seed: int = 0
-) -> None:
-    """Write `per_category` clean/MP3 pairs per category under `out`."""
-    stem_paths = {
-        (path.parent.name, path.stem): path
-        for path in sorted(musdb_test.glob("*/*"))
-        if path.suffix in (".wav", ".flac") and path.stem in (*INSTRUMENTS, "vocals")
-    }
-    if not stem_paths:
-        raise FileNotFoundError(f"no {{track}}/{{stem}}.wav or .flac stems under {musdb_test}")
-    sessions = {
-        key: vad_starts(sf.read(path, always_2d=True)[0].T)
-        for key, path in stem_paths.items()
-    }
-    rng = np.random.default_rng(seed)
-    for category in CATEGORIES:
-        for index in range(per_category):
-            ori = np.zeros((2, CLIP_SAMPLES), np.float32)
-            for stem in pick_stems(category, rng):
-                keys = [key for key in sessions if key[1] == stem and sessions[key]]
-                key = keys[rng.integers(len(keys))]
-                start = int(rng.choice(sessions[key]))
-                audio = sf.read(stem_paths[key], start=start, frames=CLIP_SAMPLES,
-                                dtype="float32", always_2d=True)[0].T
-                ori += audio * float(np.sqrt(10 ** (rng.integers(-10, 11) / 10)))
-            codec = codec_simu(ori, kbps)
-            peak = max(np.abs(ori).max(), np.abs(codec).max())
-            pair = out / category / f"{index:04d}"
-            ga.save(pair / "ori_wav.wav", ori / peak, SR)
-            ga.save(pair / "codec_wav.wav", codec / peak, SR)
-        print(f"built {per_category} {category} clips", flush=True)
+def mixtures(musdb_test: Path) -> list[Path]:
+    return sorted(
+        path for path in musdb_test.glob("*/mixture.*") if path.suffix in (".wav", ".flac")
+    )
 
 
-def score(test_set: Path, model) -> list[dict]:
-    """SDR and SI-SNR of Apollo's render and of the untouched input, per clip."""
+def evaluate(musdb_test: Path, *, kbps: int, model) -> list[dict]:
+    """SDR and SI-SNR of the model's restoration and of the untouched MP3, per session."""
     rows = []
-    for ori_path in sorted(test_set.glob("*/*/ori_wav.wav")):
-        ori, _ = ga.load(ori_path)
-        codec, _ = ga.load(ori_path.with_name("codec_wav.wav"))
-        restored = run_apollo(codec, SR, model=model, chunk_seconds=None)
-        rows.append({
-            "category": ori_path.parent.parent.name,
-            "clip": ori_path.parent.name,
-            "input_sdr": bss_sdr_db(ori, codec),
-            "input_si_snr": bss_si_sdr_db(ori, codec),
-            "apollo_sdr": bss_sdr_db(ori, restored),
-            "apollo_si_snr": bss_si_sdr_db(ori, restored),
-        })
+    for path in mixtures(musdb_test):
+        audio = sf.read(path, always_2d=True)[0].T  # float64, as their preprocessing reads it
+        starts = vad_starts(audio)
+        for start in starts:
+            clean = audio[:, start : start + CLIP_SAMPLES].astype(np.float32)
+            codec = codec_simu(clean, kbps)
+            peak = max(np.abs(clean).max(), np.abs(codec).max())
+            clean, codec = clean / peak, codec / peak
+            restored = run_apollo(codec, SR, model=model, chunk_seconds=None)
+            rows.append({
+                "track": path.parent.name,
+                "start": start,
+                "input_sdr": bss_sdr_db(clean, codec),
+                "input_si_snr": bss_si_sdr_db(clean, codec),
+                "apollo_sdr": bss_sdr_db(clean, restored),
+                "apollo_si_snr": bss_si_sdr_db(clean, restored),
+            })
+        print(f"{path.parent.name}: {len(starts)} clips", flush=True)
     return rows
 
 
@@ -148,39 +103,24 @@ def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    commands = parser.add_subparsers(dest="command", required=True)
-    build_args = commands.add_parser("build")
-    build_args.add_argument("musdb_test", type=Path, help="{track}/{stem}.wav or .flac")
-    build_args.add_argument("out", type=Path)
-    build_args.add_argument("--kbps", type=int, default=24)
-    build_args.add_argument("--per-category", type=int, default=250)
-    build_args.add_argument("--seed", type=int, default=0)
-    score_args = commands.add_parser("score")
-    score_args.add_argument("test_set", type=Path)
-    score_args.add_argument("csv", type=Path)
-    score_args.add_argument("--device", default="auto")
+    parser.add_argument("musdb_test", type=Path, help="{track}/mixture.wav or .flac")
+    parser.add_argument("csv", type=Path)
+    parser.add_argument("--kbps", type=int, default=24)
+    parser.add_argument("--device", default="auto")
     args = parser.parse_args(argv)
+    if not mixtures(args.musdb_test):
+        parser.error(f"no {{track}}/mixture.wav or .flac under {args.musdb_test}")
 
-    if args.command == "build":
-        build(args.musdb_test, args.out, kbps=args.kbps,
-              per_category=args.per_category, seed=args.seed)
-        return
-
-    if not any(args.test_set.glob("*/*/ori_wav.wav")):
-        parser.error(f"no {{category}}/{{index}}/ori_wav.wav pairs under {args.test_set}")
-    rows = score(args.test_set, load_apollo(device=args.device))
+    rows = evaluate(args.musdb_test, kbps=args.kbps, model=load_apollo(device=args.device))
     args.csv.parent.mkdir(parents=True, exist_ok=True)
     with args.csv.open("w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=list(rows[0]))
         writer.writeheader()
         writer.writerows(rows)
-    metrics = ["input_sdr", "input_si_snr", "apollo_sdr", "apollo_si_snr"]
-    print(f"{'':20}" + "".join(f"{m:>15}" for m in metrics))
-    for category in [*CATEGORIES, "overall"]:
-        picked = rows if category == "overall" else [r for r in rows if r["category"] == category]
-        if picked:
-            means = [np.mean([r[m] for r in picked]) for m in metrics]
-            print(f"{category:20}" + "".join(f"{v:15.2f}" for v in means))
+    for name in ("input", "apollo"):
+        sdr = np.mean([row[f"{name}_sdr"] for row in rows])
+        si_snr = np.mean([row[f"{name}_si_snr"] for row in rows])
+        print(f"{name}: SDR {sdr:.2f} dB, SI-SNR {si_snr:.2f} dB over {len(rows)} clips")
 
 
 if __name__ == "__main__":

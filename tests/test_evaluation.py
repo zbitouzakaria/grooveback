@@ -12,6 +12,7 @@ from grooveback import audio as ga
 from grooveback.evaluation import (
     best_lag,
     bss_sdr_db,
+    bss_si_sdr_db,
     codec_edge_hz,
     level_matched_set,
     log_spectral_distance_db,
@@ -80,6 +81,22 @@ def test_si_snr_measures_orthogonal_error_like_snr():
     estimate = reference + tone(amplitude=0.01, freq=200.0)
 
     assert si_snr_db(reference, estimate) == pytest.approx(40.0, abs=0.05)
+
+
+def test_bss_si_sdr_averages_the_channels_in_db():
+    """The left channel carries an error tone 20 dB under its reference, the
+    right one 40 dB under. Apollo's SI-SNR scores each channel alone and
+    averages the dB: (20 + 40) / 2 = 30 dB. Pooling the channels first, as
+    `si_snr_db` does, would read 10·log10(2 / (0.01 + 0.0001)) = 23 dB. All
+    tones complete whole cycles over the fixture, so they are orthogonal."""
+    reference = np.concatenate(
+        [tone(amplitude=1.0, freq=100.0, channels=1), tone(amplitude=1.0, freq=150.0, channels=1)]
+    )
+    estimate = reference + np.concatenate(
+        [tone(amplitude=0.1, freq=200.0, channels=1), tone(amplitude=0.01, freq=200.0, channels=1)]
+    )
+
+    assert bss_si_sdr_db(reference, estimate) == pytest.approx(30.0, abs=0.05)
 
 
 def test_bss_sdr_absorbs_delays_inside_its_filter_only():
