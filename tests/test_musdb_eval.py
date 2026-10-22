@@ -1,5 +1,5 @@
 """`evaluate` runs a model over MP3 twins of the test mixtures and scores it
-with Apollo's metrics."""
+with Apollo's metrics and this project's spectral ones."""
 
 import numpy as np
 import pytest
@@ -19,6 +19,32 @@ class IdentityModel(torch.nn.Module):
 
     def forward(self, audio):
         return audio
+
+
+class ToneModel(torch.nn.Module):
+    """Adds a 1 kHz tone, so its output scores differently from its input."""
+
+    def __init__(self):
+        super().__init__()
+        self.anchor = torch.nn.Parameter(torch.zeros(()))
+
+    def forward(self, audio):
+        t = torch.arange(audio.shape[-1]) / SR
+        return audio + 0.1 * torch.sin(2 * torch.pi * 1_000 * t)
+
+
+class IdentityEarVAE(torch.nn.Module):
+    """Stands in for εar-VAE: its latents are the audio itself."""
+
+    def __init__(self):
+        super().__init__()
+        self.anchor = torch.nn.Parameter(torch.zeros(()))
+
+    def encode(self, audio, use_sample):
+        return audio
+
+    def decode(self, latents):
+        return latents
 
 
 @pytest.fixture
@@ -48,6 +74,28 @@ def test_identity_model_scores_exactly_like_the_untouched_mp3(musdb_test):
     assert len(rows) == 6
     assert [row["apollo_sdr"] for row in rows] == [row["input_sdr"] for row in rows]
     assert [row["apollo_si_snr"] for row in rows] == [row["input_si_snr"] for row in rows]
+    assert [row["apollo_spectral_snr"] for row in rows] == [
+        row["input_spectral_snr"] for row in rows
+    ]
+    assert [row["apollo_lsd"] for row in rows] == [row["input_lsd"] for row in rows]
+
+
+def test_identity_earvae_scores_exactly_like_the_model_it_follows(musdb_test):
+    """The εar-VAE round trip must receive the model's output, not the MP3: the
+    tone the model adds makes the two score differently, and an identity
+    round trip then scores exactly like the model."""
+    try:
+        import torchaudio
+
+        torchaudio.functional.apply_codec(torch.zeros(2, SR), SR, format="mp3", compression=24)
+    except (RuntimeError, OSError, ImportError) as error:
+        pytest.skip(f"sox MP3 is unavailable: {error}")
+
+    rows = evaluate(musdb_test, kbps=24, model=ToneModel(), earvae=IdentityEarVAE())
+
+    assert [row["apollo_earvae_sdr"] for row in rows] == [row["apollo_sdr"] for row in rows]
+    assert [row["apollo_earvae_lsd"] for row in rows] == [row["apollo_lsd"] for row in rows]
+    assert [row["apollo_sdr"] for row in rows] != [row["input_sdr"] for row in rows]
 
 
 def test_codec_simu_aligns_the_mp3_of_a_clip_whose_edges_jump():
