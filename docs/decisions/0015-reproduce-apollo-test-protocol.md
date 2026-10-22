@@ -91,10 +91,26 @@ the circular cross-correlation between the channel sums of the MP3 and the clean
 at 32, 48, 64, 96 and 128 kbps. Two clips at 24 kbps and one at 32 kbps are rolled by a wrong lag of thousands of
 samples instead.
 
-A negative SI-SNR is not a reliable sign of a late clip. On "Little Chicago's Finest - My Own" (88 clips) the MP3 is aligned, with
-both of its channels at lag 0, yet it scores about 0 dB SI-SNR at every bitrate. The track's two channels are nearly
-uncorrelated, with a correlation of 0.02 over the whole track. Its clips are the only aligned ones with negative
-SI-SNR, 54 of them at 24 kbps.
+`match2` misses because of the clip edges. It cross-correlates the raw clips with a phase transform, which gives every
+frequency the same weight. The correlation is circular, so the jump from a clip's last sample back to its first acts
+as a sharp step at lag 0, in both the clean clip and the MP3. Above the MP3's cut-off, that step is all the MP3
+contains, while the clean clip still holds music there. On clips with loud edges, the peak at lag 0 beats the true
+peak at 1,105 samples, `match2` returns 0, and the roll leaves the MP3 late. A lower bitrate cuts off lower, so more
+frequencies carry only the step, and more clips miss. Measured at 24 kbps on the 95 misaligned clips and 100 aligned
+ones: `match2` returns 0 on 92 of the misaligned clips, where the correlation at lag 0 reaches 0.85 against about
+0.12 at the true lag. On aligned clips it is about 0.001. Tapering both signals with a Hann window before the
+transform finds 1,105 samples on all 95 misaligned clips and keeps every aligned clip aligned.
+
+Apollo's training pairs carried the same delay. Apollo moves the late MP3 back into place on 195 of the 196 late
+clips at 24–64 kbps, and a model only learns that from training pairs that were late in the same way. The maintainer
+wrote otherwise:
+"Currently, I am using perfectly synchronized codec and original files"
+([comment](https://github.com/JusperLee/Apollo/issues/13#issuecomment-2511437902)).
+
+A negative SI-SNR is not a reliable sign of a late clip. On "Little Chicago's Finest - My Own" (88 clips) the MP3 is
+aligned, with both of its channels at lag 0, yet it scores about 0 dB SI-SNR at every bitrate. The track's two
+channels are nearly uncorrelated, with a correlation of 0.02 over the whole track. Its clips are the only aligned
+ones with negative SI-SNR, 54 of them at 24 kbps.
 
 ### Training data
 
