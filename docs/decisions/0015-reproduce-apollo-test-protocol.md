@@ -108,7 +108,8 @@ peak at 1,105 samples, `match2` returns 0, and the roll leaves the MP3 late. A l
 frequencies carry only the step, and more clips miss. Measured at 24 kbps on the 95 misaligned clips and 100 aligned
 ones: `match2` returns 0 on 92 of the misaligned clips, where the correlation at lag 0 reaches 0.85 against about
 0.12 at the true lag. On aligned clips it is about 0.001. Tapering both signals with a Hann window before the
-transform finds 1,105 samples on all 95 misaligned clips and keeps every aligned clip aligned.
+transform finds 1,105 samples on all 95 misaligned clips and keeps the 100 aligned clips within one sample of their
+lag.
 
 `codec_simu` now applies this taper. Measured the same way over all clips, every MP3 is then within one sample of its
 clean clip: 26 clips at 24 kbps and 2 at 32 kbps are one sample off, and all others are at 0.
