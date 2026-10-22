@@ -50,6 +50,11 @@ trivial. The MacBook is 16 GB unified memory.
 
 Past local timings are sizing data, not a recommendation.
 
+Torch on a pod sees all of the host's cores (128–256 measured), while the
+container is allowed far fewer (13–27). When several processes share a pod,
+set `OMP_NUM_THREADS` and `MKL_NUM_THREADS` so that processes × threads fits
+the container's cores.
+
 Outputs land in `artifacts/` (gitignored). The benchmark writes
 `artifacts/xp/{source}/{bitrate}/`: `input.wav` is the untouched MP3 twin,
 `{method}.wav` the renders, `listen/` the level-matched copies to A/B.
