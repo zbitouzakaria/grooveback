@@ -6,7 +6,7 @@ import pytest
 import soundfile as sf
 import torch
 
-from grooveback.cli.musdb_eval import evaluate
+from grooveback.cli.musdb_eval import codec_simu, evaluate
 
 SR = 44_100
 
@@ -48,3 +48,30 @@ def test_identity_model_scores_exactly_like_the_untouched_mp3(musdb_test):
     assert len(rows) == 6
     assert [row["apollo_sdr"] for row in rows] == [row["input_sdr"] for row in rows]
     assert [row["apollo_si_snr"] for row in rows] == [row["input_si_snr"] for row in rows]
+
+
+def test_codec_simu_aligns_the_mp3_of_a_clip_whose_edges_jump():
+    """Regression: Apollo's `match2` correlated the untapered clips, so the jump
+    from a clip's last sample back to its first sat at lag 0 in both the clean
+    clip and the MP3. Above the MP3's cut-off it outweighed the true delay, and
+    the MP3 stayed 1,105 samples late. The fixture needs both parts: noise below
+    2 kHz leaves the band above the cut-off to the jump alone, and a ramp from
+    -0.5 to +0.5 makes the jump loud. The noise alone does not trigger it."""
+    try:
+        import torchaudio
+
+        torchaudio.functional.apply_codec(torch.zeros(2, SR), SR, format="mp3", compression=24)
+    except (RuntimeError, OSError, ImportError) as error:
+        pytest.skip(f"sox MP3 is unavailable: {error}")
+    rng = np.random.default_rng(0)
+    spectrum = np.fft.rfft(rng.standard_normal((2, 6 * SR)), axis=-1)
+    spectrum[:, 2_000 * 6 :] = 0  # over 6 s, bin k sits at k / 6 Hz
+    noise = np.fft.irfft(spectrum, n=6 * SR, axis=-1)
+    clip = (0.3 * noise / np.abs(noise).max() + np.linspace(-0.5, 0.5, 6 * SR)).astype(np.float32)
+
+    codec = codec_simu(clip, kbps=24)
+
+    # Circular cross-correlation of the channel sums peaks at index 0 when aligned, 1,105 when late.
+    spectra = np.fft.rfft(codec.sum(axis=0)) * np.fft.rfft(clip.sum(axis=0)).conj()
+    xcorr = np.fft.irfft(spectra, n=6 * SR)
+    assert int(np.argmax(xcorr)) == 0
