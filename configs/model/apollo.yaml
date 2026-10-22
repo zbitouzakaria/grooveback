@@ -1,0 +1,10 @@
+# Apollo (Li & Luo, ICASSP 2025), the supervised full-band baseline, behind
+# the Hydra entry point. The chunk sizes are baselines.run_apollo's 16 GB
+# laptop defaults; on CUDA raise chunk_seconds toward the rotary ceiling
+# (90 is a round choice) and batch_size as memory allows.
+
+name: apollo
+chunk_seconds: 12.0
+overlap_seconds: 1.0
+chunk_pad_seconds: 1.0
+batch_size: 1

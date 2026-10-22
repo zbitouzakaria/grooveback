@@ -122,14 +122,14 @@ in-band damage, the **missing band** above a cutoff, a **round-trip** (an autoen
 
 | Paper | Year | Method | Restores | Targets MP3 | Weights | Tested here |
 |---|---|---|---|---|---|---|
-| [AudioSR](#ref-audiosr) | 2023 | diffusion SR, mel domain + vocoder | missing band | — | open | — |
+| [AudioSR](#ref-audiosr) | 2023 | diffusion SR, mel domain + vocoder | missing band | — | open | ✓ [AudioSR baseline](docs/decisions/0012-audiosr-baseline.md) |
 | [Apollo](#ref-apollo) | 2024 | band-split GAN regression, waveform | full band | ✓ | open | ✓ [baseline findings](docs/decisions/0006-baseline-findings.md), [MP3-twin benchmark](docs/decisions/0007-benchmark-codec-restoration.md) |
 | [A2SB](#ref-a2sb) | 2025 | Schrödinger bridge, vocoder-free | missing band + gaps | — | open¹ | ✓ [baseline findings](docs/decisions/0006-baseline-findings.md), [MP3-twin benchmark](docs/decisions/0007-benchmark-codec-restoration.md) |
 | [Latent upsample/upmix](#ref-latentup) | 2025 | supervised latent-to-latent BWE/upmix | missing band | — | none | — |
 | [SonicMaster](#ref-sonicmaster) | 2025 | text-guided flow matching, all-in-one | in-band faults² | — | open | demo — [baselines and prior viability](docs/decisions/0005-baselines-and-prior-viability-on-real-library-material.md) |
 | [εar-VAE](#ref-earvae) | 2025 | perceptual VAE, phase + M/S losses | round-trip | — | open | — |
 | [AudioLBM](#ref-audiolbm) | 2025 | latent bridge SR, cascaded to 192 kHz | missing band | — | none | — |
-| [HP-codecX](#ref-hpcodec) | 2025 | codec tokens + transformer LM | missing band | — | open | — |
+| [HP-codecX](#ref-hpcodec) | 2025 | codec tokens + transformer LM | missing band | — | open | ✓ [excluded — mono](docs/decisions/0013-hpcodecx-baseline.md) |
 | [Stable Audio 3](#ref-sa3) | 2026 | latent diffusion prior + inpainting | prior | — | open | ✓ [SA3 generation probe](docs/decisions/0008-sa3-generation-probe.md), [SDEdit as the first solver](docs/decisions/0009-sdedit-as-the-first-solver.md) |
 | [SAME](#ref-same) | 2026 | transformer autoencoder, 4096× | round-trip | — | open | ✓ [MP3-twin benchmark](docs/decisions/0007-benchmark-codec-restoration.md) |
 | [Elastic Time](#ref-elastic) | 2026 | dynamic frame-rate bottleneck | — | — | code | — |

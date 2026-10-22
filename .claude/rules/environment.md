@@ -11,6 +11,7 @@ by stable-audio-3** — see ADR-0007.
 |---|---|---|
 | Apollo | `third_party/apollo` (git submodule) | imported directly; chunking and its tests live in the fork |
 | A2SB | `third_party/a2sb` (gitignored clone, fork branch `runnable-anywhere`, own venv) | `baselines.run_a2sb` → its `restore.py`, behind a subprocess — its pins genuinely conflict |
+| AudioSR | pip `audiosr` in its own venv at `third_party/audiosr/.venv` (gitignored, no fork) | `baselines.run_audiosr` → `scripts/audiosr_restore.py`, behind a subprocess — its torch 2.0.1 pins genuinely conflict (ADR-0012) |
 | SAME | `stable-audio-3`, a git dependency pinned by commit in `pyproject.toml` | `grooveback.latents`, in-process |
 | εar-VAE | `third_party/earvae` (git submodule; deps in group `aes`) | `grooveback.latents` registry, in-process |
 | εar-VAE2 | `third_party/earvae2` (git submodule) | `grooveback.latents` registry, in-process |
@@ -20,6 +21,7 @@ by stable-audio-3** — see ADR-0007.
 git submodule update --init --recursive
 git clone -b runnable-anywhere git@github.com:zbitouzakaria/diffusion-audio-restoration.git third_party/a2sb
 cd third_party/a2sb && ./setup.sh
+scripts/audiosr_setup.sh
 ```
 
 ## Running things
@@ -27,6 +29,7 @@ cd third_party/a2sb && ./setup.sh
 ```bash
 uv run python scripts/run_xp.py cuda     # the whole benchmark, one pass
 uv run python -m grooveback.cli.baseline --method apollo <track>
+uv run python -m grooveback.cli.run model=audiosr input=<file-or-dir> output_dir=artifacts/audiosr
 uv run --group notebooks python scripts/build_demo.py   # listening pages from artifacts/*/listen
 python3 -m http.server 8880 -d demo      # then open /base/ or /sdedit/ (ADR-0010)
 ```
@@ -46,6 +49,7 @@ trivial. The MacBook is 16 GB unified memory.
 |---|---|---|
 | SAME-S / SAME-L | ~10x slower than realtime | seconds per clip on an L4 |
 | A2SB, full track | does not fit | A100 |
+| AudioSR (50 steps, the pinned setting) | no | ~1 min per 10 s chunk on an L4; ~8 s on an A100 — 180 s stereo ≈ 5 min |
 | Any fine-tuning | no | yes |
 
 Past local timings are sizing data, not a recommendation.

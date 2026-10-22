@@ -1,15 +1,17 @@
-# scripts/run_xp.py — the codec-restoration benchmark (ADR-0007, ADR-0011).
+# scripts/run_xp.py — the codec-restoration benchmark (ADR-0007, ADR-0011,
+# ADR-0012). The matrix is the ADR-0011 kept set plus the audiosr anchor; the
+# full autoencoder comparison it was narrowed from is recorded in ADR-0011.
 # Every field is CLI-overridable; that is how a GPU pod renders one slice:
-#   run_xp.py device=cuda anchors=[]                    # autoencoder arms only
-#   run_xp.py device=cuda autoencoders=[] anchors=[a2sb]  # a2sb only
-#   run_xp.py sources=[codec] anchors=[]                # the 6 s smoke source
+#   run_xp.py device=cuda autoencoders=[] anchors=[audiosr]   # audiosr only
+#   run_xp.py device=cuda anchors=[]                          # autoencoder arms only
+#   run_xp.py sources=[codec] anchors=[]                      # the 6 s smoke source
 
 device: auto
-sources: [codec, aerofunk, same-artist]
+sources: [codec, aerofunk]
 bitrates: [32k, 64k, 128k]
-autoencoders: [same-l, earvae, earvae2, codicodec]
+autoencoders: [earvae]
 chains: [apollo]             # each ae also renders {chain}-{ae}: ae(chain(input))
-anchors: [apollo, a2sb]
+anchors: [apollo, a2sb, audiosr]
 
 hydra:
   output_subdir: null
