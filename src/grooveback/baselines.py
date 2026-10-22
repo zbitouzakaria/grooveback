@@ -56,16 +56,19 @@ def _apollo_import(name: str):
 
     Apollo ships no package — `inference` and `look2hear/` are top-level names
     in its repo — so the repo root goes on `sys.path`, at the front so those
-    names resolve to Apollo's own modules. Lazy because `baselines` must stay
-    importable without the submodule: the A2SB path needs none of this.
+    names resolve to Apollo's own modules. It moves back to the front on every
+    call: εar-VAE's vendored repo also has a top-level `inference`, and loading
+    εar-VAE puts that repo first. Lazy because `baselines` must stay importable
+    without the submodule: the A2SB path needs none of this.
     """
     if not (_APOLLO_REPO / "look2hear").is_dir():
         raise FileNotFoundError(
             f"Apollo submodule missing at {_APOLLO_REPO}. "
             "Run: git submodule update --init --recursive"
         )
-    if str(_APOLLO_REPO) not in sys.path:
-        sys.path.insert(0, str(_APOLLO_REPO))
+    if str(_APOLLO_REPO) in sys.path:
+        sys.path.remove(str(_APOLLO_REPO))
+    sys.path.insert(0, str(_APOLLO_REPO))
     return importlib.import_module(name)
 
 
