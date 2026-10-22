@@ -89,9 +89,9 @@ def bss_si_sdr_db(reference: np.ndarray, estimate: np.ndarray) -> float:
     """Scale-invariant SDR per channel, averaged — the Apollo paper's SI-SNR.
 
     Same definition as `si_snr_db`, but each channel is scored as its own
-    source and the dB values averaged, as the paper's evaluation wrapper
-    does; `si_snr_db` pools the channels into one vector, which weights the
-    louder channel more.
+    source and the dB values averaged, as Apollo's
+    look2hear/metrics/wrapper.py does; `si_snr_db` pools the channels into
+    one vector, which weights the louder channel more.
     """
     _as_matched_vectors(reference, estimate)  # shape check only
     import fast_bss_eval

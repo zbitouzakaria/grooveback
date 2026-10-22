@@ -2,13 +2,11 @@
 
     uv run python -m grooveback.cli.musdb_eval musdb18hq/test scores.csv --kbps 24
 
-Every 6 s session of each test mixture that Apollo-data-preprocess's VAD
-keeps is MP3-compressed with Apollo's own `codec_simu`, both signals are
-rescaled by their joint peak as in their data module, and Apollo restores the
-MP3 in one pass, as their test.py does. Apollo's output and the untouched MP3
-are scored against the clean session with the paper's SDR and SI-SNR
-(look2hear/metrics/wrapper.py). The released checkpoint was not trained on
-these songs (JusperLee/Apollo#46).
+Each test mixture is cut into 6 s sessions, each session is MP3-compressed,
+Apollo restores the MP3, and both the MP3 and Apollo's output are scored
+against the clean session with the paper's SDR and SI-SNR. Every step follows
+the authors' released code; each function names its source. The released
+checkpoint was not trained on these songs (JusperLee/Apollo#46).
 """
 
 from __future__ import annotations
@@ -31,9 +29,10 @@ CLIP_SAMPLES = 6 * SR
 def vad_starts(audio: np.ndarray, win: int = 441) -> list[int]:
     """Starts of the 6 s sessions Apollo's preprocessing keeps from a track.
 
-    musdb_preprocess.VAD: over 10 ms frames, a session is kept when more than
-    half its frames are louder than the 15th percentile of the track's
-    non-silent frames.
+    Source: `VAD` in Apollo-data-preprocess's musdb_preprocess.py (bb37a7b),
+    rewritten with array operations; it keeps the same sessions. Over 10 ms
+    frames, a session is kept when more than half its frames are louder than
+    the 15th percentile of the track's non-silent frames.
     """
     n = audio.shape[-1] // SR * SR
     power = (audio[:, :n] ** 2).reshape(audio.shape[0], -1, win).sum(axis=(0, 2))
@@ -51,9 +50,14 @@ def vad_starts(audio: np.ndarray, win: int = 441) -> list[int]:
 
 
 def codec_simu(clip: np.ndarray, kbps: int) -> np.ndarray:
-    """look2hear's codec_simu: sox MP3 at `kbps` and back to `clip`'s length,
-    the shortfall filled from the clean clip, then rolled by the lag their
-    phase-transform cross-correlation (`match2`) finds on the first channel."""
+    """MP3 round trip of `clip` at `kbps`, as Apollo's training pairs are made.
+
+    Source: `codec_simu` and `match2` in Apollo's
+    look2hear/datas/musdb_moisesdb_datamodule.py, copied with the random bitrate
+    replaced by `kbps`: sox MP3 and back to `clip`'s length, the shortfall
+    filled from the clean clip, then rolled by the lag their phase-transform
+    cross-correlation finds on the first channel.
+    """
     import torchaudio
 
     wav = torch.from_numpy(clip)
@@ -76,7 +80,14 @@ def mixtures(musdb_test: Path) -> list[Path]:
 
 
 def evaluate(musdb_test: Path, *, kbps: int, model) -> list[dict]:
-    """SDR and SI-SNR of the model's restoration and of the untouched MP3, per session."""
+    """SDR and SI-SNR of the model's restoration and of the untouched MP3, per session.
+
+    Sources in Apollo's repository: both signals are divided by their joint
+    peak as in `MusdbMoisesdbDataset.__getitem__`
+    (look2hear/datas/musdb_moisesdb_datamodule.py), the model restores each
+    whole session in one pass as in test.py, and the metrics are those of
+    look2hear/metrics/wrapper.py.
+    """
     rows = []
     for path in mixtures(musdb_test):
         audio = sf.read(path, always_2d=True)[0].T  # float64, as their preprocessing reads it
