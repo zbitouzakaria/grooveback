@@ -45,5 +45,8 @@ jobs:
           cache-suffix: test
       - name: Install the locked environment
         run: uv sync --frozen
+      # The musdb_eval tests encode MP3 through torchaudio's sox backend; without it they skip.
+      - name: Install sox with MP3 support
+        run: sudo apt-get update && sudo apt-get install -y libsox-dev libsox-fmt-mp3
       - name: Run pytest
         run: uv run pytest

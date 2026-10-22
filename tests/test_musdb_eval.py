@@ -111,6 +111,7 @@ def test_codec_simu_aligns_the_mp3_of_a_clip_whose_edges_jump():
         torchaudio.functional.apply_codec(torch.zeros(2, SR), SR, format="mp3", compression=24)
     except (RuntimeError, OSError, ImportError) as error:
         pytest.skip(f"sox MP3 is unavailable: {error}")
+
     rng = np.random.default_rng(0)
     spectrum = np.fft.rfft(rng.standard_normal((2, 6 * SR)), axis=-1)
     spectrum[:, 2_000 * 6 :] = 0  # over 6 s, bin k sits at k / 6 Hz
