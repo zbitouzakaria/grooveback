@@ -40,7 +40,7 @@ AM Contra - Heart Peripheral,5027400,0
 AM Contra - Heart Peripheral,5159700,0
 AM Contra - Heart Peripheral,5292000,0
 AM Contra - Heart Peripheral,5424300,0
-AM Contra - Heart Peripheral,5556600,1105
+AM Contra - Heart Peripheral,5556600,0
 AM Contra - Heart Peripheral,5688900,0
 AM Contra - Heart Peripheral,5821200,0
 AM Contra - Heart Peripheral,5953500,0
@@ -51,7 +51,7 @@ AM Contra - Heart Peripheral,6482700,0
 AM Contra - Heart Peripheral,6615000,0
 AM Contra - Heart Peripheral,6747300,0
 AM Contra - Heart Peripheral,6879600,0
-AM Contra - Heart Peripheral,7011900,-1
+AM Contra - Heart Peripheral,7011900,0
 AM Contra - Heart Peripheral,7144200,0
 AM Contra - Heart Peripheral,7276500,0
 AM Contra - Heart Peripheral,7408800,0
@@ -63,8 +63,8 @@ AM Contra - Heart Peripheral,8070300,0
 AM Contra - Heart Peripheral,8202600,0
 AM Contra - Heart Peripheral,8334900,0
 AM Contra - Heart Peripheral,8467200,0
-AM Contra - Heart Peripheral,8599500,1105
-AM Contra - Heart Peripheral,8731800,1105
+AM Contra - Heart Peripheral,8599500,0
+AM Contra - Heart Peripheral,8731800,0
 AM Contra - Heart Peripheral,8864100,0
 Al James - Schoolboy Facination,0,0
 Al James - Schoolboy Facination,132300,0
@@ -78,7 +78,7 @@ Al James - Schoolboy Facination,1190700,0
 Al James - Schoolboy Facination,1323000,0
 Al James - Schoolboy Facination,1455300,0
 Al James - Schoolboy Facination,1587600,0
-Al James - Schoolboy Facination,1719900,0
+Al James - Schoolboy Facination,1719900,-1
 Al James - Schoolboy Facination,1852200,0
 Al James - Schoolboy Facination,1984500,0
 Al James - Schoolboy Facination,2116800,0
@@ -101,7 +101,7 @@ Al James - Schoolboy Facination,4498200,0
 Al James - Schoolboy Facination,4630500,0
 Al James - Schoolboy Facination,4762800,0
 Al James - Schoolboy Facination,4895100,0
-Al James - Schoolboy Facination,5027400,1
+Al James - Schoolboy Facination,5027400,0
 Al James - Schoolboy Facination,5159700,0
 Al James - Schoolboy Facination,5292000,0
 Al James - Schoolboy Facination,5424300,0
@@ -141,7 +141,7 @@ Angels In Amplifiers - I'm Alright,1455300,0
 Angels In Amplifiers - I'm Alright,1587600,0
 Angels In Amplifiers - I'm Alright,1719900,0
 Angels In Amplifiers - I'm Alright,1852200,0
-Angels In Amplifiers - I'm Alright,1984500,1
+Angels In Amplifiers - I'm Alright,1984500,0
 Angels In Amplifiers - I'm Alright,2116800,0
 Angels In Amplifiers - I'm Alright,2249100,0
 Angels In Amplifiers - I'm Alright,2381400,0
@@ -159,12 +159,12 @@ Angels In Amplifiers - I'm Alright,3836700,0
 Angels In Amplifiers - I'm Alright,3969000,0
 Angels In Amplifiers - I'm Alright,4101300,0
 Angels In Amplifiers - I'm Alright,4233600,0
-Angels In Amplifiers - I'm Alright,4365900,1
+Angels In Amplifiers - I'm Alright,4365900,0
 Angels In Amplifiers - I'm Alright,4498200,0
 Angels In Amplifiers - I'm Alright,4630500,0
 Angels In Amplifiers - I'm Alright,4762800,0
 Angels In Amplifiers - I'm Alright,4895100,0
-Angels In Amplifiers - I'm Alright,5027400,-1
+Angels In Amplifiers - I'm Alright,5027400,0
 Angels In Amplifiers - I'm Alright,5159700,0
 Angels In Amplifiers - I'm Alright,5292000,0
 Angels In Amplifiers - I'm Alright,5424300,0
@@ -192,7 +192,7 @@ Arise - Run Run Run,661500,0
 Arise - Run Run Run,793800,0
 Arise - Run Run Run,926100,0
 Arise - Run Run Run,1058400,0
-Arise - Run Run Run,1190700,0
+Arise - Run Run Run,1190700,1
 Arise - Run Run Run,1323000,0
 Arise - Run Run Run,1455300,0
 Arise - Run Run Run,1587600,0
@@ -253,7 +253,7 @@ Arise - Run Run Run,8731800,0
 Arise - Run Run Run,8864100,0
 Arise - Run Run Run,8996400,0
 Arise - Run Run Run,9128700,0
-Arise - Run Run Run,9261000,0
+Arise - Run Run Run,9261000,1
 BKS - Bulldozer,396900,0
 BKS - Bulldozer,529200,0
 BKS - Bulldozer,661500,0
@@ -289,7 +289,7 @@ BKS - Bulldozer,4630500,0
 BKS - Bulldozer,4762800,0
 BKS - Bulldozer,4895100,0
 BKS - Bulldozer,5027400,0
-BKS - Bulldozer,5159700,1
+BKS - Bulldozer,5159700,0
 BKS - Bulldozer,5292000,0
 BKS - Bulldozer,5424300,0
 BKS - Bulldozer,5556600,0
@@ -309,7 +309,7 @@ BKS - Bulldozer,7276500,0
 BKS - Bulldozer,7408800,0
 BKS - Bulldozer,7541100,0
 BKS - Bulldozer,7673400,0
-BKS - Bulldozer,7805700,1
+BKS - Bulldozer,7805700,0
 BKS - Bulldozer,7938000,0
 BKS - Bulldozer,8070300,0
 BKS - Bulldozer,8202600,0
@@ -321,7 +321,7 @@ BKS - Bulldozer,8864100,0
 BKS - Bulldozer,8996400,0
 BKS - Bulldozer,9128700,0
 BKS - Bulldozer,9261000,0
-BKS - Bulldozer,9393300,1105
+BKS - Bulldozer,9393300,0
 BKS - Bulldozer,9525600,0
 BKS - Bulldozer,9657900,0
 BKS - Bulldozer,9790200,0
@@ -350,9 +350,9 @@ BKS - Bulldozer,12700800,0
 BKS - Bulldozer,12833100,0
 BKS - Bulldozer,12965400,0
 BKS - Bulldozer,13097700,0
-BKS - Bulldozer,13230000,1
+BKS - Bulldozer,13230000,0
 BKS - Bulldozer,13362300,0
-BKS - Bulldozer,13494600,1
+BKS - Bulldozer,13494600,0
 BKS - Bulldozer,13759200,0
 BKS - Bulldozer,13891500,0
 BKS - Bulldozer,14023800,0
@@ -385,7 +385,7 @@ BKS - Too Much,3042900,0
 BKS - Too Much,3175200,0
 BKS - Too Much,3307500,0
 BKS - Too Much,3439800,0
-BKS - Too Much,3572100,1
+BKS - Too Much,3572100,0
 BKS - Too Much,3704400,0
 BKS - Too Much,3836700,0
 BKS - Too Much,3969000,0
@@ -428,7 +428,7 @@ BKS - Too Much,8731800,0
 BKS - Too Much,8864100,0
 BKS - Too Much,8996400,0
 BKS - Too Much,9128700,0
-Ben Carrigan - We'll Talk About It All Tonight,132300,1105
+Ben Carrigan - We'll Talk About It All Tonight,132300,0
 Ben Carrigan - We'll Talk About It All Tonight,264600,0
 Ben Carrigan - We'll Talk About It All Tonight,396900,0
 Ben Carrigan - We'll Talk About It All Tonight,529200,0
@@ -470,7 +470,7 @@ Ben Carrigan - We'll Talk About It All Tonight,5159700,0
 Ben Carrigan - We'll Talk About It All Tonight,5292000,0
 Ben Carrigan - We'll Talk About It All Tonight,5424300,0
 Ben Carrigan - We'll Talk About It All Tonight,5556600,0
-Ben Carrigan - We'll Talk About It All Tonight,5688900,1
+Ben Carrigan - We'll Talk About It All Tonight,5688900,0
 Ben Carrigan - We'll Talk About It All Tonight,5821200,0
 Ben Carrigan - We'll Talk About It All Tonight,5953500,0
 Ben Carrigan - We'll Talk About It All Tonight,6085800,0
@@ -509,7 +509,7 @@ Bobby Nobody - Stitch Up,1852200,0
 Bobby Nobody - Stitch Up,1984500,0
 Bobby Nobody - Stitch Up,2116800,0
 Bobby Nobody - Stitch Up,2249100,0
-Bobby Nobody - Stitch Up,2381400,-1
+Bobby Nobody - Stitch Up,2381400,0
 Bobby Nobody - Stitch Up,2513700,0
 Bobby Nobody - Stitch Up,2646000,0
 Bobby Nobody - Stitch Up,2778300,0
@@ -517,7 +517,7 @@ Bobby Nobody - Stitch Up,2910600,0
 Bobby Nobody - Stitch Up,3042900,0
 Bobby Nobody - Stitch Up,3175200,0
 Bobby Nobody - Stitch Up,3307500,0
-Bobby Nobody - Stitch Up,3439800,-1
+Bobby Nobody - Stitch Up,3439800,0
 Bobby Nobody - Stitch Up,3572100,0
 Bobby Nobody - Stitch Up,3704400,0
 Bobby Nobody - Stitch Up,3836700,0
@@ -527,7 +527,7 @@ Bobby Nobody - Stitch Up,4233600,0
 Bobby Nobody - Stitch Up,4365900,0
 Bobby Nobody - Stitch Up,4498200,0
 Bobby Nobody - Stitch Up,4630500,0
-Bobby Nobody - Stitch Up,4762800,1
+Bobby Nobody - Stitch Up,4762800,0
 Bobby Nobody - Stitch Up,4895100,0
 Bobby Nobody - Stitch Up,5027400,0
 Bobby Nobody - Stitch Up,5159700,0
@@ -562,7 +562,7 @@ Bobby Nobody - Stitch Up,8864100,0
 Bobby Nobody - Stitch Up,8996400,0
 Bobby Nobody - Stitch Up,9128700,0
 Bobby Nobody - Stitch Up,9261000,0
-Buitraker - Revo X,793800,1105
+Buitraker - Revo X,793800,0
 Buitraker - Revo X,926100,0
 Buitraker - Revo X,1058400,0
 Buitraker - Revo X,1190700,0
@@ -575,7 +575,7 @@ Buitraker - Revo X,1984500,0
 Buitraker - Revo X,2116800,0
 Buitraker - Revo X,2249100,0
 Buitraker - Revo X,2381400,0
-Buitraker - Revo X,2513700,1
+Buitraker - Revo X,2513700,0
 Buitraker - Revo X,2646000,0
 Buitraker - Revo X,2778300,0
 Buitraker - Revo X,2910600,0
@@ -588,7 +588,7 @@ Buitraker - Revo X,3704400,0
 Buitraker - Revo X,3836700,0
 Buitraker - Revo X,3969000,0
 Buitraker - Revo X,4101300,0
-Buitraker - Revo X,4233600,-1
+Buitraker - Revo X,4233600,0
 Buitraker - Revo X,4365900,0
 Buitraker - Revo X,4498200,0
 Buitraker - Revo X,4630500,0
@@ -633,7 +633,7 @@ Buitraker - Revo X,9657900,0
 Buitraker - Revo X,9790200,0
 Buitraker - Revo X,9922500,0
 Buitraker - Revo X,10054800,0
-Buitraker - Revo X,10187100,1
+Buitraker - Revo X,10187100,0
 Buitraker - Revo X,10319400,0
 Buitraker - Revo X,10451700,0
 Buitraker - Revo X,10584000,0
@@ -642,7 +642,7 @@ Buitraker - Revo X,10848600,0
 Buitraker - Revo X,10980900,0
 Buitraker - Revo X,11113200,0
 Buitraker - Revo X,11245500,0
-Carlos Gonzalez - A Place For Us,926100,-1
+Carlos Gonzalez - A Place For Us,926100,0
 Carlos Gonzalez - A Place For Us,1190700,0
 Carlos Gonzalez - A Place For Us,1323000,0
 Carlos Gonzalez - A Place For Us,1455300,0
@@ -680,15 +680,15 @@ Carlos Gonzalez - A Place For Us,5556600,0
 Carlos Gonzalez - A Place For Us,5688900,0
 Carlos Gonzalez - A Place For Us,5821200,0
 Carlos Gonzalez - A Place For Us,5953500,0
-Carlos Gonzalez - A Place For Us,6085800,1105
-Carlos Gonzalez - A Place For Us,6218100,1105
-Carlos Gonzalez - A Place For Us,6350400,-1
-Carlos Gonzalez - A Place For Us,6482700,1
+Carlos Gonzalez - A Place For Us,6085800,0
+Carlos Gonzalez - A Place For Us,6218100,0
+Carlos Gonzalez - A Place For Us,6350400,0
+Carlos Gonzalez - A Place For Us,6482700,0
 Carlos Gonzalez - A Place For Us,6615000,0
 Carlos Gonzalez - A Place For Us,6747300,0
 Carlos Gonzalez - A Place For Us,6879600,0
 Carlos Gonzalez - A Place For Us,7011900,0
-Carlos Gonzalez - A Place For Us,7144200,-1
+Carlos Gonzalez - A Place For Us,7144200,0
 Carlos Gonzalez - A Place For Us,7276500,0
 Carlos Gonzalez - A Place For Us,7408800,0
 Carlos Gonzalez - A Place For Us,7541100,0
@@ -734,7 +734,7 @@ Cristina Vane - So Easy,3175200,0
 Cristina Vane - So Easy,3307500,0
 Cristina Vane - So Easy,3439800,0
 Cristina Vane - So Easy,3572100,0
-Cristina Vane - So Easy,3704400,1
+Cristina Vane - So Easy,3704400,0
 Cristina Vane - So Easy,3836700,0
 Cristina Vane - So Easy,3969000,0
 Cristina Vane - So Easy,4233600,0
@@ -782,7 +782,7 @@ Cristina Vane - So Easy,9790200,0
 Cristina Vane - So Easy,9922500,0
 Cristina Vane - So Easy,10054800,0
 Cristina Vane - So Easy,10187100,0
-Cristina Vane - So Easy,10319400,1105
+Cristina Vane - So Easy,10319400,0
 Cristina Vane - So Easy,10451700,0
 Cristina Vane - So Easy,10584000,0
 Detsky Sad - Walkie Talkie,396900,0
@@ -793,8 +793,8 @@ Detsky Sad - Walkie Talkie,926100,0
 Detsky Sad - Walkie Talkie,1058400,0
 Detsky Sad - Walkie Talkie,1190700,0
 Detsky Sad - Walkie Talkie,1323000,0
-Detsky Sad - Walkie Talkie,1455300,1105
-Detsky Sad - Walkie Talkie,1587600,-1
+Detsky Sad - Walkie Talkie,1455300,0
+Detsky Sad - Walkie Talkie,1587600,0
 Detsky Sad - Walkie Talkie,1719900,0
 Detsky Sad - Walkie Talkie,1852200,0
 Detsky Sad - Walkie Talkie,1984500,0
@@ -817,7 +817,7 @@ Detsky Sad - Walkie Talkie,4101300,0
 Detsky Sad - Walkie Talkie,4233600,0
 Detsky Sad - Walkie Talkie,4365900,0
 Detsky Sad - Walkie Talkie,4498200,0
-Detsky Sad - Walkie Talkie,4630500,1106
+Detsky Sad - Walkie Talkie,4630500,0
 Detsky Sad - Walkie Talkie,4762800,0
 Detsky Sad - Walkie Talkie,4895100,0
 Detsky Sad - Walkie Talkie,5027400,0
@@ -831,16 +831,16 @@ Detsky Sad - Walkie Talkie,5953500,0
 Detsky Sad - Walkie Talkie,6085800,0
 Detsky Sad - Walkie Talkie,6218100,0
 Detsky Sad - Walkie Talkie,6350400,0
-Detsky Sad - Walkie Talkie,6482700,1105
+Detsky Sad - Walkie Talkie,6482700,0
 Detsky Sad - Walkie Talkie,6615000,0
-Detsky Sad - Walkie Talkie,6747300,1105
-Detsky Sad - Walkie Talkie,6879600,1105
+Detsky Sad - Walkie Talkie,6747300,0
+Detsky Sad - Walkie Talkie,6879600,0
 Detsky Sad - Walkie Talkie,7011900,0
 Detsky Sad - Walkie Talkie,7144200,0
-Detsky Sad - Walkie Talkie,7276500,1105
+Detsky Sad - Walkie Talkie,7276500,0
 Detsky Sad - Walkie Talkie,7408800,0
-Detsky Sad - Walkie Talkie,7541100,1105
-Detsky Sad - Walkie Talkie,7673400,1105
+Detsky Sad - Walkie Talkie,7541100,0
+Detsky Sad - Walkie Talkie,7673400,0
 Detsky Sad - Walkie Talkie,7805700,0
 Detsky Sad - Walkie Talkie,7938000,0
 Enda Reilly - Cur An Long Ag Seol,132300,0
@@ -870,17 +870,17 @@ Enda Reilly - Cur An Long Ag Seol,3175200,0
 Enda Reilly - Cur An Long Ag Seol,3307500,0
 Enda Reilly - Cur An Long Ag Seol,3439800,0
 Enda Reilly - Cur An Long Ag Seol,3572100,0
-Enda Reilly - Cur An Long Ag Seol,3704400,-1
+Enda Reilly - Cur An Long Ag Seol,3704400,0
 Enda Reilly - Cur An Long Ag Seol,3836700,0
 Enda Reilly - Cur An Long Ag Seol,3969000,0
-Enda Reilly - Cur An Long Ag Seol,4101300,-1
+Enda Reilly - Cur An Long Ag Seol,4101300,0
 Enda Reilly - Cur An Long Ag Seol,4233600,0
 Enda Reilly - Cur An Long Ag Seol,4365900,0
 Enda Reilly - Cur An Long Ag Seol,4498200,0
 Enda Reilly - Cur An Long Ag Seol,4630500,0
 Enda Reilly - Cur An Long Ag Seol,4762800,0
 Enda Reilly - Cur An Long Ag Seol,4895100,0
-Enda Reilly - Cur An Long Ag Seol,5027400,0
+Enda Reilly - Cur An Long Ag Seol,5027400,1
 Enda Reilly - Cur An Long Ag Seol,5159700,0
 Enda Reilly - Cur An Long Ag Seol,5292000,0
 Enda Reilly - Cur An Long Ag Seol,5424300,0
@@ -897,7 +897,7 @@ Enda Reilly - Cur An Long Ag Seol,6747300,0
 Enda Reilly - Cur An Long Ag Seol,6879600,0
 Enda Reilly - Cur An Long Ag Seol,7011900,0
 Enda Reilly - Cur An Long Ag Seol,7144200,0
-Enda Reilly - Cur An Long Ag Seol,7276500,-1
+Enda Reilly - Cur An Long Ag Seol,7276500,0
 Enda Reilly - Cur An Long Ag Seol,7408800,0
 Enda Reilly - Cur An Long Ag Seol,7541100,0
 Enda Reilly - Cur An Long Ag Seol,7673400,0
@@ -948,7 +948,7 @@ Forkupines - Semantics,5821200,0
 Forkupines - Semantics,6482700,0
 Forkupines - Semantics,6615000,0
 Forkupines - Semantics,6747300,0
-Forkupines - Semantics,6879600,0
+Forkupines - Semantics,6879600,-1
 Forkupines - Semantics,7011900,0
 Forkupines - Semantics,7144200,0
 Forkupines - Semantics,7276500,0
@@ -965,7 +965,7 @@ Forkupines - Semantics,8996400,0
 Forkupines - Semantics,9393300,0
 Forkupines - Semantics,9525600,0
 Forkupines - Semantics,9657900,0
-Forkupines - Semantics,9790200,-1
+Forkupines - Semantics,9790200,0
 Forkupines - Semantics,9922500,0
 Forkupines - Semantics,10054800,0
 Forkupines - Semantics,10187100,0
@@ -984,7 +984,7 @@ Georgia Wonder - Siren,132300,0
 Georgia Wonder - Siren,264600,0
 Georgia Wonder - Siren,396900,0
 Georgia Wonder - Siren,529200,0
-Georgia Wonder - Siren,661500,-1
+Georgia Wonder - Siren,661500,0
 Georgia Wonder - Siren,793800,0
 Georgia Wonder - Siren,926100,0
 Georgia Wonder - Siren,1058400,0
@@ -1001,13 +1001,13 @@ Georgia Wonder - Siren,2381400,0
 Georgia Wonder - Siren,2513700,0
 Georgia Wonder - Siren,2646000,0
 Georgia Wonder - Siren,2778300,0
-Georgia Wonder - Siren,2910600,-1
+Georgia Wonder - Siren,2910600,0
 Georgia Wonder - Siren,3042900,0
 Georgia Wonder - Siren,3175200,0
 Georgia Wonder - Siren,3307500,0
 Georgia Wonder - Siren,3439800,0
 Georgia Wonder - Siren,3572100,0
-Georgia Wonder - Siren,3704400,0
+Georgia Wonder - Siren,3704400,1
 Georgia Wonder - Siren,3836700,0
 Georgia Wonder - Siren,3969000,0
 Georgia Wonder - Siren,4101300,0
@@ -1018,7 +1018,7 @@ Georgia Wonder - Siren,4630500,0
 Georgia Wonder - Siren,4762800,0
 Georgia Wonder - Siren,4895100,0
 Georgia Wonder - Siren,5027400,0
-Georgia Wonder - Siren,5159700,1
+Georgia Wonder - Siren,5159700,0
 Georgia Wonder - Siren,5292000,0
 Georgia Wonder - Siren,5424300,0
 Georgia Wonder - Siren,5556600,0
@@ -1029,13 +1029,13 @@ Georgia Wonder - Siren,6085800,0
 Georgia Wonder - Siren,6218100,0
 Georgia Wonder - Siren,6350400,0
 Georgia Wonder - Siren,6482700,0
-Georgia Wonder - Siren,6615000,-1
+Georgia Wonder - Siren,6615000,0
 Georgia Wonder - Siren,6747300,0
 Georgia Wonder - Siren,6879600,0
 Georgia Wonder - Siren,7011900,0
 Georgia Wonder - Siren,7144200,0
 Georgia Wonder - Siren,7276500,0
-Georgia Wonder - Siren,7408800,1
+Georgia Wonder - Siren,7408800,0
 Georgia Wonder - Siren,7541100,0
 Georgia Wonder - Siren,7673400,0
 Georgia Wonder - Siren,7805700,0
@@ -1052,7 +1052,7 @@ Georgia Wonder - Siren,9128700,0
 Georgia Wonder - Siren,9261000,0
 Georgia Wonder - Siren,9393300,0
 Georgia Wonder - Siren,9525600,0
-Georgia Wonder - Siren,9657900,-1
+Georgia Wonder - Siren,9657900,0
 Georgia Wonder - Siren,9790200,0
 Georgia Wonder - Siren,9922500,0
 Georgia Wonder - Siren,10054800,0
@@ -1072,7 +1072,7 @@ Georgia Wonder - Siren,12965400,0
 Georgia Wonder - Siren,13097700,0
 Georgia Wonder - Siren,13230000,0
 Georgia Wonder - Siren,13362300,0
-Georgia Wonder - Siren,13494600,1
+Georgia Wonder - Siren,13494600,0
 Georgia Wonder - Siren,13626900,0
 Georgia Wonder - Siren,13759200,0
 Georgia Wonder - Siren,13891500,0
@@ -1098,7 +1098,7 @@ Georgia Wonder - Siren,16405200,0
 Georgia Wonder - Siren,16537500,0
 Georgia Wonder - Siren,16669800,0
 Georgia Wonder - Siren,16802100,0
-Georgia Wonder - Siren,16934400,-1
+Georgia Wonder - Siren,16934400,0
 Georgia Wonder - Siren,17066700,0
 Georgia Wonder - Siren,17199000,0
 Georgia Wonder - Siren,17331300,0
@@ -1106,8 +1106,8 @@ Georgia Wonder - Siren,17463600,0
 Georgia Wonder - Siren,17595900,0
 Georgia Wonder - Siren,17728200,0
 Georgia Wonder - Siren,17860500,0
-Georgia Wonder - Siren,17992800,-1
-Georgia Wonder - Siren,18125100,0
+Georgia Wonder - Siren,17992800,0
+Georgia Wonder - Siren,18125100,1
 Georgia Wonder - Siren,18257400,0
 Georgia Wonder - Siren,18389700,0
 Georgia Wonder - Siren,18522000,0
@@ -1118,7 +1118,7 @@ Girls Under Glass - We Feel Alright,793800,0
 Girls Under Glass - We Feel Alright,926100,0
 Girls Under Glass - We Feel Alright,1058400,0
 Girls Under Glass - We Feel Alright,1190700,0
-Girls Under Glass - We Feel Alright,1323000,1
+Girls Under Glass - We Feel Alright,1323000,0
 Girls Under Glass - We Feel Alright,1455300,0
 Girls Under Glass - We Feel Alright,1587600,0
 Girls Under Glass - We Feel Alright,1719900,0
@@ -1152,7 +1152,7 @@ Girls Under Glass - We Feel Alright,5292000,0
 Girls Under Glass - We Feel Alright,5424300,0
 Girls Under Glass - We Feel Alright,5556600,0
 Girls Under Glass - We Feel Alright,5688900,0
-Girls Under Glass - We Feel Alright,5821200,-1
+Girls Under Glass - We Feel Alright,5821200,0
 Girls Under Glass - We Feel Alright,5953500,0
 Girls Under Glass - We Feel Alright,6085800,0
 Girls Under Glass - We Feel Alright,6218100,0
@@ -1173,7 +1173,7 @@ Girls Under Glass - We Feel Alright,8070300,0
 Girls Under Glass - We Feel Alright,8202600,0
 Girls Under Glass - We Feel Alright,8334900,0
 Girls Under Glass - We Feel Alright,8467200,0
-Girls Under Glass - We Feel Alright,8599500,1
+Girls Under Glass - We Feel Alright,8599500,0
 Girls Under Glass - We Feel Alright,8731800,0
 Girls Under Glass - We Feel Alright,8864100,0
 Girls Under Glass - We Feel Alright,8996400,0
@@ -1182,7 +1182,7 @@ Girls Under Glass - We Feel Alright,9261000,0
 Girls Under Glass - We Feel Alright,9393300,0
 Girls Under Glass - We Feel Alright,9525600,0
 Girls Under Glass - We Feel Alright,9657900,0
-Girls Under Glass - We Feel Alright,9790200,-1
+Girls Under Glass - We Feel Alright,9790200,0
 Girls Under Glass - We Feel Alright,9922500,0
 Girls Under Glass - We Feel Alright,10054800,0
 Girls Under Glass - We Feel Alright,10187100,0
@@ -1198,7 +1198,7 @@ Girls Under Glass - We Feel Alright,11377800,0
 Girls Under Glass - We Feel Alright,11510100,0
 Girls Under Glass - We Feel Alright,11642400,0
 Girls Under Glass - We Feel Alright,11774700,0
-Girls Under Glass - We Feel Alright,11907000,1
+Girls Under Glass - We Feel Alright,11907000,0
 Girls Under Glass - We Feel Alright,12039300,0
 Girls Under Glass - We Feel Alright,12171600,0
 Girls Under Glass - We Feel Alright,12303900,0
@@ -1206,7 +1206,7 @@ Girls Under Glass - We Feel Alright,12436200,0
 Girls Under Glass - We Feel Alright,12568500,0
 Girls Under Glass - We Feel Alright,12700800,0
 Girls Under Glass - We Feel Alright,12833100,0
-Girls Under Glass - We Feel Alright,12965400,-1
+Girls Under Glass - We Feel Alright,12965400,0
 Girls Under Glass - We Feel Alright,13097700,0
 Hollow Ground - Ill Fate,0,0
 Hollow Ground - Ill Fate,132300,0
@@ -1227,9 +1227,9 @@ Hollow Ground - Ill Fate,1984500,0
 Hollow Ground - Ill Fate,2116800,0
 Hollow Ground - Ill Fate,2249100,0
 Hollow Ground - Ill Fate,2381400,0
-Hollow Ground - Ill Fate,2513700,-1
+Hollow Ground - Ill Fate,2513700,0
 Hollow Ground - Ill Fate,2646000,0
-Hollow Ground - Ill Fate,2778300,1
+Hollow Ground - Ill Fate,2778300,0
 Hollow Ground - Ill Fate,2910600,0
 Hollow Ground - Ill Fate,3042900,0
 Hollow Ground - Ill Fate,3175200,0
@@ -1249,10 +1249,10 @@ Hollow Ground - Ill Fate,4895100,0
 Hollow Ground - Ill Fate,5027400,0
 Hollow Ground - Ill Fate,5159700,0
 Hollow Ground - Ill Fate,5292000,0
-Hollow Ground - Ill Fate,5424300,1105
-Hollow Ground - Ill Fate,5556600,1105
-Hollow Ground - Ill Fate,5688900,1105
-Hollow Ground - Ill Fate,5821200,1105
+Hollow Ground - Ill Fate,5424300,0
+Hollow Ground - Ill Fate,5556600,0
+Hollow Ground - Ill Fate,5688900,0
+Hollow Ground - Ill Fate,5821200,0
 James Elder & Mark M Thompson - The English Actor,264600,0
 James Elder & Mark M Thompson - The English Actor,396900,0
 James Elder & Mark M Thompson - The English Actor,529200,0
@@ -1270,16 +1270,16 @@ James Elder & Mark M Thompson - The English Actor,1984500,0
 James Elder & Mark M Thompson - The English Actor,2116800,0
 James Elder & Mark M Thompson - The English Actor,2249100,0
 James Elder & Mark M Thompson - The English Actor,2381400,0
-James Elder & Mark M Thompson - The English Actor,2513700,-1
-James Elder & Mark M Thompson - The English Actor,2646000,-1
+James Elder & Mark M Thompson - The English Actor,2513700,0
+James Elder & Mark M Thompson - The English Actor,2646000,0
 James Elder & Mark M Thompson - The English Actor,2778300,0
 James Elder & Mark M Thompson - The English Actor,2910600,0
 James Elder & Mark M Thompson - The English Actor,3042900,0
 James Elder & Mark M Thompson - The English Actor,3175200,0
-James Elder & Mark M Thompson - The English Actor,3307500,1105
+James Elder & Mark M Thompson - The English Actor,3307500,0
 James Elder & Mark M Thompson - The English Actor,3439800,0
 James Elder & Mark M Thompson - The English Actor,3572100,0
-James Elder & Mark M Thompson - The English Actor,3704400,-1
+James Elder & Mark M Thompson - The English Actor,3704400,0
 James Elder & Mark M Thompson - The English Actor,3836700,0
 James Elder & Mark M Thompson - The English Actor,3969000,0
 James Elder & Mark M Thompson - The English Actor,4101300,0
@@ -1301,7 +1301,7 @@ James Elder & Mark M Thompson - The English Actor,6085800,0
 James Elder & Mark M Thompson - The English Actor,6218100,0
 James Elder & Mark M Thompson - The English Actor,6350400,0
 James Elder & Mark M Thompson - The English Actor,6482700,0
-James Elder & Mark M Thompson - The English Actor,6615000,1
+James Elder & Mark M Thompson - The English Actor,6615000,0
 James Elder & Mark M Thompson - The English Actor,6747300,0
 James Elder & Mark M Thompson - The English Actor,6879600,0
 James Elder & Mark M Thompson - The English Actor,7011900,0
@@ -1384,37 +1384,37 @@ Juliet's Rescue - Heartbeats,9657900,0
 Juliet's Rescue - Heartbeats,9790200,0
 Juliet's Rescue - Heartbeats,9922500,0
 Juliet's Rescue - Heartbeats,10054800,0
-Juliet's Rescue - Heartbeats,10187100,1105
+Juliet's Rescue - Heartbeats,10187100,0
 Juliet's Rescue - Heartbeats,10319400,0
-Juliet's Rescue - Heartbeats,10451700,1105
+Juliet's Rescue - Heartbeats,10451700,0
 Juliet's Rescue - Heartbeats,10848600,0
 Little Chicago's Finest - My Own,264600,0
 Little Chicago's Finest - My Own,396900,0
-Little Chicago's Finest - My Own,529200,0
+Little Chicago's Finest - My Own,529200,1
 Little Chicago's Finest - My Own,661500,0
 Little Chicago's Finest - My Own,793800,0
 Little Chicago's Finest - My Own,926100,0
 Little Chicago's Finest - My Own,1058400,0
-Little Chicago's Finest - My Own,1190700,0
-Little Chicago's Finest - My Own,1323000,1
+Little Chicago's Finest - My Own,1190700,1
+Little Chicago's Finest - My Own,1323000,0
 Little Chicago's Finest - My Own,1455300,0
 Little Chicago's Finest - My Own,1587600,0
 Little Chicago's Finest - My Own,1719900,0
 Little Chicago's Finest - My Own,1852200,0
-Little Chicago's Finest - My Own,1984500,0
-Little Chicago's Finest - My Own,2116800,0
+Little Chicago's Finest - My Own,1984500,-1
+Little Chicago's Finest - My Own,2116800,1
 Little Chicago's Finest - My Own,2249100,0
-Little Chicago's Finest - My Own,2381400,1
+Little Chicago's Finest - My Own,2381400,0
 Little Chicago's Finest - My Own,2513700,0
-Little Chicago's Finest - My Own,2646000,0
+Little Chicago's Finest - My Own,2646000,1
 Little Chicago's Finest - My Own,2778300,0
 Little Chicago's Finest - My Own,2910600,0
-Little Chicago's Finest - My Own,3042900,1
+Little Chicago's Finest - My Own,3042900,0
 Little Chicago's Finest - My Own,3175200,0
 Little Chicago's Finest - My Own,3307500,0
 Little Chicago's Finest - My Own,3439800,0
-Little Chicago's Finest - My Own,3572100,-1
-Little Chicago's Finest - My Own,3704400,-1
+Little Chicago's Finest - My Own,3572100,0
+Little Chicago's Finest - My Own,3704400,0
 Little Chicago's Finest - My Own,3836700,0
 Little Chicago's Finest - My Own,3969000,0
 Little Chicago's Finest - My Own,4101300,0
@@ -1422,7 +1422,7 @@ Little Chicago's Finest - My Own,4233600,0
 Little Chicago's Finest - My Own,4365900,0
 Little Chicago's Finest - My Own,4498200,0
 Little Chicago's Finest - My Own,4630500,0
-Little Chicago's Finest - My Own,4762800,0
+Little Chicago's Finest - My Own,4762800,-1
 Little Chicago's Finest - My Own,4895100,0
 Little Chicago's Finest - My Own,5027400,0
 Little Chicago's Finest - My Own,5159700,0
@@ -1433,7 +1433,7 @@ Little Chicago's Finest - My Own,5688900,0
 Little Chicago's Finest - My Own,5821200,0
 Little Chicago's Finest - My Own,5953500,0
 Little Chicago's Finest - My Own,6085800,0
-Little Chicago's Finest - My Own,6218100,-1
+Little Chicago's Finest - My Own,6218100,0
 Little Chicago's Finest - My Own,6350400,0
 Little Chicago's Finest - My Own,6482700,0
 Little Chicago's Finest - My Own,6615000,0
@@ -1447,7 +1447,7 @@ Little Chicago's Finest - My Own,7541100,0
 Little Chicago's Finest - My Own,7673400,0
 Little Chicago's Finest - My Own,7805700,0
 Little Chicago's Finest - My Own,7938000,0
-Little Chicago's Finest - My Own,8070300,1
+Little Chicago's Finest - My Own,8070300,0
 Little Chicago's Finest - My Own,8202600,0
 Little Chicago's Finest - My Own,8334900,0
 Little Chicago's Finest - My Own,8467200,0
@@ -1456,9 +1456,9 @@ Little Chicago's Finest - My Own,8731800,0
 Little Chicago's Finest - My Own,8864100,0
 Little Chicago's Finest - My Own,8996400,0
 Little Chicago's Finest - My Own,9128700,0
-Little Chicago's Finest - My Own,9261000,1
+Little Chicago's Finest - My Own,9261000,0
 Little Chicago's Finest - My Own,9393300,0
-Little Chicago's Finest - My Own,9525600,0
+Little Chicago's Finest - My Own,9525600,1
 Little Chicago's Finest - My Own,9657900,0
 Little Chicago's Finest - My Own,9790200,0
 Little Chicago's Finest - My Own,9922500,0
@@ -1469,12 +1469,12 @@ Little Chicago's Finest - My Own,10451700,0
 Little Chicago's Finest - My Own,10584000,0
 Little Chicago's Finest - My Own,10716300,0
 Little Chicago's Finest - My Own,10848600,0
-Little Chicago's Finest - My Own,10980900,1
+Little Chicago's Finest - My Own,10980900,0
 Little Chicago's Finest - My Own,11113200,0
 Little Chicago's Finest - My Own,11245500,0
 Little Chicago's Finest - My Own,11377800,0
-Little Chicago's Finest - My Own,11510100,-1
-Little Chicago's Finest - My Own,11642400,1
+Little Chicago's Finest - My Own,11510100,0
+Little Chicago's Finest - My Own,11642400,0
 Little Chicago's Finest - My Own,11774700,0
 Louis Cressy Band - Good Time,926100,0
 Louis Cressy Band - Good Time,1058400,0
@@ -1498,26 +1498,26 @@ Louis Cressy Band - Good Time,3307500,0
 Louis Cressy Band - Good Time,3439800,0
 Louis Cressy Band - Good Time,3572100,0
 Louis Cressy Band - Good Time,3704400,0
-Louis Cressy Band - Good Time,3836700,-1
+Louis Cressy Band - Good Time,3836700,0
 Louis Cressy Band - Good Time,3969000,0
 Louis Cressy Band - Good Time,4101300,0
 Louis Cressy Band - Good Time,4233600,0
 Louis Cressy Band - Good Time,4365900,0
-Louis Cressy Band - Good Time,4498200,0
+Louis Cressy Band - Good Time,4498200,1
 Louis Cressy Band - Good Time,4630500,0
 Louis Cressy Band - Good Time,4762800,0
 Louis Cressy Band - Good Time,4895100,0
 Louis Cressy Band - Good Time,5027400,0
 Louis Cressy Band - Good Time,5159700,0
 Louis Cressy Band - Good Time,5292000,0
-Louis Cressy Band - Good Time,5424300,1
+Louis Cressy Band - Good Time,5424300,0
 Louis Cressy Band - Good Time,5556600,0
 Louis Cressy Band - Good Time,5688900,0
 Louis Cressy Band - Good Time,5821200,0
 Louis Cressy Band - Good Time,5953500,0
 Louis Cressy Band - Good Time,6085800,0
 Louis Cressy Band - Good Time,6218100,0
-Louis Cressy Band - Good Time,6350400,-1
+Louis Cressy Band - Good Time,6350400,0
 Louis Cressy Band - Good Time,6482700,0
 Louis Cressy Band - Good Time,6615000,0
 Louis Cressy Band - Good Time,6747300,0
@@ -1526,7 +1526,7 @@ Louis Cressy Band - Good Time,7011900,0
 Louis Cressy Band - Good Time,7144200,0
 Louis Cressy Band - Good Time,7276500,0
 Louis Cressy Band - Good Time,7408800,0
-Louis Cressy Band - Good Time,7541100,-1
+Louis Cressy Band - Good Time,7541100,0
 Louis Cressy Band - Good Time,7673400,0
 Louis Cressy Band - Good Time,7805700,0
 Louis Cressy Band - Good Time,7938000,0
@@ -1563,9 +1563,9 @@ Louis Cressy Band - Good Time,11907000,0
 Louis Cressy Band - Good Time,12039300,0
 Louis Cressy Band - Good Time,12171600,0
 Lyndsey Ollard - Catching Up,529200,0
-Lyndsey Ollard - Catching Up,661500,1105
+Lyndsey Ollard - Catching Up,661500,0
 Lyndsey Ollard - Catching Up,793800,0
-Lyndsey Ollard - Catching Up,926100,1105
+Lyndsey Ollard - Catching Up,926100,0
 Lyndsey Ollard - Catching Up,1058400,0
 Lyndsey Ollard - Catching Up,1190700,0
 Lyndsey Ollard - Catching Up,1323000,0
@@ -1601,7 +1601,7 @@ Lyndsey Ollard - Catching Up,5159700,0
 Lyndsey Ollard - Catching Up,5292000,0
 Lyndsey Ollard - Catching Up,5424300,0
 Lyndsey Ollard - Catching Up,5556600,0
-Lyndsey Ollard - Catching Up,5688900,1105
+Lyndsey Ollard - Catching Up,5688900,0
 Lyndsey Ollard - Catching Up,5821200,0
 Lyndsey Ollard - Catching Up,5953500,0
 Lyndsey Ollard - Catching Up,6085800,0
@@ -1649,7 +1649,7 @@ M.E.R.C. Music - Knockout,2778300,0
 M.E.R.C. Music - Knockout,2910600,0
 M.E.R.C. Music - Knockout,3042900,0
 M.E.R.C. Music - Knockout,3175200,0
-M.E.R.C. Music - Knockout,3307500,1
+M.E.R.C. Music - Knockout,3307500,0
 M.E.R.C. Music - Knockout,3439800,0
 M.E.R.C. Music - Knockout,3572100,0
 M.E.R.C. Music - Knockout,3704400,0
@@ -1708,7 +1708,7 @@ M.E.R.C. Music - Knockout,10584000,0
 M.E.R.C. Music - Knockout,10716300,0
 Moosmusic - Big Dummy Shake,396900,0
 Moosmusic - Big Dummy Shake,529200,0
-Moosmusic - Big Dummy Shake,661500,1
+Moosmusic - Big Dummy Shake,661500,0
 Moosmusic - Big Dummy Shake,793800,0
 Moosmusic - Big Dummy Shake,1058400,0
 Moosmusic - Big Dummy Shake,1190700,0
@@ -1733,7 +1733,7 @@ Moosmusic - Big Dummy Shake,3572100,0
 Moosmusic - Big Dummy Shake,3704400,0
 Moosmusic - Big Dummy Shake,3836700,0
 Moosmusic - Big Dummy Shake,3969000,0
-Moosmusic - Big Dummy Shake,4101300,-1
+Moosmusic - Big Dummy Shake,4101300,0
 Moosmusic - Big Dummy Shake,4233600,0
 Moosmusic - Big Dummy Shake,4365900,0
 Moosmusic - Big Dummy Shake,4498200,0
@@ -1767,10 +1767,10 @@ Moosmusic - Big Dummy Shake,8070300,0
 Moosmusic - Big Dummy Shake,8202600,0
 Moosmusic - Big Dummy Shake,8334900,0
 Motor Tapes - Shore,396900,0
-Motor Tapes - Shore,529200,-1
+Motor Tapes - Shore,529200,0
 Motor Tapes - Shore,661500,0
 Motor Tapes - Shore,793800,0
-Motor Tapes - Shore,926100,1
+Motor Tapes - Shore,926100,0
 Motor Tapes - Shore,1058400,0
 Motor Tapes - Shore,1190700,0
 Motor Tapes - Shore,1323000,0
@@ -1783,7 +1783,7 @@ Motor Tapes - Shore,2116800,0
 Motor Tapes - Shore,2249100,0
 Motor Tapes - Shore,2381400,0
 Motor Tapes - Shore,2513700,0
-Motor Tapes - Shore,2646000,-1
+Motor Tapes - Shore,2646000,0
 Motor Tapes - Shore,2778300,0
 Motor Tapes - Shore,2910600,0
 Motor Tapes - Shore,3042900,0
@@ -1792,12 +1792,12 @@ Motor Tapes - Shore,3307500,0
 Motor Tapes - Shore,3439800,0
 Motor Tapes - Shore,3572100,0
 Motor Tapes - Shore,3704400,0
-Motor Tapes - Shore,4101300,-1
+Motor Tapes - Shore,4101300,0
 Motor Tapes - Shore,4233600,0
 Motor Tapes - Shore,4365900,0
 Motor Tapes - Shore,4498200,0
 Motor Tapes - Shore,4630500,0
-Motor Tapes - Shore,4762800,-1
+Motor Tapes - Shore,4762800,0
 Motor Tapes - Shore,4895100,0
 Motor Tapes - Shore,5027400,0
 Motor Tapes - Shore,5159700,0
@@ -1807,10 +1807,10 @@ Motor Tapes - Shore,5556600,0
 Motor Tapes - Shore,5688900,0
 Motor Tapes - Shore,5821200,0
 Motor Tapes - Shore,5953500,0
-Motor Tapes - Shore,6085800,1105
+Motor Tapes - Shore,6085800,0
 Motor Tapes - Shore,6218100,0
 Motor Tapes - Shore,6350400,0
-Motor Tapes - Shore,6482700,-1
+Motor Tapes - Shore,6482700,0
 Motor Tapes - Shore,6615000,0
 Motor Tapes - Shore,6747300,0
 Motor Tapes - Shore,6879600,0
@@ -1820,13 +1820,13 @@ Motor Tapes - Shore,7673400,0
 Motor Tapes - Shore,7805700,0
 Motor Tapes - Shore,7938000,0
 Motor Tapes - Shore,8070300,0
-Motor Tapes - Shore,8202600,1105
-Motor Tapes - Shore,8334900,1105
+Motor Tapes - Shore,8202600,0
+Motor Tapes - Shore,8334900,0
 Motor Tapes - Shore,8467200,0
-Motor Tapes - Shore,8599500,1105
+Motor Tapes - Shore,8599500,0
 Motor Tapes - Shore,8731800,0
 Motor Tapes - Shore,8864100,0
-Motor Tapes - Shore,8996400,1
+Motor Tapes - Shore,8996400,0
 Motor Tapes - Shore,9128700,0
 Motor Tapes - Shore,9261000,0
 Motor Tapes - Shore,9393300,0
@@ -1844,13 +1844,13 @@ Mu - Too Bright,1852200,0
 Mu - Too Bright,1984500,0
 Mu - Too Bright,2116800,0
 Mu - Too Bright,2249100,0
-Mu - Too Bright,2381400,-1
-Mu - Too Bright,2513700,0
-Mu - Too Bright,2646000,1
+Mu - Too Bright,2381400,0
+Mu - Too Bright,2513700,1
+Mu - Too Bright,2646000,0
 Mu - Too Bright,2778300,0
 Mu - Too Bright,2910600,0
 Mu - Too Bright,3042900,0
-Mu - Too Bright,3175200,-1
+Mu - Too Bright,3175200,0
 Mu - Too Bright,3307500,0
 Mu - Too Bright,3439800,0
 Mu - Too Bright,3572100,0
@@ -1879,7 +1879,7 @@ Mu - Too Bright,6615000,0
 Mu - Too Bright,6747300,0
 Mu - Too Bright,6879600,0
 Mu - Too Bright,7011900,0
-Mu - Too Bright,7144200,-1
+Mu - Too Bright,7144200,0
 Mu - Too Bright,7276500,0
 Mu - Too Bright,7408800,0
 Mu - Too Bright,7541100,0
@@ -1889,9 +1889,9 @@ Mu - Too Bright,7938000,0
 Mu - Too Bright,8070300,0
 Mu - Too Bright,8202600,0
 Mu - Too Bright,8334900,0
-Mu - Too Bright,8467200,1105
+Mu - Too Bright,8467200,0
 Mu - Too Bright,8599500,0
-Mu - Too Bright,8731800,1105
+Mu - Too Bright,8731800,0
 Mu - Too Bright,8864100,0
 Mu - Too Bright,8996400,0
 Mu - Too Bright,9128700,0
@@ -1912,8 +1912,8 @@ Mu - Too Bright,11245500,0
 Mu - Too Bright,11377800,0
 Mu - Too Bright,11510100,0
 Nerve 9 - Pray For The Rain,264600,0
-Nerve 9 - Pray For The Rain,396900,1105
-Nerve 9 - Pray For The Rain,529200,1105
+Nerve 9 - Pray For The Rain,396900,0
+Nerve 9 - Pray For The Rain,529200,0
 Nerve 9 - Pray For The Rain,661500,0
 Nerve 9 - Pray For The Rain,793800,0
 Nerve 9 - Pray For The Rain,926100,0
@@ -1933,12 +1933,12 @@ Nerve 9 - Pray For The Rain,2646000,0
 Nerve 9 - Pray For The Rain,2778300,0
 Nerve 9 - Pray For The Rain,2910600,0
 Nerve 9 - Pray For The Rain,3042900,0
-Nerve 9 - Pray For The Rain,3175200,1105
+Nerve 9 - Pray For The Rain,3175200,0
 Nerve 9 - Pray For The Rain,3307500,0
 Nerve 9 - Pray For The Rain,3439800,0
 Nerve 9 - Pray For The Rain,3572100,0
 Nerve 9 - Pray For The Rain,3704400,0
-Nerve 9 - Pray For The Rain,3836700,1
+Nerve 9 - Pray For The Rain,3836700,0
 Nerve 9 - Pray For The Rain,3969000,0
 Nerve 9 - Pray For The Rain,4101300,0
 Nerve 9 - Pray For The Rain,4233600,0
@@ -1951,7 +1951,7 @@ Nerve 9 - Pray For The Rain,5027400,0
 Nerve 9 - Pray For The Rain,5159700,0
 Nerve 9 - Pray For The Rain,5292000,0
 Nerve 9 - Pray For The Rain,5424300,0
-Nerve 9 - Pray For The Rain,5556600,1
+Nerve 9 - Pray For The Rain,5556600,0
 Nerve 9 - Pray For The Rain,5688900,0
 Nerve 9 - Pray For The Rain,5821200,0
 Nerve 9 - Pray For The Rain,5953500,0
@@ -1963,12 +1963,12 @@ Nerve 9 - Pray For The Rain,6615000,0
 Nerve 9 - Pray For The Rain,6747300,0
 Nerve 9 - Pray For The Rain,6879600,0
 Nerve 9 - Pray For The Rain,7011900,0
-Nerve 9 - Pray For The Rain,7144200,-1
+Nerve 9 - Pray For The Rain,7144200,0
 Nerve 9 - Pray For The Rain,7276500,0
 Nerve 9 - Pray For The Rain,7408800,0
 Nerve 9 - Pray For The Rain,7541100,0
 Nerve 9 - Pray For The Rain,7673400,0
-Nerve 9 - Pray For The Rain,7805700,1105
+Nerve 9 - Pray For The Rain,7805700,0
 Nerve 9 - Pray For The Rain,7938000,0
 Nerve 9 - Pray For The Rain,8202600,0
 Nerve 9 - Pray For The Rain,8334900,0
@@ -1979,7 +1979,7 @@ Nerve 9 - Pray For The Rain,8864100,0
 Nerve 9 - Pray For The Rain,8996400,0
 Nerve 9 - Pray For The Rain,9128700,0
 Nerve 9 - Pray For The Rain,9261000,0
-Nerve 9 - Pray For The Rain,9657900,1
+Nerve 9 - Pray For The Rain,9657900,0
 Nerve 9 - Pray For The Rain,9790200,0
 Nerve 9 - Pray For The Rain,9922500,0
 Nerve 9 - Pray For The Rain,10054800,0
@@ -2011,23 +2011,23 @@ Nerve 9 - Pray For The Rain,13362300,0
 Nerve 9 - Pray For The Rain,13494600,0
 Nerve 9 - Pray For The Rain,13626900,0
 Nerve 9 - Pray For The Rain,13759200,0
-Nerve 9 - Pray For The Rain,13891500,1105
+Nerve 9 - Pray For The Rain,13891500,0
 PR - Happy Daze,0,0
 PR - Happy Daze,132300,0
-PR - Happy Daze,264600,1105
-PR - Happy Daze,396900,1
+PR - Happy Daze,264600,0
+PR - Happy Daze,396900,0
 PR - Happy Daze,529200,0
 PR - Happy Daze,661500,0
 PR - Happy Daze,793800,0
 PR - Happy Daze,926100,0
-PR - Happy Daze,1058400,0
+PR - Happy Daze,1058400,-1
 PR - Happy Daze,1190700,0
 PR - Happy Daze,1323000,0
 PR - Happy Daze,1455300,0
 PR - Happy Daze,1587600,0
 PR - Happy Daze,1719900,0
 PR - Happy Daze,1852200,0
-PR - Happy Daze,1984500,1
+PR - Happy Daze,1984500,0
 PR - Happy Daze,2116800,0
 PR - Happy Daze,2249100,0
 PR - Happy Daze,2381400,0
@@ -2039,20 +2039,20 @@ PR - Happy Daze,3042900,0
 PR - Happy Daze,3175200,0
 PR - Happy Daze,3307500,0
 PR - Happy Daze,3439800,0
-PR - Happy Daze,3572100,1105
+PR - Happy Daze,3572100,0
 PR - Happy Daze,3704400,0
-PR - Happy Daze,3836700,0
+PR - Happy Daze,3836700,-1
 PR - Happy Daze,3969000,0
 PR - Happy Daze,4101300,0
 PR - Happy Daze,4233600,0
-PR - Happy Daze,4365900,-1
+PR - Happy Daze,4365900,0
 PR - Happy Daze,4498200,0
 PR - Happy Daze,4630500,0
 PR - Happy Daze,4762800,0
 PR - Happy Daze,4895100,0
 PR - Happy Daze,5027400,0
 PR - Happy Daze,5159700,0
-PR - Happy Daze,5292000,0
+PR - Happy Daze,5292000,1
 PR - Happy Daze,5424300,0
 PR - Happy Daze,5556600,0
 PR - Happy Daze,5688900,0
@@ -2079,7 +2079,7 @@ PR - Oh No,1455300,0
 PR - Oh No,1587600,0
 PR - Oh No,1719900,0
 PR - Oh No,1852200,0
-PR - Oh No,1984500,-1
+PR - Oh No,1984500,0
 PR - Oh No,2116800,0
 PR - Oh No,2249100,0
 PR - Oh No,2381400,0
@@ -2104,7 +2104,7 @@ Punkdisco - Oral Hygiene,1852200,0
 Punkdisco - Oral Hygiene,1984500,0
 Punkdisco - Oral Hygiene,2116800,0
 Punkdisco - Oral Hygiene,2249100,0
-Punkdisco - Oral Hygiene,2381400,1
+Punkdisco - Oral Hygiene,2381400,0
 Punkdisco - Oral Hygiene,2513700,0
 Punkdisco - Oral Hygiene,2646000,0
 Punkdisco - Oral Hygiene,2778300,0
@@ -2173,7 +2173,7 @@ Raft Monk - Tiring,2513700,0
 Raft Monk - Tiring,2646000,0
 Raft Monk - Tiring,2778300,0
 Raft Monk - Tiring,2910600,0
-Raft Monk - Tiring,3042900,-1
+Raft Monk - Tiring,3042900,0
 Raft Monk - Tiring,3175200,0
 Raft Monk - Tiring,3307500,0
 Raft Monk - Tiring,3439800,0
@@ -2199,7 +2199,7 @@ Raft Monk - Tiring,6615000,0
 Raft Monk - Tiring,6747300,0
 Raft Monk - Tiring,6879600,0
 Raft Monk - Tiring,7011900,0
-Raft Monk - Tiring,7144200,-1
+Raft Monk - Tiring,7144200,0
 Raft Monk - Tiring,7276500,0
 Raft Monk - Tiring,7408800,0
 Raft Monk - Tiring,7541100,0
@@ -2211,14 +2211,14 @@ Raft Monk - Tiring,8202600,0
 Raft Monk - Tiring,8334900,0
 Raft Monk - Tiring,8467200,0
 Raft Monk - Tiring,8599500,0
-Raft Monk - Tiring,8731800,1105
-Sambasevam Shanmugam - Kaathaadi,0,1105
-Sambasevam Shanmugam - Kaathaadi,132300,-1
-Sambasevam Shanmugam - Kaathaadi,264600,1105
+Raft Monk - Tiring,8731800,0
+Sambasevam Shanmugam - Kaathaadi,0,0
+Sambasevam Shanmugam - Kaathaadi,132300,0
+Sambasevam Shanmugam - Kaathaadi,264600,0
 Sambasevam Shanmugam - Kaathaadi,396900,0
-Sambasevam Shanmugam - Kaathaadi,529200,1105
+Sambasevam Shanmugam - Kaathaadi,529200,0
 Sambasevam Shanmugam - Kaathaadi,661500,0
-Sambasevam Shanmugam - Kaathaadi,793800,1105
+Sambasevam Shanmugam - Kaathaadi,793800,0
 Sambasevam Shanmugam - Kaathaadi,1190700,0
 Sambasevam Shanmugam - Kaathaadi,1323000,0
 Sambasevam Shanmugam - Kaathaadi,1455300,0
@@ -2241,7 +2241,7 @@ Sambasevam Shanmugam - Kaathaadi,3572100,0
 Sambasevam Shanmugam - Kaathaadi,3704400,0
 Sambasevam Shanmugam - Kaathaadi,3836700,0
 Sambasevam Shanmugam - Kaathaadi,3969000,0
-Sambasevam Shanmugam - Kaathaadi,4101300,1105
+Sambasevam Shanmugam - Kaathaadi,4101300,0
 Sambasevam Shanmugam - Kaathaadi,4233600,0
 Sambasevam Shanmugam - Kaathaadi,4365900,0
 Sambasevam Shanmugam - Kaathaadi,4498200,0
@@ -2272,10 +2272,10 @@ Sambasevam Shanmugam - Kaathaadi,7673400,0
 Sambasevam Shanmugam - Kaathaadi,7805700,0
 Sambasevam Shanmugam - Kaathaadi,7938000,0
 Sambasevam Shanmugam - Kaathaadi,8070300,0
-Sambasevam Shanmugam - Kaathaadi,8202600,1105
-Sambasevam Shanmugam - Kaathaadi,8334900,1105
-Sambasevam Shanmugam - Kaathaadi,8467200,1
-Sambasevam Shanmugam - Kaathaadi,8599500,1105
+Sambasevam Shanmugam - Kaathaadi,8202600,0
+Sambasevam Shanmugam - Kaathaadi,8334900,0
+Sambasevam Shanmugam - Kaathaadi,8467200,0
+Sambasevam Shanmugam - Kaathaadi,8599500,0
 Sambasevam Shanmugam - Kaathaadi,8731800,0
 Sambasevam Shanmugam - Kaathaadi,8864100,0
 Sambasevam Shanmugam - Kaathaadi,8996400,0
@@ -2292,7 +2292,7 @@ Sambasevam Shanmugam - Kaathaadi,10319400,0
 Sambasevam Shanmugam - Kaathaadi,10451700,0
 Sambasevam Shanmugam - Kaathaadi,10584000,0
 Sambasevam Shanmugam - Kaathaadi,10716300,0
-Sambasevam Shanmugam - Kaathaadi,10848600,1105
+Sambasevam Shanmugam - Kaathaadi,10848600,0
 Sambasevam Shanmugam - Kaathaadi,10980900,0
 Sambasevam Shanmugam - Kaathaadi,11113200,0
 Sambasevam Shanmugam - Kaathaadi,11245500,0
@@ -2305,7 +2305,7 @@ Sambasevam Shanmugam - Kaathaadi,12039300,0
 Secretariat - Borderline,0,0
 Secretariat - Borderline,132300,0
 Secretariat - Borderline,264600,0
-Secretariat - Borderline,396900,-1
+Secretariat - Borderline,396900,0
 Secretariat - Borderline,529200,0
 Secretariat - Borderline,661500,0
 Secretariat - Borderline,793800,0
@@ -2348,14 +2348,14 @@ Secretariat - Borderline,5688900,0
 Secretariat - Borderline,5821200,0
 Secretariat - Borderline,5953500,0
 Secretariat - Borderline,6085800,0
-Secretariat - Borderline,6218100,1
+Secretariat - Borderline,6218100,0
 Secretariat - Borderline,6350400,0
 Secretariat - Borderline,7276500,0
 Secretariat - Borderline,7408800,0
 Secretariat - Borderline,7541100,0
 Secretariat - Borderline,7673400,0
 Secretariat - Borderline,7805700,0
-Secretariat - Borderline,7938000,7556
+Secretariat - Borderline,7938000,0
 Secretariat - Borderline,8070300,0
 Secretariat - Borderline,8202600,0
 Secretariat - Borderline,8334900,0
@@ -2370,8 +2370,8 @@ Secretariat - Borderline,9393300,0
 Secretariat - Borderline,9525600,0
 Secretariat - Borderline,9657900,0
 Secretariat - Borderline,9790200,0
-Secretariat - Borderline,9922500,-1
-Secretariat - Borderline,10054800,1
+Secretariat - Borderline,9922500,0
+Secretariat - Borderline,10054800,0
 Secretariat - Borderline,10187100,0
 Secretariat - Borderline,10319400,0
 Secretariat - Borderline,10451700,0
@@ -2393,7 +2393,7 @@ Secretariat - Over The Top,1587600,0
 Secretariat - Over The Top,1719900,0
 Secretariat - Over The Top,1852200,0
 Secretariat - Over The Top,1984500,0
-Secretariat - Over The Top,2116800,0
+Secretariat - Over The Top,2116800,-1
 Secretariat - Over The Top,2249100,0
 Secretariat - Over The Top,2381400,0
 Secretariat - Over The Top,2513700,0
@@ -2402,7 +2402,7 @@ Secretariat - Over The Top,2778300,0
 Secretariat - Over The Top,2910600,0
 Secretariat - Over The Top,3042900,0
 Secretariat - Over The Top,3175200,0
-Secretariat - Over The Top,3307500,0
+Secretariat - Over The Top,3307500,1
 Secretariat - Over The Top,3439800,0
 Secretariat - Over The Top,3572100,0
 Secretariat - Over The Top,3704400,0
@@ -2433,7 +2433,7 @@ Secretariat - Over The Top,6879600,0
 Secretariat - Over The Top,7011900,0
 Secretariat - Over The Top,7144200,0
 Secretariat - Over The Top,7276500,0
-Secretariat - Over The Top,7408800,-1
+Secretariat - Over The Top,7408800,0
 Secretariat - Over The Top,7541100,0
 Secretariat - Over The Top,7673400,0
 Secretariat - Over The Top,7805700,0
@@ -2465,7 +2465,7 @@ Side Effects Project - Sing With Me,1058400,0
 Side Effects Project - Sing With Me,1190700,0
 Side Effects Project - Sing With Me,1323000,0
 Side Effects Project - Sing With Me,1455300,0
-Side Effects Project - Sing With Me,1587600,1
+Side Effects Project - Sing With Me,1587600,0
 Side Effects Project - Sing With Me,1719900,0
 Side Effects Project - Sing With Me,1852200,0
 Side Effects Project - Sing With Me,1984500,0
@@ -2475,7 +2475,7 @@ Side Effects Project - Sing With Me,2381400,0
 Side Effects Project - Sing With Me,2513700,0
 Side Effects Project - Sing With Me,2646000,0
 Side Effects Project - Sing With Me,2778300,0
-Side Effects Project - Sing With Me,2910600,-1
+Side Effects Project - Sing With Me,2910600,0
 Side Effects Project - Sing With Me,3042900,0
 Side Effects Project - Sing With Me,3175200,0
 Side Effects Project - Sing With Me,3307500,0
@@ -2554,7 +2554,7 @@ Signe Jakobsen - What Have You Done To Me,3175200,0
 Signe Jakobsen - What Have You Done To Me,3307500,0
 Signe Jakobsen - What Have You Done To Me,3439800,0
 Signe Jakobsen - What Have You Done To Me,3572100,0
-Signe Jakobsen - What Have You Done To Me,3704400,1
+Signe Jakobsen - What Have You Done To Me,3704400,0
 Signe Jakobsen - What Have You Done To Me,3836700,0
 Signe Jakobsen - What Have You Done To Me,3969000,0
 Signe Jakobsen - What Have You Done To Me,4101300,0
@@ -2595,7 +2595,7 @@ Skelpolu - Resurrection,2910600,0
 Skelpolu - Resurrection,3042900,0
 Skelpolu - Resurrection,3175200,0
 Skelpolu - Resurrection,3307500,0
-Skelpolu - Resurrection,3439800,-1
+Skelpolu - Resurrection,3439800,0
 Skelpolu - Resurrection,3572100,0
 Skelpolu - Resurrection,3704400,0
 Skelpolu - Resurrection,3836700,0
@@ -2624,8 +2624,8 @@ Skelpolu - Resurrection,6747300,0
 Skelpolu - Resurrection,6879600,0
 Skelpolu - Resurrection,7011900,0
 Skelpolu - Resurrection,7144200,0
-Skelpolu - Resurrection,7276500,1
-Skelpolu - Resurrection,7408800,1
+Skelpolu - Resurrection,7276500,0
+Skelpolu - Resurrection,7408800,0
 Skelpolu - Resurrection,7541100,0
 Skelpolu - Resurrection,7673400,0
 Skelpolu - Resurrection,7805700,0
@@ -2634,10 +2634,10 @@ Skelpolu - Resurrection,8070300,0
 Skelpolu - Resurrection,8202600,0
 Skelpolu - Resurrection,8334900,0
 Skelpolu - Resurrection,8467200,0
-Skelpolu - Resurrection,8599500,1
+Skelpolu - Resurrection,8599500,0
 Skelpolu - Resurrection,8731800,0
 Skelpolu - Resurrection,8864100,0
-Skelpolu - Resurrection,8996400,-1
+Skelpolu - Resurrection,8996400,0
 Skelpolu - Resurrection,9128700,0
 Skelpolu - Resurrection,9261000,0
 Skelpolu - Resurrection,9393300,0
@@ -2665,12 +2665,12 @@ Skelpolu - Resurrection,12171600,0
 Skelpolu - Resurrection,12303900,0
 Skelpolu - Resurrection,12436200,0
 Skelpolu - Resurrection,12568500,0
-Skelpolu - Resurrection,12700800,-1
+Skelpolu - Resurrection,12700800,0
 Skelpolu - Resurrection,12833100,0
 Skelpolu - Resurrection,12965400,0
-Skelpolu - Resurrection,13097700,-1
-Skelpolu - Resurrection,13230000,0
-Skelpolu - Resurrection,13362300,-1
+Skelpolu - Resurrection,13097700,0
+Skelpolu - Resurrection,13230000,-1
+Skelpolu - Resurrection,13362300,0
 Skelpolu - Resurrection,13494600,0
 Skelpolu - Resurrection,13626900,0
 Skelpolu - Resurrection,13759200,0
@@ -2697,9 +2697,9 @@ Skelpolu - Resurrection,16405200,0
 Skelpolu - Resurrection,16537500,0
 Speak Softly - Broken Man,264600,0
 Speak Softly - Broken Man,396900,0
-Speak Softly - Broken Man,529200,1
+Speak Softly - Broken Man,529200,0
 Speak Softly - Broken Man,661500,0
-Speak Softly - Broken Man,793800,-1
+Speak Softly - Broken Man,793800,0
 Speak Softly - Broken Man,926100,0
 Speak Softly - Broken Man,1058400,0
 Speak Softly - Broken Man,1190700,0
@@ -2713,7 +2713,7 @@ Speak Softly - Broken Man,2116800,0
 Speak Softly - Broken Man,2249100,0
 Speak Softly - Broken Man,2381400,0
 Speak Softly - Broken Man,2513700,0
-Speak Softly - Broken Man,2646000,-1
+Speak Softly - Broken Man,2646000,0
 Speak Softly - Broken Man,2778300,0
 Speak Softly - Broken Man,2910600,0
 Speak Softly - Broken Man,3042900,0
@@ -2730,12 +2730,12 @@ Speak Softly - Broken Man,4630500,0
 Speak Softly - Broken Man,4762800,0
 Speak Softly - Broken Man,4895100,0
 Speak Softly - Broken Man,5027400,0
-Speak Softly - Broken Man,5159700,1
+Speak Softly - Broken Man,5159700,0
 Speak Softly - Broken Man,5292000,0
 Speak Softly - Broken Man,5424300,0
 Speak Softly - Broken Man,5556600,0
 Speak Softly - Broken Man,5688900,0
-Speak Softly - Broken Man,5821200,1
+Speak Softly - Broken Man,5821200,0
 Speak Softly - Broken Man,5953500,0
 Speak Softly - Broken Man,6085800,0
 Speak Softly - Broken Man,6218100,0
@@ -2800,7 +2800,7 @@ Speak Softly - Like Horses,3572100,0
 Speak Softly - Like Horses,3704400,0
 Speak Softly - Like Horses,3836700,0
 Speak Softly - Like Horses,3969000,0
-Speak Softly - Like Horses,4101300,0
+Speak Softly - Like Horses,4101300,-1
 Speak Softly - Like Horses,4233600,0
 Speak Softly - Like Horses,4365900,0
 Speak Softly - Like Horses,4498200,0
@@ -2820,7 +2820,7 @@ Speak Softly - Like Horses,6218100,0
 Speak Softly - Like Horses,6350400,0
 Speak Softly - Like Horses,6482700,0
 Speak Softly - Like Horses,6615000,0
-Speak Softly - Like Horses,6747300,0
+Speak Softly - Like Horses,6747300,-1
 Speak Softly - Like Horses,6879600,0
 Speak Softly - Like Horses,7011900,0
 Speak Softly - Like Horses,7144200,0
@@ -2834,7 +2834,7 @@ Speak Softly - Like Horses,8070300,0
 Speak Softly - Like Horses,8202600,0
 Speak Softly - Like Horses,8334900,0
 Speak Softly - Like Horses,8467200,0
-Speak Softly - Like Horses,8599500,0
+Speak Softly - Like Horses,8599500,1
 Speak Softly - Like Horses,8731800,0
 Speak Softly - Like Horses,8864100,0
 Speak Softly - Like Horses,8996400,0
@@ -2877,8 +2877,8 @@ The Doppler Shift - Atrophy,2249100,0
 The Doppler Shift - Atrophy,2381400,0
 The Doppler Shift - Atrophy,2513700,0
 The Doppler Shift - Atrophy,2646000,0
-The Doppler Shift - Atrophy,2778300,-1
-The Doppler Shift - Atrophy,2910600,-1
+The Doppler Shift - Atrophy,2778300,0
+The Doppler Shift - Atrophy,2910600,0
 The Doppler Shift - Atrophy,3042900,0
 The Doppler Shift - Atrophy,3175200,0
 The Doppler Shift - Atrophy,3307500,0
@@ -2960,7 +2960,7 @@ The Easton Ellises (Baumi) - SDRNR,661500,0
 The Easton Ellises (Baumi) - SDRNR,793800,0
 The Easton Ellises (Baumi) - SDRNR,926100,0
 The Easton Ellises (Baumi) - SDRNR,1058400,0
-The Easton Ellises (Baumi) - SDRNR,1190700,1105
+The Easton Ellises (Baumi) - SDRNR,1190700,0
 The Easton Ellises (Baumi) - SDRNR,1323000,0
 The Easton Ellises (Baumi) - SDRNR,1455300,0
 The Easton Ellises (Baumi) - SDRNR,1587600,0
@@ -2970,7 +2970,7 @@ The Easton Ellises (Baumi) - SDRNR,1984500,0
 The Easton Ellises (Baumi) - SDRNR,2116800,0
 The Easton Ellises (Baumi) - SDRNR,2249100,0
 The Easton Ellises (Baumi) - SDRNR,2381400,0
-The Easton Ellises (Baumi) - SDRNR,2513700,1105
+The Easton Ellises (Baumi) - SDRNR,2513700,0
 The Easton Ellises (Baumi) - SDRNR,2646000,0
 The Easton Ellises (Baumi) - SDRNR,2778300,0
 The Easton Ellises (Baumi) - SDRNR,2910600,0
@@ -2987,7 +2987,7 @@ The Easton Ellises (Baumi) - SDRNR,4233600,0
 The Easton Ellises (Baumi) - SDRNR,4365900,0
 The Easton Ellises (Baumi) - SDRNR,4498200,0
 The Easton Ellises (Baumi) - SDRNR,4630500,0
-The Easton Ellises (Baumi) - SDRNR,4762800,-4706
+The Easton Ellises (Baumi) - SDRNR,4762800,0
 The Easton Ellises (Baumi) - SDRNR,4895100,0
 The Easton Ellises (Baumi) - SDRNR,5027400,0
 The Easton Ellises (Baumi) - SDRNR,5159700,0
@@ -3000,15 +3000,15 @@ The Easton Ellises (Baumi) - SDRNR,5953500,0
 The Easton Ellises (Baumi) - SDRNR,6085800,0
 The Easton Ellises (Baumi) - SDRNR,6218100,0
 The Easton Ellises (Baumi) - SDRNR,6350400,0
-The Easton Ellises (Baumi) - SDRNR,6482700,1105
+The Easton Ellises (Baumi) - SDRNR,6482700,0
 The Easton Ellises (Baumi) - SDRNR,6615000,0
 The Easton Ellises (Baumi) - SDRNR,6747300,0
-The Easton Ellises (Baumi) - SDRNR,7408800,1105
+The Easton Ellises (Baumi) - SDRNR,7408800,0
 The Easton Ellises (Baumi) - SDRNR,7541100,0
-The Easton Ellises (Baumi) - SDRNR,7673400,1105
-The Easton Ellises (Baumi) - SDRNR,7805700,1105
+The Easton Ellises (Baumi) - SDRNR,7673400,0
+The Easton Ellises (Baumi) - SDRNR,7805700,0
 The Easton Ellises (Baumi) - SDRNR,7938000,0
-The Easton Ellises (Baumi) - SDRNR,8070300,1105
+The Easton Ellises (Baumi) - SDRNR,8070300,0
 The Easton Ellises (Baumi) - SDRNR,8202600,0
 The Easton Ellises (Baumi) - SDRNR,8334900,0
 The Easton Ellises (Baumi) - SDRNR,8467200,0
@@ -3023,23 +3023,23 @@ The Easton Ellises (Baumi) - SDRNR,9525600,0
 The Easton Ellises (Baumi) - SDRNR,9657900,0
 The Easton Ellises (Baumi) - SDRNR,9790200,0
 The Easton Ellises - Falcon 69,396900,0
-The Easton Ellises - Falcon 69,529200,1105
+The Easton Ellises - Falcon 69,529200,0
 The Easton Ellises - Falcon 69,661500,0
 The Easton Ellises - Falcon 69,793800,0
 The Easton Ellises - Falcon 69,926100,0
-The Easton Ellises - Falcon 69,1058400,-1
-The Easton Ellises - Falcon 69,1190700,1
+The Easton Ellises - Falcon 69,1058400,0
+The Easton Ellises - Falcon 69,1190700,0
 The Easton Ellises - Falcon 69,1323000,0
 The Easton Ellises - Falcon 69,1455300,0
 The Easton Ellises - Falcon 69,1587600,0
-The Easton Ellises - Falcon 69,1719900,1105
+The Easton Ellises - Falcon 69,1719900,0
 The Easton Ellises - Falcon 69,1852200,0
 The Easton Ellises - Falcon 69,1984500,0
 The Easton Ellises - Falcon 69,2116800,0
-The Easton Ellises - Falcon 69,2249100,1105
+The Easton Ellises - Falcon 69,2249100,0
 The Easton Ellises - Falcon 69,2381400,0
-The Easton Ellises - Falcon 69,2513700,1105
-The Easton Ellises - Falcon 69,2646000,1105
+The Easton Ellises - Falcon 69,2513700,0
+The Easton Ellises - Falcon 69,2646000,0
 The Easton Ellises - Falcon 69,2778300,0
 The Easton Ellises - Falcon 69,2910600,0
 The Easton Ellises - Falcon 69,3042900,0
@@ -3048,38 +3048,38 @@ The Easton Ellises - Falcon 69,3307500,0
 The Easton Ellises - Falcon 69,3439800,0
 The Easton Ellises - Falcon 69,3572100,0
 The Easton Ellises - Falcon 69,3704400,0
-The Easton Ellises - Falcon 69,3836700,1105
+The Easton Ellises - Falcon 69,3836700,0
 The Easton Ellises - Falcon 69,3969000,0
 The Easton Ellises - Falcon 69,4101300,0
 The Easton Ellises - Falcon 69,4233600,0
 The Easton Ellises - Falcon 69,4365900,0
 The Easton Ellises - Falcon 69,4498200,0
 The Easton Ellises - Falcon 69,4630500,0
-The Easton Ellises - Falcon 69,4762800,1105
+The Easton Ellises - Falcon 69,4762800,0
 The Easton Ellises - Falcon 69,4895100,0
-The Easton Ellises - Falcon 69,5027400,1105
+The Easton Ellises - Falcon 69,5027400,0
 The Easton Ellises - Falcon 69,5159700,0
-The Easton Ellises - Falcon 69,5292000,1105
+The Easton Ellises - Falcon 69,5292000,0
 The Easton Ellises - Falcon 69,5424300,0
 The Easton Ellises - Falcon 69,5556600,0
-The Easton Ellises - Falcon 69,5688900,1105
+The Easton Ellises - Falcon 69,5688900,0
 The Easton Ellises - Falcon 69,5821200,0
 The Easton Ellises - Falcon 69,5953500,0
 The Easton Ellises - Falcon 69,6085800,0
-The Easton Ellises - Falcon 69,6218100,1105
+The Easton Ellises - Falcon 69,6218100,0
 The Easton Ellises - Falcon 69,6350400,0
 The Easton Ellises - Falcon 69,6482700,0
 The Easton Ellises - Falcon 69,6615000,0
 The Easton Ellises - Falcon 69,6747300,0
-The Easton Ellises - Falcon 69,6879600,1105
+The Easton Ellises - Falcon 69,6879600,0
 The Easton Ellises - Falcon 69,7011900,0
-The Easton Ellises - Falcon 69,7144200,1105
+The Easton Ellises - Falcon 69,7144200,0
 The Easton Ellises - Falcon 69,7276500,0
-The Easton Ellises - Falcon 69,7408800,1105
+The Easton Ellises - Falcon 69,7408800,0
 The Easton Ellises - Falcon 69,7541100,0
-The Easton Ellises - Falcon 69,7673400,1105
-The Easton Ellises - Falcon 69,7805700,1105
-The Easton Ellises - Falcon 69,7938000,1105
+The Easton Ellises - Falcon 69,7673400,0
+The Easton Ellises - Falcon 69,7805700,0
+The Easton Ellises - Falcon 69,7938000,0
 The Easton Ellises - Falcon 69,8070300,0
 The Easton Ellises - Falcon 69,8202600,0
 The Easton Ellises - Falcon 69,8334900,0
@@ -3088,11 +3088,11 @@ The Easton Ellises - Falcon 69,8599500,0
 The Easton Ellises - Falcon 69,8731800,0
 The Easton Ellises - Falcon 69,8864100,0
 The Easton Ellises - Falcon 69,8996400,0
-The Easton Ellises - Falcon 69,9128700,1105
-The Easton Ellises - Falcon 69,9261000,1105
-The Easton Ellises - Falcon 69,9393300,1105
+The Easton Ellises - Falcon 69,9128700,0
+The Easton Ellises - Falcon 69,9261000,0
+The Easton Ellises - Falcon 69,9393300,0
 The Easton Ellises - Falcon 69,9525600,0
-The Easton Ellises - Falcon 69,9657900,1105
+The Easton Ellises - Falcon 69,9657900,0
 The Long Wait - Dark Horses,529200,0
 The Long Wait - Dark Horses,661500,0
 The Long Wait - Dark Horses,793800,0
@@ -3114,9 +3114,9 @@ The Long Wait - Dark Horses,2778300,0
 The Long Wait - Dark Horses,2910600,0
 The Long Wait - Dark Horses,3042900,0
 The Long Wait - Dark Horses,3175200,0
-The Long Wait - Dark Horses,3307500,-1
+The Long Wait - Dark Horses,3307500,0
 The Long Wait - Dark Horses,3439800,0
-The Long Wait - Dark Horses,3572100,1
+The Long Wait - Dark Horses,3572100,0
 The Long Wait - Dark Horses,3704400,0
 The Long Wait - Dark Horses,3836700,0
 The Long Wait - Dark Horses,3969000,0
@@ -3139,7 +3139,7 @@ The Long Wait - Dark Horses,6085800,0
 The Long Wait - Dark Horses,6218100,0
 The Long Wait - Dark Horses,6350400,0
 The Long Wait - Dark Horses,6482700,0
-The Long Wait - Dark Horses,6615000,-1
+The Long Wait - Dark Horses,6615000,0
 The Long Wait - Dark Horses,6747300,0
 The Long Wait - Dark Horses,6879600,0
 The Long Wait - Dark Horses,7011900,0
@@ -3170,21 +3170,21 @@ The Long Wait - Dark Horses,10584000,0
 The Long Wait - Dark Horses,10716300,0
 The Long Wait - Dark Horses,10848600,0
 The Long Wait - Dark Horses,10980900,0
-The Long Wait - Dark Horses,11113200,1
-The Long Wait - Dark Horses,11245500,1105
-The Long Wait - Dark Horses,11377800,1105
-The Long Wait - Dark Horses,11510100,1105
-The Long Wait - Dark Horses,11642400,1105
-The Long Wait - Dark Horses,11774700,1105
-The Long Wait - Dark Horses,11907000,1105
+The Long Wait - Dark Horses,11113200,0
+The Long Wait - Dark Horses,11245500,0
+The Long Wait - Dark Horses,11377800,0
+The Long Wait - Dark Horses,11510100,0
+The Long Wait - Dark Horses,11642400,0
+The Long Wait - Dark Horses,11774700,0
+The Long Wait - Dark Horses,11907000,0
 The Long Wait - Dark Horses,12039300,0
-The Long Wait - Dark Horses,12171600,1105
+The Long Wait - Dark Horses,12171600,0
 The Long Wait - Dark Horses,12303900,0
-The Mountaineering Club - Mallory,661500,1105
+The Mountaineering Club - Mallory,661500,0
 The Mountaineering Club - Mallory,793800,0
 The Mountaineering Club - Mallory,926100,0
-The Mountaineering Club - Mallory,1058400,1105
-The Mountaineering Club - Mallory,1190700,1105
+The Mountaineering Club - Mallory,1058400,0
+The Mountaineering Club - Mallory,1190700,0
 The Mountaineering Club - Mallory,1323000,0
 The Mountaineering Club - Mallory,1455300,0
 The Mountaineering Club - Mallory,1587600,0
@@ -3225,7 +3225,7 @@ The Mountaineering Club - Mallory,6218100,0
 The Mountaineering Club - Mallory,6350400,0
 The Mountaineering Club - Mallory,6482700,0
 The Mountaineering Club - Mallory,6615000,0
-The Mountaineering Club - Mallory,6747300,1105
+The Mountaineering Club - Mallory,6747300,0
 The Mountaineering Club - Mallory,7144200,0
 The Mountaineering Club - Mallory,7276500,0
 The Mountaineering Club - Mallory,7408800,0
@@ -3275,7 +3275,7 @@ The Sunshine Garcia Band - For I Am The Moon,2910600,0
 The Sunshine Garcia Band - For I Am The Moon,3042900,0
 The Sunshine Garcia Band - For I Am The Moon,3175200,0
 The Sunshine Garcia Band - For I Am The Moon,3307500,0
-The Sunshine Garcia Band - For I Am The Moon,3439800,-1
+The Sunshine Garcia Band - For I Am The Moon,3439800,0
 The Sunshine Garcia Band - For I Am The Moon,3572100,0
 The Sunshine Garcia Band - For I Am The Moon,3704400,0
 The Sunshine Garcia Band - For I Am The Moon,3836700,0
@@ -3286,7 +3286,7 @@ The Sunshine Garcia Band - For I Am The Moon,4365900,0
 The Sunshine Garcia Band - For I Am The Moon,4498200,0
 The Sunshine Garcia Band - For I Am The Moon,4630500,0
 The Sunshine Garcia Band - For I Am The Moon,4762800,0
-The Sunshine Garcia Band - For I Am The Moon,4895100,-1
+The Sunshine Garcia Band - For I Am The Moon,4895100,0
 The Sunshine Garcia Band - For I Am The Moon,5027400,0
 The Sunshine Garcia Band - For I Am The Moon,5159700,0
 The Sunshine Garcia Band - For I Am The Moon,5292000,0
@@ -3327,7 +3327,7 @@ The Sunshine Garcia Band - For I Am The Moon,9790200,0
 The Sunshine Garcia Band - For I Am The Moon,9922500,0
 The Sunshine Garcia Band - For I Am The Moon,10054800,0
 The Sunshine Garcia Band - For I Am The Moon,10187100,0
-The Sunshine Garcia Band - For I Am The Moon,10319400,-1
+The Sunshine Garcia Band - For I Am The Moon,10319400,0
 The Sunshine Garcia Band - For I Am The Moon,10451700,0
 The Sunshine Garcia Band - For I Am The Moon,10584000,0
 The Sunshine Garcia Band - For I Am The Moon,10716300,0
@@ -3337,7 +3337,7 @@ The Sunshine Garcia Band - For I Am The Moon,11113200,0
 The Sunshine Garcia Band - For I Am The Moon,11245500,0
 The Sunshine Garcia Band - For I Am The Moon,11377800,0
 The Sunshine Garcia Band - For I Am The Moon,11510100,0
-The Sunshine Garcia Band - For I Am The Moon,11642400,-1
+The Sunshine Garcia Band - For I Am The Moon,11642400,0
 The Sunshine Garcia Band - For I Am The Moon,11774700,0
 The Sunshine Garcia Band - For I Am The Moon,11907000,0
 The Sunshine Garcia Band - For I Am The Moon,12039300,0
@@ -3352,8 +3352,8 @@ Timboz - Pony,793800,0
 Timboz - Pony,926100,0
 Timboz - Pony,1058400,0
 Timboz - Pony,1190700,0
-Timboz - Pony,1323000,1
-Timboz - Pony,1455300,-1
+Timboz - Pony,1323000,0
+Timboz - Pony,1455300,0
 Timboz - Pony,1587600,0
 Timboz - Pony,1719900,0
 Timboz - Pony,1852200,0
@@ -3389,10 +3389,10 @@ Timboz - Pony,6218100,0
 Timboz - Pony,6350400,0
 Timboz - Pony,6482700,0
 Timboz - Pony,6615000,0
-Timboz - Pony,6747300,1
+Timboz - Pony,6747300,0
 Timboz - Pony,6879600,0
 Timboz - Pony,7011900,0
-Timboz - Pony,7144200,-1
+Timboz - Pony,7144200,0
 Timboz - Pony,7276500,0
 Timboz - Pony,7408800,0
 Timboz - Pony,7541100,0
@@ -3420,7 +3420,7 @@ Timboz - Pony,10319400,0
 Timboz - Pony,10451700,0
 Tom McKenzie - Directions,0,0
 Tom McKenzie - Directions,132300,0
-Tom McKenzie - Directions,529200,1105
+Tom McKenzie - Directions,529200,0
 Tom McKenzie - Directions,661500,0
 Tom McKenzie - Directions,793800,0
 Tom McKenzie - Directions,926100,0
@@ -3444,7 +3444,7 @@ Tom McKenzie - Directions,3175200,0
 Tom McKenzie - Directions,3307500,0
 Tom McKenzie - Directions,3439800,0
 Tom McKenzie - Directions,3572100,0
-Tom McKenzie - Directions,3704400,-1
+Tom McKenzie - Directions,3704400,0
 Tom McKenzie - Directions,3836700,0
 Tom McKenzie - Directions,3969000,0
 Tom McKenzie - Directions,4101300,0
@@ -3462,11 +3462,11 @@ Tom McKenzie - Directions,5556600,0
 Tom McKenzie - Directions,5688900,0
 Tom McKenzie - Directions,5821200,0
 Tom McKenzie - Directions,5953500,0
-Tom McKenzie - Directions,6085800,-1
+Tom McKenzie - Directions,6085800,0
 Tom McKenzie - Directions,6218100,0
 Tom McKenzie - Directions,6350400,0
 Tom McKenzie - Directions,6482700,0
-Tom McKenzie - Directions,6615000,1
+Tom McKenzie - Directions,6615000,0
 Tom McKenzie - Directions,6747300,0
 Tom McKenzie - Directions,6879600,0
 Tom McKenzie - Directions,7011900,0
@@ -3498,11 +3498,11 @@ Triviul feat. The Fiend - Widow,3439800,0
 Triviul feat. The Fiend - Widow,3572100,0
 Triviul feat. The Fiend - Widow,3704400,0
 Triviul feat. The Fiend - Widow,3836700,0
-Triviul feat. The Fiend - Widow,3969000,-1
+Triviul feat. The Fiend - Widow,3969000,0
 Triviul feat. The Fiend - Widow,4101300,0
 Triviul feat. The Fiend - Widow,4233600,0
-Triviul feat. The Fiend - Widow,4365900,-1
-Triviul feat. The Fiend - Widow,4498200,-1
+Triviul feat. The Fiend - Widow,4365900,0
+Triviul feat. The Fiend - Widow,4498200,0
 Triviul feat. The Fiend - Widow,4630500,0
 Triviul feat. The Fiend - Widow,4762800,0
 Triviul feat. The Fiend - Widow,4895100,0
@@ -3540,16 +3540,16 @@ Triviul feat. The Fiend - Widow,8996400,0
 Triviul feat. The Fiend - Widow,9128700,0
 Triviul feat. The Fiend - Widow,9261000,0
 Triviul feat. The Fiend - Widow,9393300,0
-We Fell From The Sky - Not You,132300,1105
+We Fell From The Sky - Not You,132300,0
 We Fell From The Sky - Not You,264600,0
-We Fell From The Sky - Not You,396900,-1
+We Fell From The Sky - Not You,396900,0
 We Fell From The Sky - Not You,529200,0
 We Fell From The Sky - Not You,661500,0
 We Fell From The Sky - Not You,793800,0
 We Fell From The Sky - Not You,926100,0
 We Fell From The Sky - Not You,1058400,0
 We Fell From The Sky - Not You,1190700,0
-We Fell From The Sky - Not You,1323000,-1
+We Fell From The Sky - Not You,1323000,0
 We Fell From The Sky - Not You,1455300,0
 We Fell From The Sky - Not You,1587600,0
 We Fell From The Sky - Not You,1719900,0
@@ -3579,16 +3579,16 @@ We Fell From The Sky - Not You,4762800,0
 We Fell From The Sky - Not You,4895100,0
 We Fell From The Sky - Not You,5027400,0
 We Fell From The Sky - Not You,5159700,0
-We Fell From The Sky - Not You,5292000,-1
+We Fell From The Sky - Not You,5292000,0
 We Fell From The Sky - Not You,5424300,0
 We Fell From The Sky - Not You,5953500,0
-We Fell From The Sky - Not You,6085800,-1
+We Fell From The Sky - Not You,6085800,0
 We Fell From The Sky - Not You,6218100,0
 We Fell From The Sky - Not You,6350400,0
 We Fell From The Sky - Not You,6482700,0
-We Fell From The Sky - Not You,6615000,1105
+We Fell From The Sky - Not You,6615000,0
 We Fell From The Sky - Not You,6747300,0
-We Fell From The Sky - Not You,6879600,1105
+We Fell From The Sky - Not You,6879600,0
 We Fell From The Sky - Not You,7011900,0
 We Fell From The Sky - Not You,7144200,0
 We Fell From The Sky - Not You,7276500,0
@@ -3628,7 +3628,7 @@ Zeno - Signs,3175200,0
 Zeno - Signs,3307500,0
 Zeno - Signs,3439800,0
 Zeno - Signs,3572100,0
-Zeno - Signs,3704400,1
+Zeno - Signs,3704400,0
 Zeno - Signs,3836700,0
 Zeno - Signs,3969000,0
 Zeno - Signs,4101300,0

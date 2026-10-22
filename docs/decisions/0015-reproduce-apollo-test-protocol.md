@@ -4,9 +4,10 @@ Date: 2026-10-20
 
 ## Status
 
-Accepted — Apollo is scored at six bitrates on the 50 MUSDB18-HQ test mixtures, which the released checkpoint was
-not trained on, with the authors' own preprocessing, codec and metrics. The authors' own `test.py` gives the same
-scores.
+Accepted — Apollo, and Apollo followed by εar-VAE, are scored at six bitrates on the 50 MUSDB18-HQ test mixtures,
+which the released checkpoint was not trained on, with the authors' own preprocessing, codec and metrics. One change to
+the codec keeps every MP3 aligned with its clean clip. With the codec as released, the authors' own `test.py` gives the
+same scores.
 
 ## Context
 
@@ -23,8 +24,8 @@ so its 50 songs are a held-out test for Apollo, and later for this project's own
 
 ### The test set
 
-`python -m grooveback.cli.musdb_eval musdb18hq/test scores.csv --kbps K` scores Apollo and the untouched MP3 on these
-songs. Each step is the authors' released code, ported:
+`python -m grooveback.cli.musdb_eval musdb18hq/test scores.csv --kbps K --earvae` scores the untouched MP3, Apollo and
+Apollo → εar-VAE on these songs. Each step is the authors' released code, ported, with one change:
 
 | step | source |
 |---|---|
@@ -33,6 +34,12 @@ songs. Each step is the authors' released code, ported:
 | both signals divided by their joint peak | same file |
 | Apollo once over each whole clip | `test.py` |
 | SDR: fast_bss_eval, 512-tap filter, zero mean; SI-SNR: fast_bss_eval `si_sdr`, zero mean; both averaged over channels | `look2hear/metrics/wrapper.py` |
+
+The change is in `match2`'s lag search: both signals are tapered with a Hann window first. As released, the search
+leaves some MP3s 25 ms late (see [The alignment failure in the released codec](#the-alignment-failure-in-the-released-codec)).
+
+This project adds two metrics, spectral SNR and log-spectral distance (LSD) as in ADR-0007, and one method,
+Apollo → εar-VAE: Apollo's output after an εar-VAE round trip, the chain of ADR-0011.
 
 The released code does not settle three choices:
 
@@ -46,7 +53,8 @@ The released code does not settle three choices:
 
 ### Exactness gates
 
-Where the published material allows a check:
+Where the published material allows a check. All were measured on 2026-10-20 with `codec_simu` as released, before the
+taper.
 
 - **Model and metrics.** Apollo rendered here on the authors' three 24 kbps demo inputs matches their published outputs
   to 76–80 dB. The SDR / SI-SNR of ours and theirs are identical to two decimals: 9.83 / 8.24, 11.27 / 9.32,
@@ -71,25 +79,26 @@ Where the published material allows a check:
 - **Rerun.** 24 kbps scored a second time on a different pod, on the first two tracks (128 clips), reproduces every
   per-clip score of the first run to within 3e-12 dB.
 
-## Results (2026-10-20 run)
+## Results (2026-10-22 run)
 
-Per-clip SDR / SI-SNR and MP3 lags for the 3,677 clips at each bitrate are in [assets/0015](assets/0015).
+Per-clip SDR, SI-SNR, spectral SNR and LSD of the MP3, Apollo and Apollo → εar-VAE, and the MP3's lag, for the 3,677
+clips at each bitrate are in [assets/0015](assets/0015).
 
-![SDR and SI-SNR per bitrate on the MUSDB18-HQ test mixtures, with the published points](assets/0015/bitrates.png)
+![SDR, SI-SNR, spectral SNR and LSD per bitrate on the MUSDB18-HQ test mixtures, with the published points](assets/0015/bitrates.png)
 
-The dotted line is Apollo as published. The paper shows bitrates only as a figure (Fig. 2), with no numbers, so its
-points are read off the same comparison in Apollo's README (`asserts/bitrates.png`), calibrated on its gridlines. They
-come from a different test set, MUSDB18-HQ plus an unreleased selection of MoisesDB songs, and are not compared with
-the solid lines.
+The dotted line, on SDR and SI-SNR only, is Apollo as published. The paper shows bitrates only as a figure (Fig. 2),
+with no numbers, so its points are read off the same comparison in Apollo's README (`asserts/bitrates.png`),
+calibrated on its gridlines. They come from a different test set, MUSDB18-HQ plus an unreleased selection of MoisesDB
+songs, and are not compared with the solid lines.
 
-### The alignment failure
+### The alignment failure in the released codec
 
-`codec_simu` rolls the decoded MP3 by the lag that `match2` finds on the first channel. On some clips the MP3 stays
-1,105 samples (25 ms) late: LAME's 576-sample encoder delay plus the decoder's 529. Measured per clip as the peak of
-the circular cross-correlation between the channel sums of the MP3 and the clean clip, this happens on 93 of the
-3,677 clips at 24 kbps (2.5%), from 23 of the 50 tracks. It gets rarer as the bitrate rises: 68, 25, 10, 5 and 2 clips
-at 32, 48, 64, 96 and 128 kbps. Two clips at 24 kbps and one at 32 kbps are rolled by a wrong lag of thousands of
-samples instead.
+`codec_simu` as released rolls the decoded MP3 by the lag that `match2` finds on the first channel. On some clips the
+MP3 stays 1,105 samples (25 ms) late: LAME's 576-sample encoder delay plus the decoder's 529. Measured per clip as the
+peak of the circular cross-correlation between the channel sums of the MP3 and the clean clip, this happened in the
+2026-10-20 run on 93 of the 3,677 clips at 24 kbps (2.5%), from 23 of the 50 tracks. It gets rarer as the bitrate
+rises: 68, 25, 10, 5 and 2 clips at 32, 48, 64, 96 and 128 kbps. Two clips at 24 kbps and one at 32 kbps are rolled by
+a wrong lag of thousands of samples instead.
 
 `match2` misses because of the clip edges. It cross-correlates the raw clips with a phase transform, which gives every
 frequency the same weight. The correlation is circular, so the jump from a clip's last sample back to its first acts
@@ -100,6 +109,9 @@ frequencies carry only the step, and more clips miss. Measured at 24 kbps on the
 ones: `match2` returns 0 on 92 of the misaligned clips, where the correlation at lag 0 reaches 0.85 against about
 0.12 at the true lag. On aligned clips it is about 0.001. Tapering both signals with a Hann window before the
 transform finds 1,105 samples on all 95 misaligned clips and keeps every aligned clip aligned.
+
+`codec_simu` now applies this taper. Measured the same way over all clips, every MP3 is then within one sample of its
+clean clip: 26 clips at 24 kbps and 2 at 32 kbps are one sample off, and all others are at 0.
 
 Apollo's training pairs carried the same delay. Apollo moves the late MP3 back into place on 195 of the 196 late
 clips at 24–64 kbps, and a model only learns that from training pairs that were late in the same way. The maintainer
@@ -138,16 +150,16 @@ and `{k}k-lags.csv`.
 ## Consequences
 
 - The 50 test mixtures at six bitrates are the project's held-out score for Apollo, and for later methods.
-  `musdb_eval` runs Apollo only; scoring another method on it means passing that method in.
-- A late MP3 scores far below 0 dB SI-SNR, −21 dB on average at 24 kbps, so a method that only moves it back into
-  place gains on it without restoring anything. Later methods report the aligned clips separately.
-- `match2` stays as the authors wrote it, so the set follows their protocol.
-- One bitrate takes about 90 minutes on an L40S pod. Bitrates run side by side on one pod as separate processes:
-  five ran in 90 minutes, for about $1.65, with `OMP_NUM_THREADS=2` each. Torch on a pod sees all of the host's cores
-  (128–256), while the container is allowed 13–27, so the threads are capped to fit.
+  `musdb_eval` scores Apollo, and Apollo → εar-VAE with `--earvae`; scoring another method means passing it in.
+- `codec_simu` departs from the authors' code in the taper, so on the clips their code leaves late, the scores here
+  differ from what their code gives. A late MP3 scores far below 0 dB SI-SNR, −21 dB on average at 24 kbps, and a
+  method that only moved it back into place would gain on it without restoring anything.
+- One bitrate, Apollo only, takes about 90 minutes on an L40S pod. Bitrates run side by side on one pod as separate
+  processes: five ran in 90 minutes, for about $1.65, with `OMP_NUM_THREADS=2` each. Torch on a pod sees all of the
+  host's cores (128–256), while the container is allowed 13–27, so the threads are capped to fit.
 
 ## Revisit triggers
 
 - The authors share the paper's test clips → score Apollo on them directly.
 - ViSQOL is needed → add it to `musdb_eval`.
-- A method of this project is ready → score it on all six bitrates, aligned clips reported separately.
+- A method of this project is ready → score it on all six bitrates.

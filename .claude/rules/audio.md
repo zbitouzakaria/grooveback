@@ -46,6 +46,6 @@ the source of truth stays obvious.
 | 0009 | SDEdit as the first solver — concluded: rejected; the prior keeps codec damage as signal |
 | 0010 | Listen in the browser with trackswitch.js — the A/B instrument behind `demo/` |
 | 0011 | **Autoencoder round-trips and mean damage subtraction** — four open autoencoders at 32/64/128k, the damage-direction formula, chains as solvers |
-| 0015 | **Reproduce Apollo's test protocol** — Apollo scored on the 50 held-out MUSDB18-HQ test mixtures at six bitrates with the authors' own preprocessing, codec and metrics; their `test.py` gives the same scores |
+| 0015 | **Reproduce Apollo's test protocol** — Apollo and Apollo → εar-VAE scored on the 50 held-out MUSDB18-HQ test mixtures at six bitrates with the authors' own preprocessing, codec and metrics; their codec leaves some MP3s 25 ms late, fixed here with a Hann taper |
 | 0009 | **SDEdit solver: built, measured, rejected** — the prior keeps anything plausible; harness, fork and findings remain |
 | 0010 | Listen in the browser with trackswitch — the demo pages and their level-match gate |
