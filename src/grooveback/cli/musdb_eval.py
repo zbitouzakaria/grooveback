@@ -8,7 +8,7 @@ rescaled by their joint peak as in their data module, and Apollo restores the
 MP3 in one pass, as their test.py does. Apollo's output and the untouched MP3
 are scored against the clean session with the paper's SDR and SI-SNR
 (look2hear/metrics/wrapper.py). The released checkpoint was not trained on
-these songs.
+these songs (JusperLee/Apollo#46).
 """
 
 from __future__ import annotations
