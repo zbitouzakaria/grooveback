@@ -1,12 +1,14 @@
 """Score Apollo on MP3 twins of the MUSDB18-HQ test mixtures.
 
-    uv run python -m grooveback.cli.musdb_eval musdb18hq/test scores.csv --kbps 24
+    uv run python -m grooveback.cli.musdb_eval musdb18hq/test scores.csv --kbps 24 --earvae
 
 Each test mixture is cut into 6 s sessions, each session is MP3-compressed,
-Apollo restores the MP3, and both the MP3 and Apollo's output are scored
-against the clean session with the paper's SDR and SI-SNR. Every step follows
-the authors' released code; each function names its source. The released
-checkpoint was not trained on these songs (JusperLee/Apollo#46).
+and Apollo restores the MP3. The MP3, Apollo's output and, with `--earvae`,
+Apollo's output after an εar-VAE round trip are scored against the clean
+session with the paper's SDR and SI-SNR, and with spectral SNR and
+log-spectral distance (ADR-0007). Every step follows the authors' released
+code; each function names its source. The released checkpoint was not trained
+on these songs (JusperLee/Apollo#46).
 """
 
 from __future__ import annotations
@@ -19,8 +21,15 @@ import numpy as np
 import soundfile as sf
 import torch
 
+from grooveback import latents as gl
 from grooveback.baselines import load_apollo, run_apollo
-from grooveback.evaluation import bss_sdr_db, bss_si_sdr_db
+from grooveback.evaluation import (
+    bss_sdr_db,
+    bss_si_sdr_db,
+    log_spectral_distance_db,
+    spectral_snr_db,
+)
+from grooveback.solvers import roundtrip
 
 SR = 44_100
 CLIP_SAMPLES = 6 * SR
@@ -57,6 +66,14 @@ def codec_simu(clip: np.ndarray, kbps: int) -> np.ndarray:
     replaced by `kbps`: sox MP3 and back to `clip`'s length, the shortfall
     filled from the clean clip, then rolled by the lag their phase-transform
     cross-correlation finds on the first channel.
+
+    One change: both signals are tapered with a Hann window before the
+    correlation. Untapered, the jump from a clip's last sample back to its
+    first sits at lag 0 in both the clean clip and the MP3. The phase transform
+    weights that jump like the music, and above the MP3's cut-off it is all the
+    MP3 holds, so on low-bitrate clips with loud edges `match2` returned lag 0
+    and left the MP3 1,105 samples late (2.5% of the MUSDB18-HQ test clips at
+    24 kbps).
     """
     import torchaudio
 
@@ -66,7 +83,8 @@ def codec_simu(clip: np.ndarray, kbps: int) -> np.ndarray:
         coded = coded[..., : wav.shape[-1]]
     else:
         coded = torch.cat([coded, wav[..., coded.shape[-1] :]], -1)
-    phi = torch.fft.rfft(coded, dim=-1) * torch.fft.rfft(wav, dim=-1).conj()
+    window = torch.hann_window(wav.shape[-1], periodic=False)
+    phi = torch.fft.rfft(coded * window, dim=-1) * torch.fft.rfft(wav * window, dim=-1).conj()
     phi = phi / (phi.abs() + 1e-3)
     phi[:, 0] = 0
     lag = int(torch.argmax(torch.fft.irfft(phi, dim=-1).abs(), dim=-1)[0])
@@ -79,13 +97,15 @@ def mixtures(musdb_test: Path) -> list[Path]:
     )
 
 
-def evaluate(musdb_test: Path, *, kbps: int, model) -> list[dict]:
-    """SDR and SI-SNR of the model's restoration and of the untouched MP3, per session.
+def evaluate(musdb_test: Path, *, kbps: int, model, earvae=None) -> list[dict]:
+    """Per session, SDR, SI-SNR, spectral SNR and LSD of the untouched MP3
+    (`input`), of the model's restoration (`apollo`) and, given εar-VAE, of
+    that restoration after an εar-VAE round trip (`apollo_earvae`, ADR-0011).
 
     Sources in Apollo's repository: both signals are divided by their joint
     peak as in `MusdbMoisesdbDataset.__getitem__`
     (look2hear/datas/musdb_moisesdb_datamodule.py), the model restores each
-    whole session in one pass as in test.py, and the metrics are those of
+    whole session in one pass as in test.py, and SDR and SI-SNR are those of
     look2hear/metrics/wrapper.py.
     """
     rows = []
@@ -98,14 +118,18 @@ def evaluate(musdb_test: Path, *, kbps: int, model) -> list[dict]:
             peak = max(np.abs(clean).max(), np.abs(codec).max())
             clean, codec = clean / peak, codec / peak
             restored = run_apollo(codec, SR, model=model, chunk_seconds=None)
-            rows.append({
-                "track": path.parent.name,
-                "start": start,
-                "input_sdr": bss_sdr_db(clean, codec),
-                "input_si_snr": bss_si_sdr_db(clean, codec),
-                "apollo_sdr": bss_sdr_db(clean, restored),
-                "apollo_si_snr": bss_si_sdr_db(clean, restored),
-            })
+            outputs = {"input": codec, "apollo": restored}
+            if earvae is not None:
+                outputs["apollo_earvae"] = roundtrip(earvae, restored, SR, ae="earvae")
+            row = {"track": path.parent.name, "start": start}
+            for name, output in outputs.items():
+                row |= {
+                    f"{name}_sdr": bss_sdr_db(clean, output),
+                    f"{name}_si_snr": bss_si_sdr_db(clean, output),
+                    f"{name}_spectral_snr": spectral_snr_db(clean, output),
+                    f"{name}_lsd": log_spectral_distance_db(clean, output),
+                }
+            rows.append(row)
         print(f"{path.parent.name}: {len(starts)} clips", flush=True)
     return rows
 
@@ -118,20 +142,28 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("csv", type=Path)
     parser.add_argument("--kbps", type=int, default=24)
     parser.add_argument("--device", default="auto")
+    parser.add_argument("--earvae", action="store_true", help="also score Apollo → εar-VAE")
     args = parser.parse_args(argv)
     if not mixtures(args.musdb_test):
         parser.error(f"no {{track}}/mixture.wav or .flac under {args.musdb_test}")
 
-    rows = evaluate(args.musdb_test, kbps=args.kbps, model=load_apollo(device=args.device))
+    rows = evaluate(
+        args.musdb_test,
+        kbps=args.kbps,
+        model=load_apollo(device=args.device),
+        earvae=gl.load_ae("earvae", device=args.device) if args.earvae else None,
+    )
     args.csv.parent.mkdir(parents=True, exist_ok=True)
     with args.csv.open("w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=list(rows[0]))
         writer.writeheader()
         writer.writerows(rows)
-    for name in ("input", "apollo"):
-        sdr = np.mean([row[f"{name}_sdr"] for row in rows])
-        si_snr = np.mean([row[f"{name}_si_snr"] for row in rows])
-        print(f"{name}: SDR {sdr:.2f} dB, SI-SNR {si_snr:.2f} dB over {len(rows)} clips")
+    for name in ["input", "apollo"] + (["apollo_earvae"] if args.earvae else []):
+        means = ", ".join(
+            f"{metric} {np.mean([row[f'{name}_{metric}'] for row in rows]):.2f} dB"
+            for metric in ("sdr", "si_snr", "spectral_snr", "lsd")
+        )
+        print(f"{name}: {means} over {len(rows)} clips")
 
 
 if __name__ == "__main__":
