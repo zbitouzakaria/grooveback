@@ -21,9 +21,9 @@ so its 50 songs are a held-out test for Apollo, and later for this project's own
 
 ## Decision
 
-`python -m grooveback.cli.musdb_eval musdb18hq/test scores.csv --kbps K --earvae` scores, per clip, the untouched MP3,
-Apollo, and Apollo → εar-VAE (Apollo's output after an εar-VAE round trip, ADR-0011). Each step is ported from the
-authors' released code:
+`python -m grooveback.cli.musdb_eval musdb18hq/test scores.csv --kbps K --ae earvae` scores, per clip, the untouched
+MP3, Apollo, εar-VAE's round trip of the MP3, and Apollo → εar-VAE (Apollo's output after an εar-VAE round trip,
+ADR-0011). Each step is ported from the authors' released code:
 
 - 6 s clips of each mixture with a 3 s hop, kept by the authors' loudness filter (`VAD` in Apollo-data-preprocess's
   `musdb_preprocess.py`): 3,677 clips, the same at every bitrate;
