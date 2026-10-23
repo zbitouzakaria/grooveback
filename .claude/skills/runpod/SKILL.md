@@ -68,6 +68,12 @@ uv pip install --python /workspace/venv/bin/python \
 `--system-site-packages` is the load-bearing flag: it lets the venv see the image's torch so only the missing
 packages are fetched.
 
+But uv does not count the image's packages as installed. A package that depends on torch (descript-audio-codec,
+for one) makes uv install the newest torch into the venv, which then hides the image's: torch 2.14 came in over the
+image's 2.8, and its torchaudio no longer has `apply_codec`. After installing, remove it with
+`uv pip uninstall --python /workspace/venv/bin/python torch torchaudio` and check that `torch.__version__` is the
+image's.
+
 Avoid `uv sync --frozen` on a pod. It follows the project lockfile, which pins its own torch, so it re-downloads
 ~4 GB of torch and CUDA wheels the image already has — over half an hour, against 5 seconds for inheriting. Install
 the handful of missing packages explicitly instead of syncing an environment.
