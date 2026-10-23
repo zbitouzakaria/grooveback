@@ -35,8 +35,7 @@ holes, the dropped quiet parts, appear below the cut-off too.
 
 ![Spectrograms of 6 s of an electronic track: the master, its MP3 at 128 kbps, and its MP3 at 32 kbps](docs/assets/mp3-spectrograms.png)
 
-At 128 kbps, the lost precision below the cut-off is too fine to see in this picture. As we show below, it is still most
-of the damage.
+At 128 kbps, the lost precision below the cut-off is too fine to see in this picture.
 
 A rip from YouTube was compressed at least twice: once by the person who uploaded it, and again by YouTube, which serves
 its standard streams as roughly 128 kbps AAC or Opus ([YouTube audio formats](#ref-ytformats)).
@@ -55,13 +54,11 @@ clean track that matches the rip. Only the solver knows about the damage, so a n
 crackle, means changing the solver, not retraining the prior
 ([ADR-0004](docs/decisions/0004-restoration-as-a-latent-inverse-problem.md)).
 
-We have not trained the prior yet. First we measured what the existing tools do, and that is what the rest of this page
+We have not trained the prior yet. First we measured what the existing tools do, and that is what the next section
 reports. Each finding links to its decision record (ADR), a short write-up of the experiment and its evidence, in
 [`docs/decisions/`](docs/decisions/).
 
 ## What we found
-
-### Apollo beats A2SB on heavy damage, but neither changed how our 128 kbps rip sounds
 
 We started with two models that anyone can download and run ([ADR-0006](docs/decisions/0006-baseline-findings.md)):
 [Apollo](#ref-apollo), a neural network trained to repair MP3-compressed music, and [A2SB](#ref-a2sb), which fills in
@@ -71,13 +68,14 @@ studio headphones, with every track at the same loudness, because a louder track
 
 On the 6 s clip, Apollo won clearly: it put back a full hi-hat where A2SB added a click. On the 128 kbps rip, both
 models filled the band above its cut-off (15.75 kHz here; the exact cut-off depends on the encoder), yet the MP3, Apollo
-and A2SB all sounded the same on headphones. We have not yet compared them on speakers, where the damage is easiest to
-hear. Apollo also runs faster than real time on a laptop and keeps left and right separate. A2SB works in mono only, and
-took about 35 minutes for the 7.6-minute track on an A100 GPU.
+and A2SB all sounded the same on headphones. We have not yet compared them on speakers. Apollo also runs faster than
+real time on a laptop and keeps left and right separate. A2SB works in mono only, and took about 35 minutes for the
+7.6-minute track on an A100 GPU.
 
-We also have a clean version of Apollo's test clip. The picture below shows the same contrast on our own 32 kbps MP3 of
-it, from our listening page, rather than on the damaged copy we listened to. Apollo fills the top band and the holes
-below the cut-off. A2SB adds short bursts above the cut-off and leaves the holes.
+Apollo's authors ship their test clip already damaged; we also have a clean version of it. So that the picture below can
+show the master too, it uses our own 32 kbps MP3 of the clean version, the same as on our listening page. In the
+picture, Apollo fills the top band and the holes below the cut-off, while A2SB adds short bursts above the cut-off and
+leaves the holes.
 
 ![Spectrograms of a 6 s clip: the master, its MP3 at 32 kbps, Apollo's restoration, and A2SB's restoration](docs/assets/restorations-32k.png)
 
@@ -85,158 +83,61 @@ We also tried [SonicMaster](#ref-sonicmaster), which takes a typed instruction, 
 it adds extra kick drums on electronic music, even when the instruction says not to
 ([ADR-0005](docs/decisions/0005-baselines-and-prior-viability-on-real-library-material.md)).
 
-### At 64 kbps and above, most of the damage is inside the band the MP3 keeps
+### Stable Audio 3's clips hold detail for an MP3 to remove
 
-For real rips we rarely have the master, and when we do, the rip starts at a different moment and often comes from a
-different master. So we made our own test material: MP3 copies of clean tracks at known bitrates, scored against the
-master ([ADR-0007](docs/decisions/0007-benchmark-codec-restoration.md), extended in
-[ADR-0011](docs/decisions/0011-benchmark-autoencoder-roundtrips-and-mean-damage-subtraction.md)). Each copy is encoded
-once. A YouTube rip is encoded at least twice, so these results describe the easier case.
-
-The score here is SDR (signal-to-distortion ratio): how much stronger the master is than the track's difference from it,
-sample by sample, in dB. Higher is better, and every 10 dB means ten times less error energy. On a 12 s excerpt of "Nice
-One", the 64 kbps MP3 keeps nothing above 11 kHz. The master with only that band removed still scores 27 dB against the
-full master, so if the missing band were the only damage, the MP3 would score about 27 dB too. It scores 17.6 dB: the
-missing band holds only about a tenth of the MP3's error energy, and the other nine tenths are inside the band it keeps.
-At 128 and 192 kbps the share inside the kept band is larger still. So a restorer that only fills the top band, like
-A2SB, cannot gain much at these bitrates. At 32 kbps the cut-off falls to 5.5 kHz and the missing band matters more; we
-did not measure that case.
-
-### No method gets closer to the master than the MP3 on waveform scores
-
-There are two families of scores. Waveform scores, such as SDR, compare the restored audio with the master sample by
-sample. Spectrum scores, such as the log-spectral distance (LSD, lower is better), compare only how much energy each
-frequency has over time, as a spectrogram shows it. A restorer invents detail, and invented detail never lines up
-exactly with the master, so waveform scores punish it. As expected, no method got closer to the master than the
-untouched MP3 on the waveform scores, on any of our benchmark tracks at any bitrate, while the spectrum scores, LSD
-above all, did reward restoration. A score can tell us that something broke, but not that something sounds better. Only
-listening can judge that.
-
-### MP3 removes about as much from Stable Audio 3's clips as from a master
-
-Our plan depends on Stable Audio 3, so we checked whether it generates the fine detail a real master has
-([ADR-0008](docs/decisions/0008-sa3-generation-probe.md)). Stable Audio 3 comes in a small and a medium model, each in a
-fast and a slow version. A generated clip has no master to compare with, so we compressed each clip to MP3 and scored
-the MP3 against the clip. A clip without fine detail would lose little and score high, so here a lower score means more
-detail. At 64 kbps, clips from the four music versions score 10.3 to 21.3 dB, on both sides of the 17.6 dB that the
-master excerpt's MP3 scores. So the clips hold detail for an MP3 to remove. This is one prompt and three random seeds:
-it does not show that they sound like a master.
+Our plan depends on [Stable Audio 3](#ref-sa3), and a prior that cannot generate fine detail cannot put it back. So we
+checked whether its music models generate the fine detail a master has
+([ADR-0008](docs/decisions/0008-sa3-generation-probe.md)). We compressed their clips to 64 kbps MP3 and scored each MP3
+against its clip with SDR (signal-to-distortion ratio), a score in dB of how close two recordings are, sample by sample.
+A higher score means the MP3 lost less, so a clip without fine detail would score high. Averaged over three random runs,
+the four music models score between 10.3 and 21.3 dB, and a 64 kbps MP3 of a real master, an excerpt of "Nice One",
+scores 17.6 dB, inside that range. So the models generate about as much detail for an MP3 to remove as a real master
+has. This is one prompt: it does not show that they sound like a master.
 
 ### SDEdit keeps the damage it should remove
 
-Stable Audio 3 generates music by removing noise in many small steps, starting from pure noise. Our first method,
-[SDEdit](#ref-sdedit) on the medium model, uses that: it adds some noise to the MP3 and lets the model remove it, in the
-hope that the codec damage goes with it ([ADR-0009](docs/decisions/0009-sdedit-as-the-first-solver.md)). It did not. To
-the model, music with its top band missing is still plausible music, so it keeps it. No setting filled the band above
-the cut-off. When we filled that band with noise first, the model kept the noise instead of turning it into music. A
-second variant added no noise, but told the model the MP3 was already partly noise, so that it would remove the damage
-as if it were noise. It kept the damage too.
-
-The numbers show why. Stable Audio 3 works on a compressed summary of the audio, its latent space, rather than on the
-samples. In that space, the MP3 damage is as large as noise at level 0.54 to 0.80, depending on the track and bitrate,
-on a scale from 0 (no noise) to 1 (pure noise). To remove the damage, SDEdit must add at least that much noise, but
-above 0.25 the model starts to change the music itself, not just the damage. We rejected SDEdit.
+Our first method was [SDEdit](#ref-sdedit) with Stable Audio 3's medium model
+([ADR-0009](docs/decisions/0009-sdedit-as-the-first-solver.md)). It adds noise to the MP3 and lets the model remove it,
+in the hope that the codec damage goes with it. It did not: to the model, music with its top band missing is still
+plausible music, so it keeps it, and no setting filled the missing band. Removing the damage would take more noise than
+the model can handle before it starts changing the music itself. We rejected SDEdit. This used the public model, not our
+trained prior, so we will test it again once the prior exists.
 
 ### Running εar-VAE after Apollo helps on heavy damage, by ear
 
-An autoencoder is the pair of networks that makes such a latent space: an encoder compresses audio into a much shorter
-list of numbers, the latents, and a decoder turns them back into audio. One trained on clean music might return a
-cleaner track from a round trip through both. We tested four open music autoencoders: [SAME-L](#ref-same) (used by
-Stable Audio 3's medium model), [εar-VAE](#ref-earvae), [εar-VAE2](#ref-earvae2) and [CoDiCodec](#ref-codicodec)
-([ADR-0011](docs/decisions/0011-benchmark-autoencoder-roundtrips-and-mean-damage-subtraction.md)).
+Next we tried four open autoencoders, networks that compress audio into a much shorter list of numbers and rebuild it.
+One trained on clean music tends to rebuild what it hears as clean music, so it might clean an MP3 on the way through.
+We tried [SAME-L](#ref-same), [εar-VAE](#ref-earvae), [εar-VAE2](#ref-earvae2) and [CoDiCodec](#ref-codicodec)
+([ADR-0011](docs/decisions/0011-benchmark-autoencoder-roundtrips-and-mean-damage-subtraction.md)). We passed the MP3, or
+Apollo's output, through each one and back, and tried a damage subtraction that removes the average change an MP3 makes
+to those numbers.
 
-We tried three uses at 32, 64 and 128 kbps, on the clean version of Apollo's test clip and on 3-minute excerpts of two
-other tracks, one of them "Nice One". The first is a round trip of the MP3. The second is a round trip of Apollo's
-output, written Apollo → εar-VAE when the autoencoder is εar-VAE. The third, damage subtraction, works like a correction
-EQ: on a track whose master we have, we measure how MP3 shifts the latents on average over time, then shift the latents
-of the MP3 we want to restore back by the same amount. We measure the shift on a different track because a real rip has
-no master.
+By ear, Apollo → εar-VAE, Apollo's output passed through εar-VAE, is the best on heavy damage: it beats Apollo alone at
+32 kbps, the verdict is split at 64 kbps, and it loses at 128 kbps. The εar-VAE damage subtraction is also worth
+keeping; plain round trips of the MP3 sounded worse than these two. Every score we computed, SDR included, rates Apollo
+→ εar-VAE below Apollo alone at every bitrate. A score shows how far a restoration is from the master, not whether it
+sounds better, so here we trust the ear. Our listening is not blind yet: we knew which track was which. Whether any
+method makes a 128 kbps MP3, the bitrate of a typical rip, sound better than it already does is still open.
 
-By ear, two of these were worth keeping: Apollo → εar-VAE and the εar-VAE damage subtraction. The rest, every plain
-round trip included, sounded worse than these two. We have not ranked the damage subtraction against Apollo alone.
-Apollo → εar-VAE beats Apollo alone at 32 kbps, ties with it at 64 kbps, and loses at 128 kbps, where Apollo alone
-sounds closer to the master. To our ears, εar-VAE's decoder smooths Apollo's output: at 32 kbps this removes flaws
-Apollo adds, and at 128 kbps, where Apollo adds few, it moves the sound away from the master. We have not measured this.
+### The Apollo benchmark
 
-At 32 kbps the scores disagree with the ear: they rate Apollo → εar-VAE below Apollo alone, for example an LSD of 11.2
-against 10.4 dB (lower is better) on "Nice One". We trust the ear here, because a score can show that something broke,
-not that something sounds better. The damage subtraction improves the spectrum score almost everywhere, but not the
-waveform score. We measured its shift on one track only, and on another artist's track at 128 kbps it overcorrects. We
-knew which track was which while listening; a blind test, which hides the names, has not been done.
+Scores cannot tell us what sounds better, but they are how published work compares methods. Apollo is our baseline, so
+we also score it with its authors' own code and protocol
+([ADR-0015](docs/decisions/0015-reproduce-apollo-test-protocol.md)): on 6 s clips of the 50 test songs of MUSDB18-HQ, a
+public research dataset, compressed to MP3 at 24 to 128 kbps. According to [Apollo's
+maintainer](https://github.com/JusperLee/Apollo/issues/46#issuecomment-6281774888), the released model was not trained
+on these songs. On the same clips at 24 kbps, our evaluation gives the same average scores as the authors' own
+evaluation script. We also fixed a bug in their MP3 simulation that left 2.5% of the 24 kbps clips 25 ms late; the
+scores compare sample by sample, so a 25 ms shift lowers them sharply.
 
-### On public test songs too, the scores rate Apollo → εar-VAE below Apollo
+![SDR, SI-SNR, spectral SNR and LSD per MP3 bitrate on the 50 MUSDB18-HQ test songs, for Apollo and the untouched MP3](docs/assets/apollo-musdb.png)
 
-To compare with other work, we scored methods the way Apollo's authors did, on 6 s clips with MP3 at 24 to 128 kbps
-([ADR-0015](docs/decisions/0015-reproduce-apollo-test-protocol.md)). Their scores are two waveform scores, SDR and
-SI-SNR (a version of SDR that ignores overall volume); we added two spectrum scores, LSD and spectral SNR (higher is
-better). We used MUSDB18-HQ, a public research dataset of 150 songs, 50 of which are set aside for testing; according to
-[Apollo's maintainer](https://github.com/JusperLee/Apollo/issues/46#issuecomment-6281774888), the released model was not
-trained on those 50. On these songs, Apollo → εar-VAE scores worse than Apollo on all four scores at every bitrate, and
-its scores barely change with bitrate. These are not house and minimal tracks, and we did not listen to them.
-
-![SDR, SI-SNR, spectral SNR and LSD per MP3 bitrate on the 50 MUSDB18-HQ test songs](docs/decisions/assets/0015/bitrates.png)
-
-The dotted line is Apollo's result as published, on a different test set, and is not comparable with the solid lines.
-With the authors' code as released, their evaluation script and ours give the same average scores on the same 3,677
-clips at 24 kbps. We also found and fixed a bug in their MP3 simulation: it left 2.5% of the 24 kbps clips 25 ms late,
-which let a method gain score just by shifting the MP3 back into place. The figure uses the fixed version.
-
-## Where this leaves us
-
-The case that started this project is still open. Our gains are at 32 kbps, far below a typical rip: there, by ear,
-Apollo → εar-VAE is our best restorer. At 128 kbps, Apollo alone sounds closer to the master than Apollo → εar-VAE on
-our MP3 copies, but whether any method makes a 128 kbps MP3 sound better than it already does is still open: on the one
-real rip we tried, neither Apollo nor A2SB made an audible difference on headphones. The scores rate Apollo alone above
-Apollo → εar-VAE at every bitrate.
-
-What comes next:
-
-- **The prior.** Train Stable Audio 3 further on the 215-hour library
-  ([ADR-0004](docs/decisions/0004-restoration-as-a-latent-inverse-problem.md)). It generates in the latent space of
-  SAME, so everything it makes passes through SAME's decoder, and a plain round trip through SAME-L was not among the
-  methods we kept by ear. That does not rule the plan out: in a round trip, SAME's encoder chooses the latents, while
-  the prior will choose its own, and they can sound better through the same decoder.
-- **A solver that stays close to the MP3.** SDEdit let the model drift from the input. The next solver checks, at each
-  step, that the output still matches the MP3, in the line of [DPS](#ref-dps), [DAPS](#ref-daps) and
-  [LOUDAR](#ref-loudar). Stable Audio 3's slow version, which removes noise in 50 steps, is easier to steer this way
-  than the fast one, which takes 8, but we prefer the fast one by ear, so the first choice is between them.
-- **The same evaluation.** Every new method is scored on MUSDB18-HQ and heard on the listening pages, against Apollo and
-  Apollo → εar-VAE.
-
-## How we listen and measure
-
-Every listening set is first brought to the same loudness, −14 LUFS on a standard loudness scale, then, if needed,
-lowered by one shared amount so that no peak goes above 1 dB below the loudest level a file can hold. We listen in
-browser pages built on [trackswitch.js](https://github.com/audiolabs/trackswitch.js), which switch between tracks
-without restarting playback ([ADR-0010](docs/decisions/0010-listen-in-the-browser-with-trackswitch.md)). Scores are
-measured against the master. Tests catch bugs that produce worse audio without an error message: a stand-in model that
-returns its input unchanged must come out of the full pipeline unchanged, and every evaluation also scores the untouched
-MP3.
-
-## Running it
-
-```bash
-git clone --recurse-submodules https://github.com/zbitouzakaria/grooveback.git
-cd grooveback
-uv sync --all-groups   # Python 3.12 or later; stable-audio-3 pins torch to 2.7.1
-uv run pytest
-```
-
-- `uv run python -m grooveback.cli.baseline INPUT OUTPUT --method apollo` restores one 44.1 kHz file with Apollo, or
-  with A2SB (`--method a2sb --device cuda`).
-- `uv run python -m grooveback.cli.musdb_eval musdb18hq/test scores.csv --kbps 24 --earvae` scores one bitrate of the
-  MUSDB18-HQ protocol; download the dataset to `musdb18hq/` first. All six bitrates take about an hour on one H100.
-- `uv run python scripts/run_xp.py device=cuda` runs our MP3 benchmark. Its source tracks live in `data/`, which is not
-  in the repository.
-- `uv run python -m grooveback.cli.run model=roundtrip input=INPUT output_dir=DIR` runs a solver through
-  [Hydra](https://hydra.cc): `roundtrip`, `sdedit`, or `latent-sub`, which needs a damage vector from `run_xp.py`.
-- After `run_xp.py`, `uv run --group notebooks python scripts/publish_listen.py` rebuilds the listening page in
-  `docs/listen/` from its renders, replacing the old page.
-
-A2SB runs from its own clone and environment, because its dependencies conflict with ours:
-`git clone -b runnable-anywhere https://github.com/zbitouzakaria/diffusion-audio-restoration.git third_party/a2sb`,
-then `./setup.sh` inside it. The Stable Audio 3 checkpoints are gated on Hugging Face: accept their license and export
-`HF_TOKEN`. The MP3 benchmark needs ffmpeg with libmp3lame, and the MUSDB18-HQ protocol needs sox with MP3 support.
+SDR and SI-SNR (scale-invariant signal-to-noise ratio, which ignores overall volume) are the authors' scores; higher is
+better. Spectral SNR (higher is better) and the log-spectral distance (LSD, lower is better) are ours: they compare only
+how much energy each frequency has over time, as a spectrogram shows it. The grey line scores the untouched MP3 the same
+way. The dotted line is Apollo as published, on a different test set, and is not comparable with the solid lines.
+Apollo's SDR rises from 11.9 dB at 24 kbps to 19.1 dB at 128 kbps: these are the numbers we will compare our own methods
+with.
 
 ## Related work
 
