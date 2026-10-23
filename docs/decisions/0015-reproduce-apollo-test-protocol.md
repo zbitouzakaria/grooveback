@@ -88,7 +88,8 @@ every MP3 at every bitrate is within one sample of its clean clip (figure). Zero
 
 The MP3 delay is the same 1,105 samples on every clip, so a constant shift would also align it. The lag search is kept
 because it needs no known delay: other codecs such as AAC and Opus, and chains such as MP3 then AAC, each have their
-own.
+own. These formats also record their delay in the file, and ffmpeg removes it when decoding: a 6 s noise clip through
+ffmpeg came back at lag 0 for MP3, AAC, Opus and MP3 then AAC. A codec path through ffmpeg would not need the search.
 
 ## Consequences
 
