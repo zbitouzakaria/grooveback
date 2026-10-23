@@ -86,6 +86,10 @@ The fix applies the Hann window to both signals for the lag search only; the MP3
 every MP3 at every bitrate is within one sample of its clean clip (figure). Zero-padding instead fixes only 32 of the
 95 misaligned clips at 24 kbps, because the padding makes new edges.
 
+The MP3 delay is the same 1,105 samples on every clip, so a constant shift would also align it. The lag search is kept
+because it needs no known delay: other codecs such as AAC and Opus, and chains such as MP3 then AAC, each have their
+own.
+
 ## Consequences
 
 - The 50 test mixtures at six bitrates are the project's held-out score for Apollo and for later methods. Another
