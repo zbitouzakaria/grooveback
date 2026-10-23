@@ -47,5 +47,6 @@ the source of truth stays obvious.
 | 0010 | Listen in the browser with trackswitch.js — the A/B instrument behind `demo/` |
 | 0011 | **Autoencoder round-trips and mean damage subtraction** — four open autoencoders at 32/64/128k, the damage-direction formula, chains as solvers |
 | 0015 | **Reproduce Apollo's test protocol** — Apollo and Apollo → εar-VAE scored on the 50 held-out MUSDB18-HQ test mixtures at six bitrates with the authors' own preprocessing, codec and metrics; their codec leaves some MP3s 25 ms late, fixed here with a Hann taper |
+| 0016 | AudioSR, A2SB, εar-VAE and εar-VAE2 on 50 of the MUSDB18-HQ test clips — none scores above the untouched MP3 on SDR; AudioSR rewrites part of the band the MP3 kept; `musdb_eval --clips` draws them, `--render` scores renders made in other environments |
 | 0009 | **SDEdit solver: built, measured, rejected** — the prior keeps anything plausible; harness, fork and findings remain |
 | 0010 | Listen in the browser with trackswitch — the demo pages and their level-match gate |

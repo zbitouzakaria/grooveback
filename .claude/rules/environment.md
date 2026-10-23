@@ -4,13 +4,14 @@ uv, Python 3.12. `uv sync --all-groups`, `uv run pytest`.
 
 ## Third-party models
 
-Two are vendored, one is a dependency. **torch is pinned to 2.7.1 project-wide
+Some are vendored, some are dependencies, and two run in their own environments. **torch is pinned to 2.7.1 project-wide
 by stable-audio-3** — see ADR-0007.
 
 | model | location | called by |
 |---|---|---|
 | Apollo | `third_party/apollo` (git submodule) | imported directly; chunking and its tests live in the fork |
-| A2SB | `third_party/a2sb` (gitignored clone, fork branch `runnable-anywhere`, own venv) | `baselines.run_a2sb` → its `restore.py`, behind a subprocess — its pins genuinely conflict |
+| A2SB | `third_party/a2sb` (gitignored clone, fork branch `runnable-anywhere`, own venv) | `baselines.run_a2sb` → its `restore.py`, behind a subprocess — its pins genuinely conflict; `scripts/a2sb_restore.py` restores a directory of clips in one run |
+| AudioSR | pip package `audiosr` 0.0.7 in its own venv at `third_party/audiosr/.venv` (gitignored, built by `scripts/audiosr_setup.sh`) | `scripts/audiosr_restore.py`, run with that venv's python — its pins conflict too |
 | SAME | `stable-audio-3`, a git dependency pinned by commit in `pyproject.toml` | `grooveback.latents`, in-process |
 | εar-VAE | `third_party/earvae` (git submodule; deps in group `aes`) | `grooveback.latents` registry, in-process |
 | εar-VAE2 | `third_party/earvae2` (git submodule) | `grooveback.latents` registry, in-process |
