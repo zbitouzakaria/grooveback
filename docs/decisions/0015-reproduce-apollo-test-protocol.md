@@ -41,18 +41,20 @@ Departures from the released code and the paper:
   test set. An earlier version rebuilt them from the test stems with the authors' training mixer, and was dropped
   along with MoisesDB.
 
-### Exactness gates
+### Checks against the authors' code
 
-Measured with `codec_simu` as released, before the fix.
+Each check runs one step of `musdb_eval` and the authors' own code, or their published files, on the same input, and
+compares the results. All use `codec_simu` as released, before the fix.
 
-- **Model and metrics.** Apollo run here on the authors' three 24 kbps demo inputs gives outputs within 76–80 dB SNR of
-  their published outputs, with the same SDR and SI-SNR to two decimals.
-- **Codec.** On the same three clips, `codec_simu` gives the same cut-off as their MP3, and the same SDR against the
-  clean clip to within 0.2 dB, once their one MP3 that is one sample late is shifted back.
-- **Clips.** The authors' unmodified `musdb_preprocess.py` (Apollo-data-preprocess at `bb37a7b`) cuts the same 3,677
-  clips as `musdb_eval`, identical sample for sample.
-- **Their evaluation.** The authors' `test.py` and metric code (Apollo at `b17bf53`), on the same clips at 24 kbps,
-  give the same means as `musdb_eval`: SDR 11.889 dB against 11.891 dB, SI-SNR 10.368 dB for both.
+- **Apollo.** The authors publish three 24 kbps example MP3s with Apollo's output. Our Apollo, run on those MP3s, gives
+  the same outputs (76–80 dB SNR between theirs and ours), and the same SDR and SI-SNR to two decimals.
+- **MP3.** Our `codec_simu`, run on the clean versions of those three examples, gives MP3s with the same frequency
+  cut-off as theirs, and an SDR against the clean clip within 0.2 dB of theirs. One of their MP3s is one sample late;
+  it is compared after shifting it back.
+- **Clips.** The authors' preprocessing script (Apollo-data-preprocess at `bb37a7b`), run unchanged on the 50 test
+  songs, cuts exactly the same 3,677 clips as `musdb_eval`, sample for sample.
+- **Scores.** The authors' evaluation script, `test.py` (Apollo at `b17bf53`), run on the same clips at 24 kbps, gives
+  the same average scores as `musdb_eval`: SDR 11.889 dB for theirs and 11.891 dB for ours, SI-SNR 10.368 dB for both.
 
   ![test.py minus musdb_eval, per clip](assets/0015/test-py-agreement.png)
 
