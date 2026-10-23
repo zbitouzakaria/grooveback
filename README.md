@@ -1,193 +1,202 @@
 # grooveback
 
-**Restoring records that survive only as MP3/AAC/Opus rips.**
+**Restoring records that survive only as MP3, AAC or Opus rips.**
 
-🎧 **[Listen to the demo](https://zbitouzakaria.github.io/grooveback/listen/)** — *εar-VAE(Apollo(input)), our
-first contribution beyond evaluating the literature, sounds cleaner than the state of the art on really degraded
-inputs (32 kbps MP3).*
+**[Listen to the results](https://zbitouzakaria.github.io/grooveback/listen/)**: clean tracks, their MP3 copies, and
+the restorations described below.
 
-As a DJ and listener, I keep running into the same problem: records I love that only exist, now, as rips from
-YouTube. Someone played their vinyl through an imperfect rig, compressed the transfer to 128 or 192 kbps MP3, and
-uploaded it; YouTube then re-encoded that to AAC or Opus. The result is double lossy compression, stacked on whatever
-the turntable and capture already did. On laptop speakers the rips are fine. On a decent system they fall apart:
-smeared transients, no air in the top end, a generally flat and tired sound that makes everything around them in the
-library sound better by contrast.
+As a DJ and listener, I keep running into the same problem: records I love that now exist only as rips on YouTube. A rip
+is a copy someone made of their own record. They played the vinyl through an imperfect turntable setup, saved the
+recording as a 128 or 192 kbps MP3, and uploaded it. YouTube then compressed it again, to AAC or Opus. On laptop
+speakers the rips sound fine. On a good sound system the damage is easy to hear: drum hits lose their sharp edge, the
+shimmer of the cymbals is gone, and the track sounds flat and tired next to the rest of the library.
 
-## Introduction
+This project tries to restore them, starting with electronic music: old-school house, minimal, and nearby genres.
 
-This project aims to restore music recordings that survive only as lossy-codec rips. The target material is
-electronic music — old-school house, minimal, and adjacent genres.
+## What an MP3 throws away
 
-Restoration under these conditions is not exact signal recovery. Psychoacoustic masking, bandwidth truncation, and
-analog transfer noise discard information irreversibly, so a generative restorer must invent what is gone. The output is therefore a *plausible* reconstruction — structurally coherent with the input and
-perceptually convincing, but not guaranteed faithful to the original master.
+Sound is a mix of frequencies: low ones for the bass and the kick drum, high ones for hi-hats and cymbals. People hear
+from about 20 Hz to 20 kHz, that is, from 20 to 20,000 vibrations per second. A CD stores the sound wave as a long list
+of numbers, 44,100 per second for each of the two stereo channels; each number is a sample. That makes 1,411 kilobits of
+data per second (1,411 kbps). An MP3 at 128 kbps stores about a tenth of that, and one at 32 kbps less than a fortieth.
 
-We evaluate the existing literature on this material first and keep what survives. A genre-specific generative prior
-adapted from [Stable Audio 3](#ref-sa3), with the degradation handled at inference, is the path we will explore once
-the existing methods are exhausted
-([restoration with a generative prior](docs/decisions/0004-restoration-as-a-latent-inverse-problem.md)).
+To fit, the encoder, the program that compresses the audio, drops what the ear is least likely to miss, much as JPEG
+does for photos. It removes every frequency above a cut-off, the top band. It stores the rest with less precision, which
+blurs short, sharp sounds such as a drum hit, and when it runs short of data it drops quiet parts entirely. This is
+lossy compression: decoding the file cannot bring back what was dropped. MP3, AAC and Opus all drop what the ear is
+least likely to miss; each is a codec, short for coder-decoder.
+
+The picture below shows this on 6 s of an electronic track, Aerofunk's "Nice One". It is a spectrogram: time runs left
+to right, frequency runs bottom to top, and brighter means louder. Level is in decibels (dB), a scale for comparing two
+quantities, where every 10 dB means ten times more energy. In this picture, 0 dB is the loudest a file can hold, so real
+levels are negative. Each vertical stripe is a drum hit. The master, the clean version of the track as released, reaches
+20 kHz. Its MP3 at 128 kbps keeps nothing above about 16.5 kHz. At 32 kbps it keeps nothing above 5.5 kHz, and dark
+holes, the dropped quiet parts, appear below the cut-off too.
+
+![Spectrograms of 6 s of an electronic track: the master, its MP3 at 128 kbps, and its MP3 at 32 kbps](docs/assets/mp3-spectrograms.png)
+
+At 128 kbps, the lost precision below the cut-off is too fine to see in this picture.
+
+A rip from YouTube was compressed at least twice: once by the person who uploaded it, and again by YouTube, which serves
+its standard streams as roughly 128 kbps AAC or Opus ([YouTube audio formats](#ref-ytformats)).
+
+## A restorer has to invent what the codec removed
+
+Because the information is gone, restoring a rip cannot mean recovering the master. A restorer has to invent the missing
+sound. Its output can be plausible, consistent with the rip and convincing on good speakers, but not faithful: it will
+not match the master exactly.
+
+That makes restoration a job for a generative model, a neural network trained on many examples until it can produce new
+ones of the same kind. Our plan is a generative model of clean house and minimal music, made by training [Stable Audio
+3](#ref-sa3), a public music generator, further on my library of about 215 hours. We call this model the prior: it knows
+only what clean music sounds like. A second program, the solver, runs the prior and steers what it generates toward a
+clean track that matches the rip. Only the solver knows about the damage, so a new kind of damage, such as vinyl
+crackle, means changing the solver, not retraining the prior
+([ADR-0004](docs/decisions/0004-restoration-as-a-latent-inverse-problem.md)).
+
+We have not trained the prior yet. First we measured what the existing tools do, and that is what the next section
+reports. Each finding links to its decision record (ADR), a short write-up of the experiment and its evidence, in
+[`docs/decisions/`](docs/decisions/).
+
+## What we found
+
+We started with two models that anyone can download and run ([ADR-0006](docs/decisions/0006-baseline-findings.md)):
+[Apollo](#ref-apollo), a neural network trained to repair MP3-compressed music, and [A2SB](#ref-a2sb), which fills in
+the top band above a cut-off. We tried them on two inputs: Apollo's own 6 s test clip, a heavily damaged copy whose
+sound stops at about 5 kHz, like a 32 kbps MP3; and one real 128 kbps rip (AN-2, "Moonshine", 7.6 min). We listened on
+studio headphones, with every track at the same loudness, because a louder track tends to sound better.
+
+On the 6 s clip, Apollo won clearly: it put back a full hi-hat where A2SB added a click. On the 128 kbps rip, both
+models filled the band above its cut-off (15.75 kHz here; the exact cut-off depends on the encoder), yet the MP3, Apollo
+and A2SB all sounded the same on headphones. We have not yet compared them on speakers. Apollo also runs faster than
+real time on a laptop and keeps left and right separate. A2SB works in mono only, and took about 35 minutes for the
+7.6-minute track on an A100 GPU.
+
+Apollo's authors ship their test clip already damaged; we also have a clean version of it. So that the picture below can
+show the master too, it uses our own 32 kbps MP3 of the clean version, the same as on our listening page. In the
+picture, Apollo fills the top band and the holes below the cut-off, while A2SB adds short bursts above the cut-off and
+leaves the holes.
+
+![Spectrograms of a 6 s clip: the master, its MP3 at 32 kbps, Apollo's restoration, and A2SB's restoration](docs/assets/restorations-32k.png)
+
+We also tried [SonicMaster](#ref-sonicmaster), which takes a typed instruction, through its online demo, and dropped it:
+it adds extra kick drums on electronic music, even when the instruction says not to
+([ADR-0005](docs/decisions/0005-baselines-and-prior-viability-on-real-library-material.md)).
+
+### Stable Audio 3's clips hold detail for an MP3 to remove
+
+Our plan depends on [Stable Audio 3](#ref-sa3), and a prior that cannot generate fine detail cannot put it back. So we
+checked whether its music models generate the fine detail a master has
+([ADR-0008](docs/decisions/0008-sa3-generation-probe.md)). We compressed their clips to 64 kbps MP3 and scored each MP3
+against its clip with SDR (signal-to-distortion ratio), a score in dB of how close two recordings are, sample by sample.
+A higher score means the MP3 lost less, so a clip without fine detail would score high. Averaged over three random runs,
+the four music models score between 10.3 and 21.3 dB, and a 64 kbps MP3 of a real master, an excerpt of "Nice One",
+scores 17.6 dB, inside that range. So the models generate about as much detail for an MP3 to remove as a real master
+has. This is one prompt: it does not show that they sound like a master.
+
+### SDEdit keeps the damage it should remove
+
+Our first method was [SDEdit](#ref-sdedit) with Stable Audio 3's medium model
+([ADR-0009](docs/decisions/0009-sdedit-as-the-first-solver.md)). It adds noise to the MP3 and lets the model remove it,
+in the hope that the codec damage goes with it. It did not: to the model, music with its top band missing is still
+plausible music, so it keeps it, and no setting filled the missing band. Removing the damage would take more noise than
+the model can handle before it starts changing the music itself. We rejected SDEdit. This used the public model, not our
+trained prior, so we will test it again once the prior exists.
+
+### Running εar-VAE after Apollo helps on heavy damage, by ear
+
+Next we tried four open autoencoders, networks that compress audio into a much shorter list of numbers and rebuild it.
+One trained on clean music tends to rebuild what it hears as clean music, so it might clean an MP3 on the way through.
+We tried [SAME-L](#ref-same), [εar-VAE](#ref-earvae), [εar-VAE2](#ref-earvae2) and [CoDiCodec](#ref-codicodec)
+([ADR-0011](docs/decisions/0011-benchmark-autoencoder-roundtrips-and-mean-damage-subtraction.md)). We passed the MP3, or
+Apollo's output, through each one and back, and tried a damage subtraction that removes the average change an MP3 makes
+to those numbers.
+
+By ear, Apollo → εar-VAE, Apollo's output passed through εar-VAE, is the best on heavy damage: it beats Apollo alone at
+32 kbps, the verdict is split at 64 kbps, and it loses at 128 kbps. The εar-VAE damage subtraction is also worth
+keeping; plain round trips of the MP3 sounded worse than these two. Every score we computed, SDR included, rates Apollo
+→ εar-VAE below Apollo alone at every bitrate. A score shows how far a restoration is from the master, not whether it
+sounds better, so here we trust the ear. Our listening is not blind yet: we knew which track was which. Whether any
+method makes a 128 kbps MP3, the bitrate of a typical rip, sound better than it already does is still open.
+
+### The Apollo benchmark
+
+Scores cannot tell us what sounds better, but they are how published work compares methods. Apollo is our baseline, so
+we also score it with its authors' own code and protocol
+([ADR-0015](docs/decisions/0015-reproduce-apollo-test-protocol.md)): on 6 s clips of the 50 test songs of MUSDB18-HQ, a
+public research dataset, compressed to MP3 at 24 to 128 kbps. According to [Apollo's
+maintainer](https://github.com/JusperLee/Apollo/issues/46#issuecomment-6281774888), the released model was not trained
+on these songs. On the same clips at 24 kbps, our evaluation gives the same average scores as the authors' own
+evaluation script. We also fixed a bug in their MP3 simulation that left 2.5% of the 24 kbps clips 25 ms late; the
+scores compare sample by sample, so a 25 ms shift lowers them sharply.
+
+![SDR, SI-SNR, spectral SNR and LSD per MP3 bitrate on the 50 MUSDB18-HQ test songs, for Apollo and the untouched MP3](docs/assets/apollo-musdb.png)
+
+SDR and SI-SNR (scale-invariant signal-to-noise ratio, which ignores overall volume) are the authors' scores; higher is
+better. Spectral SNR (higher is better) and the log-spectral distance (LSD, lower is better) are ours: they compare only
+how much energy each frequency has over time, as a spectrogram shows it. The grey line scores the untouched MP3 the same
+way. The dotted line is Apollo as published, on a different test set, and is not comparable with the solid lines.
+Apollo's SDR rises from 11.9 dB at 24 kbps to 19.1 dB at 128 kbps: these are the numbers we will compare our own methods
+with.
 
 ## Related work
 
-Lossy codecs — MP3, AAC, Opus — reach their bitrate by allocating bits according to psychoacoustic masking: content
-the ear is unlikely to notice is quantized coarsely or dropped. Above a cutoff frequency nothing is kept; 128 kbps
-MP3 drops everything above roughly 16 kHz. Below the cutoff the signal survives but degrades — transients smear, and
-reverb tails and stereo detail thin out. A spectrogram shows the cutoff plainly and the in-band degradation barely.
-Rips from YouTube typically carry this damage twice, because uploads are commonly 128–192 kbps MP3 and YouTube serves
-standard streams at ~128 kbps AAC-LC or Opus, reserving higher bitrates such as 256 kbps AAC for Premium tiers
-([YouTube audio formats](#ref-ytformats)).
+The methods differ in what damage they repair and where they work: on the waveform, on spectrograms, or in the latent
+space of a neural autoencoder. Most rebuild the band above a cut-off, or fix faults like reverb and clipping. Few
+target what MP3, AAC and Opus do inside the band they keep.
 
-The methods split along two lines: which damage they address, and which representation they work in. Bandwidth
-extension reconstructs only the band above the cutoff, and most restoration models target acoustic or tonal faults
-such as reverb, clipping, or tonal balance rather than MP3/AAC/Opus damage. As for representation, models operate on
-the waveform directly, on spectrograms, or inside the compressed latent space of a neural autoencoder.
-
-### Autoencoders — the VAE line
-
-Generation in a latent space inherits the autoencoder's limits: no method operating on latents can sound better than
-what the decoder reconstructs. The decoder also invents plausible detail where its input carries none, which makes the
-bare round-trip `decode(encode(x))` a restoration baseline in itself.
-
-- **[SAME](#ref-same)** is a stereo 44.1 kHz transformer autoencoder that reaches 4096× temporal compression through
-  semantic regularisation; both variants, the large L and a CPU-scale S, are open weights.
-- **[εar-VAE](#ref-earvae)** retrains the music VAE around perception, with K-weighted losses, explicit phase terms,
-  and mid/side supervision — aimed exactly at the high-frequency harmonics and stereo image that MP3, AAC and Opus
-  damage.
-- **[εar-VAE2](#ref-earvae2)** moves the autoencoder onto the complex STFT so that every band gets targeted magnitude
-  and phase correction. Code and weights are released, though the open weights are retrained on public data rather
-  than the paper's corpus.
-- **[Elastic Time](#ref-elastic)** retrofits a fixed-frame-rate autoencoder with a dynamic one, spending latent frames
-  where the signal is dense. It is an efficiency mechanism, not a restorer.
-
-### Bandwidth extension and super-resolution
-
-These methods reconstruct the band a lowpass removed. All five train on lowpass damage alone; none trains on what
-MP3, AAC or Opus do inside the kept band. They also treat the kept band differently by construction: AudioSR pastes
-the input's band below the cutoff back into its output, A2SB trains on brick-wall cutoffs, and the latent and token
-methods re-synthesize the whole signal without being trained for in-band repair.
-
-- **[AudioSR](#ref-audiosr)** performs diffusion super-resolution for any audio type, taking any input bandwidth
-  between 2 and 16 kHz up to a 48 kHz output, and serves as a plug-and-play enhancement stage for generative models.
-- **[A2SB](#ref-a2sb)** is NVIDIA's Schrödinger bridge for 44.1 kHz music. It performs bandwidth extension and
-  inpainting without a vocoder and processes hour-long inputs.
-- **[AudioLBM](#ref-audiolbm)** moves the bridge into a latent space and cascades it, reaching the first
-  any-to-192 kHz upsampling. Only a demo page exists; nothing is released.
-- **[HP-codecX](#ref-hpcodec)** frames bandwidth extension as next-token prediction: a transformer LM generates only
-  the missing band's tokens over a codec disentangled by harmonic/percussive decomposition, extending content above
-  8 kHz from a 16 kHz-rate input to a 48 kHz-rate output. Code and both checkpoints are released.
-- **[Latent upsample/upmix](#ref-latentup)** runs bandwidth extension and mono-to-stereo upmixing entirely inside a
-  frozen autoencoder's latent space, at up to 100× less compute.
-
-### MP3/AAC/Opus artifacts and all-in-one restoration
-
-The supervised line trains on synthetic damaged/clean pairs and maps one to the other in a single pass.
-
-- **[Apollo](#ref-apollo)** is a band-split waveform GAN trained on MP3-compressed music at multiple bitrates. It
-  restores the full band in one pass, runs faster than realtime, and is the only model in this table that targets MP3
-  by name.
-- **[SonicMaster](#ref-sonicmaster)** maps degraded audio to mastered audio with text-instructed flow matching,
-  covering nineteen degradations across EQ, dynamics, reverb, amplitude and stereo. MP3/AAC/Opus damage is not among
-  them.
-
-### Generative music priors
-
-These are the models a restoration prior could be adapted from. All of them commit to a compressed latent or token
-space with a reconstruction stage on top.
-
-- **[Stable Audio 3](#ref-sa3)** is a family of fast latent diffusion models (small, medium, large) over the SAME
-  space, with variable-length generation, inpainting, and adversarial post-training; small and medium are open
+- **Supervised restorers** learn from pairs of damaged and clean audio. [Apollo](#ref-apollo) is the only one trained
+  on MP3 damage. [SonicMaster](#ref-sonicmaster) does not cover codec damage.
+- **Bandwidth extension** rebuilds the band above a cut-off: [AudioSR](#ref-audiosr), [A2SB](#ref-a2sb),
+  [AudioLBM](#ref-audiolbm), [HP-codecX](#ref-hpcodec) and [latent upsampling](#ref-latentup). None of them trains on
+  codec damage, and AudioSR copies the input's band below the cut-off into its output unchanged.
+- **Music autoencoders** give generative models their latent space. [SAME](#ref-same), in a large L and a small S, both
+  open, is the space of Stable Audio 3. [εar-VAE](#ref-earvae) and [εar-VAE2](#ref-earvae2) are built to keep phase,
+  stereo image and high harmonics. [CoDiCodec](#ref-codicodec) gives continuous and discrete latents from one model,
+  and [Elastic Time](#ref-elastic) spends latent frames where the signal is dense. A method that works in a latent space
+  cannot sound better than the decoder.
+- **Generative music models** a restoration prior could start from: [Stable Audio 3](#ref-sa3), whose small and medium
+  checkpoints are open, and [Qwen-Music](#ref-qwenmusic) and [Qwen-Audio-3.0-Gen](#ref-qwengen), which have no open
   weights.
-- **[Qwen-Music](#ref-qwenmusic)** runs an LLM over 25 Hz semantic tokens, plans melodies with a chain-of-thought
-  mechanism, and renders full sung songs in stereo at state-of-the-art musicality. No weights are public.
-- **[Qwen-Audio-3.0-Gen](#ref-qwengen)** renders whole multi-role audio scenes in a single pass, using one diffusion
-  transformer over a shared 48 kHz stereo VAE. It is available only as a hosted preview.
+- **Inverse problems with a diffusion prior.** The prior proposes clean audio, and the sampler keeps it consistent with
+  the observed signal. [DPS](#ref-dps) introduced this with a known damage model, [SILO](#ref-silo) moved it into a
+  latent space, and [DAPS](#ref-daps) reduces the over-smoothing that hides transients. [CQT-Diff](#ref-cqtdiff)
+  brought it to music, [BABE](#ref-babe) and [BABE-2](#ref-babe2) apply it to historical recordings without knowing the
+  damage, and [LOUDAR](#ref-loudar) learns the unknown damage in a latent space, shown on vocal effects and guitar
+  distortion. We found none tried on MP3, AAC or Opus damage.
 
-### Inverse problems with a diffusion prior
-
-In this line a prior proposes clean audio while the sampler holds it consistent with the observation.
-[DPS](#ref-dps) established posterior sampling with a known operator, [SILO](#ref-silo) moved it into an
-autoencoder's latent space, and [DAPS](#ref-daps) fixes the oversmoothing that matters here, because smearing is the
-dominant artifact. [CQT-Diff](#ref-cqtdiff) brought the approach to music audio, and [BABE](#ref-babe) /
-[BABE-2](#ref-babe2) apply it blind — operator unknown — to historical recordings. **[LOUDAR](#ref-loudar)** learns
-the unknown operator in latent space while a latent diffusion prior regularises the estimate; it is demonstrated on
-singing-voice effects and guitar distortion, not on MP3/AAC/Opus damage.
-
-### The table
-
-The table is sorted by year. The *Restores* column says what a method can reconstruct: the **full band** including
-in-band damage, the **missing band** above a cutoff, a **round-trip** (an autoencoder's `decode(encode(x))`), or a
-**prior** that needs a solver; a dash marks methods that do not restore at all. The *Weights* column distinguishes
-**open** releases, **code**-only releases, **closed** hosted models, weights **announced** but unreleased, and
-**none**.
+*Restores* says what a method reconstructs: the **full band** including in-band damage, the **missing band** above a
+cut-off, a **round trip** (an autoencoder's `decode(encode(x))`), or a **prior** that needs a solver. A dash means it
+does not restore. *Weights* are **open**, **code** only, **closed** (hosted), or **none**.
 
 | Paper | Year | Method | Restores | Targets MP3 | Weights | Tested here |
 |---|---|---|---|---|---|---|
 | [AudioSR](#ref-audiosr) | 2023 | diffusion SR, mel domain + vocoder | missing band | — | open | — |
-| [Apollo](#ref-apollo) | 2024 | band-split GAN regression, waveform | full band | ✓ | open | ✓ [baseline findings](docs/decisions/0006-baseline-findings.md), [MP3-twin benchmark](docs/decisions/0007-benchmark-codec-restoration.md) |
-| [A2SB](#ref-a2sb) | 2025 | Schrödinger bridge, vocoder-free | missing band + gaps | — | open¹ | ✓ [baseline findings](docs/decisions/0006-baseline-findings.md), [MP3-twin benchmark](docs/decisions/0007-benchmark-codec-restoration.md) |
+| [Apollo](#ref-apollo) | 2024 | band-split GAN, waveform | full band | ✓ | open | ✓ [0006](docs/decisions/0006-baseline-findings.md), [0007](docs/decisions/0007-benchmark-codec-restoration.md), [0011](docs/decisions/0011-benchmark-autoencoder-roundtrips-and-mean-damage-subtraction.md), [0015](docs/decisions/0015-reproduce-apollo-test-protocol.md) |
+| [A2SB](#ref-a2sb) | 2025 | Schrödinger bridge, vocoder-free | missing band + gaps | — | open¹ | ✓ [0006](docs/decisions/0006-baseline-findings.md), [0007](docs/decisions/0007-benchmark-codec-restoration.md), [0011](docs/decisions/0011-benchmark-autoencoder-roundtrips-and-mean-damage-subtraction.md) |
 | [Latent upsample/upmix](#ref-latentup) | 2025 | supervised latent-to-latent BWE/upmix | missing band | — | none | — |
-| [SonicMaster](#ref-sonicmaster) | 2025 | text-guided flow matching, all-in-one | in-band faults² | — | open | demo — [baselines and prior viability](docs/decisions/0005-baselines-and-prior-viability-on-real-library-material.md) |
-| [εar-VAE](#ref-earvae) | 2025 | perceptual VAE, phase + M/S losses | round-trip | — | open | — |
+| [SonicMaster](#ref-sonicmaster) | 2025 | text-guided flow matching, all-in-one | in-band faults² | — | open | demo only, dropped ([0005](docs/decisions/0005-baselines-and-prior-viability-on-real-library-material.md)) |
+| [CoDiCodec](#ref-codicodec) | 2025 | consistency autoencoder, continuous + discrete latents | round trip | — | open | ✓ [0011](docs/decisions/0011-benchmark-autoencoder-roundtrips-and-mean-damage-subtraction.md) |
+| [εar-VAE](#ref-earvae) | 2025 | perceptual VAE, phase + M/S losses | round trip | — | open | ✓ [0011](docs/decisions/0011-benchmark-autoencoder-roundtrips-and-mean-damage-subtraction.md), [0015](docs/decisions/0015-reproduce-apollo-test-protocol.md) |
 | [AudioLBM](#ref-audiolbm) | 2025 | latent bridge SR, cascaded to 192 kHz | missing band | — | none | — |
 | [HP-codecX](#ref-hpcodec) | 2025 | codec tokens + transformer LM | missing band | — | open | — |
-| [Stable Audio 3](#ref-sa3) | 2026 | latent diffusion prior + inpainting | prior | — | open | ✓ [SA3 generation probe](docs/decisions/0008-sa3-generation-probe.md), [SDEdit as the first solver](docs/decisions/0009-sdedit-as-the-first-solver.md) |
-| [SAME](#ref-same) | 2026 | transformer autoencoder, 4096× | round-trip | — | open | ✓ [MP3-twin benchmark](docs/decisions/0007-benchmark-codec-restoration.md) |
+| [Stable Audio 3](#ref-sa3) | 2026 | latent diffusion prior + inpainting | prior | — | open | ✓ [0008](docs/decisions/0008-sa3-generation-probe.md), [0009](docs/decisions/0009-sdedit-as-the-first-solver.md) (SDEdit, rejected) |
+| [SAME](#ref-same) | 2026 | transformer autoencoder, 4096× | round trip | — | open | ✓ [0007](docs/decisions/0007-benchmark-codec-restoration.md), [0011](docs/decisions/0011-benchmark-autoencoder-roundtrips-and-mean-damage-subtraction.md) |
 | [Elastic Time](#ref-elastic) | 2026 | dynamic frame-rate bottleneck | — | — | code | — |
 | [Qwen-Music](#ref-qwenmusic) | 2026 | semantic-token LLM + stereo renderer | — | — | closed | — |
 | [Qwen-Audio-3.0-Gen](#ref-qwengen) | 2026 | DiT + shared VAE, scene generation | — | — | closed | — |
 | [LOUDAR](#ref-loudar) | 2026 | latent operator + diffusion prior | full band, blind | — | code | — |
-| [εar-VAE2](#ref-earvae2) | 2026 | complex-STFT autoencoder, band refiner | round-trip | — | open³ | — |
+| [εar-VAE2](#ref-earvae2) | 2026 | complex-STFT autoencoder, band refiner | round trip | — | open³ | ✓ [0011](docs/decisions/0011-benchmark-autoencoder-roundtrips-and-mean-damage-subtraction.md) |
 
-¹ The released checkpoints are the 1- and 2-split models; the paper's 4-split ensemble was never published.
-² Its nineteen degradations cover EQ, dynamics, reverb, amplitude and stereo; MP3/AAC/Opus and bandwidth damage are
-not among them.
-³ The open weights are retrained on public datasets, not the paper's internal corpus; reported numbers may not
-transfer.
+¹ Only the 1- and 2-split checkpoints are released; the paper's 4-split ensemble is not.
+² Its nineteen faults cover EQ, dynamics, reverb, amplitude and stereo; MP3/AAC/Opus and bandwidth damage are not
+among them.
+³ The open weights are retrained on public datasets, not the paper's internal corpus. By ear they sound clearly worse
+than εar-VAE ([ADR-0011](docs/decisions/0011-benchmark-autoencoder-roundtrips-and-mean-damage-subtraction.md)).
 
-Only one model targets MP3 directly, and it is a regression model. Every generative method either stops at the
-missing band or has not been applied to MP3, AAC or Opus. Repairing in-band codec damage with a generative model
-remains unexplored.
-
-## Experiments
-
-We ran [Apollo](#ref-apollo) and [A2SB](#ref-a2sb) on real rips and on MP3s of clean masters, alongside a DSP control
-and SAME round-trips
-([baselines and prior viability](docs/decisions/0005-baselines-and-prior-viability-on-real-library-material.md)).
-Every render was scored against its master on the same board
-([the MP3-twin benchmark](docs/decisions/0007-benchmark-codec-restoration.md)). **Apollo is the most promising model
-we tested, and it still fails to produce master-sounding output on the material targeted here**
-([baseline findings](docs/decisions/0006-baseline-findings.md)). A2SB only fills what sits above the cutoff, by
-design. We also probed whether the base Stable Audio 3 checkpoints generate master-like audio
-([the SA3 generation probe](docs/decisions/0008-sa3-generation-probe.md)), and we evaluated
-[SonicMaster](#ref-sonicmaster) through its hosted demo and excluded it, because it duplicates and stacks kick drums
-on electronic material.
-
-The strongest methods can be heard side by side — ground truth, degraded input, Apollo, A²SB, Apollo → εar-VAE,
-and the latent damage subtraction, at 32/64/128 kbps — on the
-[published listening page](https://zbitouzakaria.github.io/grooveback/listen/).
-
-We then tried a first method beyond the supervised tools: **SDEdit ([Meng et al. 2022](#ref-sdedit)) with Stable
-Audio 3** ([SDEdit as the first solver](docs/decisions/0009-sdedit-as-the-first-solver.md)). The solver encodes the
-degraded track into SAME latents, mixes in noise at level *n*, and lets the model denoise from schedule time *n*; the
-noise destroys detail, and the model re-synthesizes the destroyed content as clean music. A second variant adds no
-noise and only starts the schedule at θ, asking the model to treat the damage itself as what it removes. Both fail
-the same way: band-limited, codec-degraded audio lies inside the model's distribution of plausible music, so the
-damage is preserved as signal — and by the time enough noise is added to destroy the damage, the track itself is
-gone.
-
-## Future work
-
-- **The decoder as the restorer.** An autoencoder trained on clean music outputs clean-sounding audio, so a degraded
-  input may come back cleaner from a bare round-trip — and better latents than `encode(x)` exist to be found, since
-  the encoder is not the decoder's inverse. The SAME round-trip is already wired into
-  [the MP3-twin benchmark](docs/decisions/0007-benchmark-codec-restoration.md). [εar-VAE](#ref-earvae) and
-  [εar-VAE2](#ref-earvae2) are the next candidates to screen, since they are built for exactly the losses that MP3,
-  AAC and Opus cause: phase, stereo image, and high-frequency harmonics.
-- **Posterior sampling with a generative prior.** In the [DPS](#ref-dps)/[DAPS](#ref-daps)/[LOUDAR](#ref-loudar)
-  line, a prior proposes full-band audio while each sampling step is held to consistency with the observation.
-  [SDEdit as the first solver](docs/decisions/0009-sdedit-as-the-first-solver.md) records a first, failed attempt. We
-  will explore the full version once the methods above are exhausted, with an operator that covers what MP3, AAC and
-  Opus do inside the kept band rather than just the lowpass.
+Only one model, Apollo, targets MP3 directly, and it is a supervised model. Outside this project, every generative
+method either stops at the missing band or has not been tried on MP3, AAC or Opus. Repairing in-band codec damage with
+a generative model is still open.
 
 ## References
 
@@ -205,6 +214,9 @@ gone.
 
 <a id="ref-sonicmaster"></a>
 [SonicMaster] Melechovsky et al. *SonicMaster: Towards Controllable All-in-One Music Restoration and Mastering.* ICML 2026. [arXiv:2508.03448](https://arxiv.org/abs/2508.03448) · [weights](https://huggingface.co/amaai-lab/SonicMaster)
+
+<a id="ref-codicodec"></a>
+[CoDiCodec] Pasini, Lattner, Fazekas. *CoDiCodec: Unifying Continuous and Discrete Compressed Representations of Audio.* ISMIR 2025. [arXiv:2509.09836](https://arxiv.org/abs/2509.09836) · [code](https://github.com/SonyCSLParis/codicodec) · [weights](https://huggingface.co/SonyCSLParis/codicodec)
 
 <a id="ref-earvae"></a>
 [εar-VAE] Wang et al. *Back to Ear: Perceptually Driven High Fidelity Music Reconstruction.* [arXiv:2509.14912](https://arxiv.org/abs/2509.14912) · [code](https://github.com/Eps-Acoustic-Revolution-Lab/EAR_VAE) · [weights](https://huggingface.co/earlab/EAR_VAE)
@@ -262,8 +274,9 @@ gone.
 
 ---
 
-The code here is MIT-licensed. Any weights adapted from Stable Audio 3 would inherit the
-[Stability AI Community License](https://stability.ai/license), which permits the personal and research use this
-project is scoped to.
-
-Decisions are recorded as ADRs in [`docs/decisions/`](docs/decisions/).
+The code here is MIT-licensed. The third-party code it runs has its own licenses: Apollo CC BY-SA 4.0, A2SB the NVIDIA
+Source Code License (non-commercial), εar-VAE and εar-VAE2 Apache-2.0, CoDiCodec CC BY-NC 4.0, and the vendored
+trackswitch.js player MIT. The Stable Audio 3 checkpoints are released under the
+[Stability AI Community License](https://stability.ai/license), which any weights adapted from them would inherit; it
+permits the personal and research use this project is scoped to. The audio on the listening page belongs to its owners
+and is not covered by the MIT license.
