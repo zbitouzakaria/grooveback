@@ -6,7 +6,7 @@ import pytest
 import soundfile as sf
 import torch
 
-from grooveback.cli.musdb_eval import codec_simu, evaluate
+from grooveback.cli.musdb_eval import codec_simu, evaluate, sessions
 
 SR = 44_100
 
@@ -52,10 +52,10 @@ def musdb_test(tmp_path):
     """Two tracks of 15 s white noise in MUSDB18-HQ's {track}/mixture.wav layout."""
     rng = np.random.default_rng(0)
     for track in ("a", "b"):
-        (tmp_path / track).mkdir()
+        (tmp_path / "test" / track).mkdir(parents=True)
         noise = rng.uniform(-0.5, 0.5, size=(15 * SR, 2))
-        sf.write(tmp_path / track / "mixture.wav", noise, SR, subtype="PCM_16")
-    return tmp_path
+        sf.write(tmp_path / "test" / track / "mixture.wav", noise, SR, subtype="PCM_16")
+    return tmp_path / "test"
 
 
 def test_identity_model_scores_exactly_like_the_untouched_mp3(musdb_test):
@@ -91,11 +91,74 @@ def test_identity_earvae_scores_exactly_like_the_model_it_follows(musdb_test):
     except (RuntimeError, OSError, ImportError) as error:
         pytest.skip(f"sox MP3 is unavailable: {error}")
 
-    rows = evaluate(musdb_test, kbps=24, model=ToneModel(), earvae=IdentityEarVAE())
+    rows = evaluate(
+        musdb_test, kbps=24, model=ToneModel(), autoencoders={"earvae": IdentityEarVAE()}
+    )
 
     assert [row["apollo_earvae_sdr"] for row in rows] == [row["apollo_sdr"] for row in rows]
     assert [row["apollo_earvae_lsd"] for row in rows] == [row["apollo_lsd"] for row in rows]
     assert [row["apollo_sdr"] for row in rows] != [row["input_sdr"] for row in rows]
+
+
+def test_identity_earvae_alone_scores_exactly_like_the_untouched_mp3(musdb_test):
+    """Without Apollo, the round trip must receive the MP3 itself."""
+    try:
+        import torchaudio
+
+        torchaudio.functional.apply_codec(torch.zeros(2, SR), SR, format="mp3", compression=24)
+    except (RuntimeError, OSError, ImportError) as error:
+        pytest.skip(f"sox MP3 is unavailable: {error}")
+
+    rows = evaluate(musdb_test, kbps=24, autoencoders={"earvae": IdentityEarVAE()})
+
+    assert [row["earvae_sdr"] for row in rows] == [row["input_sdr"] for row in rows]
+    assert [row["earvae_lsd"] for row in rows] == [row["input_lsd"] for row in rows]
+
+
+def test_renders_of_the_written_mp3s_score_exactly_like_the_untouched_mp3(musdb_test, tmp_path):
+    """A render that copies its MP3 must score like the MP3: the renders are
+    read from the clips the MP3s were written as, and scored against the
+    clean session."""
+    try:
+        import torchaudio
+
+        torchaudio.functional.apply_codec(torch.zeros(2, SR), SR, format="mp3", compression=24)
+    except (RuntimeError, OSError, ImportError) as error:
+        pytest.skip(f"sox MP3 is unavailable: {error}")
+    evaluate(musdb_test, kbps=24, mp3_dir=tmp_path / "mp3")
+
+    rows = evaluate(musdb_test, kbps=24, renders={"copy": tmp_path / "mp3"})
+
+    assert [row["copy_sdr"] for row in rows] == [row["input_sdr"] for row in rows]
+    assert [row["copy_lsd"] for row in rows] == [row["input_lsd"] for row in rows]
+
+
+def test_clip_draw_picks_distinct_vad_sessions(musdb_test):
+    every = sessions(musdb_test)
+
+    drawn = sessions(musdb_test, clips=4)
+
+    assert len(set(drawn)) == 4
+    assert set(drawn) <= set(every)
+
+
+def test_clip_draw_is_the_same_on_every_call(musdb_test):
+    """Every bitrate is scored in its own call, so they score the same
+    sessions only if the draw repeats."""
+    first = sessions(musdb_test, clips=4)
+
+    second = sessions(musdb_test, clips=4)
+
+    assert first == second
+
+
+def test_smaller_clip_draw_is_part_of_a_larger_one(musdb_test):
+    """A run on more clips then only renders the clips the smaller run did not."""
+    larger = sessions(musdb_test, clips=5)
+
+    smaller = sessions(musdb_test, clips=3)
+
+    assert set(smaller) <= set(larger)
 
 
 def test_codec_simu_aligns_the_mp3_of_a_clip_whose_edges_jump():
