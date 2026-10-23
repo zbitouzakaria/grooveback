@@ -22,14 +22,14 @@ SR = 44_100
 class NormalizingIdentity:
     """AudioSR's level behavior without its content: the file it is given,
     scaled to a peak of 0.5 and padded to the model's 5.12 s grain at 48 kHz,
-    in the model's `(1, 1, samples)` shape. Records each call's sample rate."""
+    in the model's `(1, 1, samples)` shape. Records each call's sample count."""
 
     def __init__(self):
-        self.rates = []
+        self.sizes = []
 
     def __call__(self, wav_path):
         audio, rate = sf.read(wav_path, dtype="float32")
-        self.rates.append(rate)
+        self.sizes.append(audio.size)
         padded = np.pad(audio, (0, int(10.24 * 48_000) - audio.size))
         return (0.5 * padded / np.abs(padded).max())[None, None, :]
 
@@ -55,7 +55,8 @@ def test_identity_model_returns_the_input_at_its_level(tmp_path):
     np.testing.assert_allclose(out.T, audio, rtol=0, atol=1e-6)
 
 
-def test_model_receives_each_channel_at_48_khz(tmp_path):
+def test_model_receives_each_channel_resampled_to_48_khz(tmp_path):
+    """6 s at 48 kHz is 288,000 samples; unresampled, a channel would be 264,600."""
     audio = np.zeros((2, 6 * SR), dtype=np.float32)
     audio[:, 1_000] = 0.5
     (tmp_path / "mp3" / "track").mkdir(parents=True)
@@ -64,7 +65,7 @@ def test_model_receives_each_channel_at_48_khz(tmp_path):
 
     audiosr_restore.main([str(tmp_path / "mp3"), str(tmp_path / "audiosr")], sr_fn=model)
 
-    assert model.rates == [48_000, 48_000]
+    assert model.sizes == [288_000, 288_000]
 
 
 def test_existing_render_is_kept(tmp_path):
@@ -79,5 +80,5 @@ def test_existing_render_is_kept(tmp_path):
     audiosr_restore.main([str(tmp_path / "mp3"), str(tmp_path / "audiosr")], sr_fn=model)
 
     kept, _ = sf.read(tmp_path / "audiosr" / "track" / "0.wav", dtype="float32")
-    assert model.rates == []
+    assert model.sizes == []
     assert np.all(kept == 0.25)

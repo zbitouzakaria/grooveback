@@ -1,18 +1,19 @@
 #!/bin/sh
 # Build the AudioSR environment at third_party/audiosr/.venv (gitignored).
 #
-# AudioSR (pip `audiosr`) pins torch 2.0.1 and transformers 4.30.2, which
-# conflict with the project's torch 2.7.1, so scripts/audiosr_restore.py runs
-# in its own venv. The package needs no code changes, only install-time pins
-# that keep a 2023 release installable today:
+# AudioSR (pip `audiosr`) pins transformers 4.30.2, librosa 0.9.2 and
+# numpy<=1.23.5, and its repository's requirements pin torch 2.0.1; all conflict
+# with this project's environment, so scripts/audiosr_restore.py runs in its own
+# venv. The package needs no code changes, only install-time pins that keep a
+# 2023 release installable today:
 #   - numpy<1.24: the librosa version audiosr pulls still uses the
 #     np.float alias, removed in numpy 1.24 (torch 2.0.1 also needs <2)
-#   - huggingface_hub<0.26: the diffusers version audiosr pulls imports
+#   - huggingface_hub<0.26: the transformers version audiosr pins imports
 #     cached_download, removed from the hub client in 0.26
 #   - setuptools<81: the librosa version audiosr pulls imports pkg_resources,
 #     which uv venvs do not ship and setuptools 81 removed
-#   - matplotlib, progressbar, unidecode: imported by the package but
-#     missing from its pip metadata (they are in its repo requirements)
+#   - matplotlib: imported by the package but missing from its pip metadata
+#     (it is in its repo requirements)
 #   - soundfile, soxr: used by scripts/audiosr_restore.py
 set -eu
 
@@ -30,12 +31,12 @@ Linux-x86_64)
         --extra-index-url https://download.pytorch.org/whl/cu118 \
         torch==2.0.1+cu118 torchaudio==2.0.2+cu118 audiosr==0.0.7 \
         "numpy<1.24" "huggingface_hub<0.26" "setuptools<81" \
-        matplotlib progressbar unidecode soundfile soxr ;;
+        matplotlib soundfile soxr ;;
 *)
     uv pip install --python "$PYTHON" \
         torch==2.0.1 torchaudio==2.0.2 audiosr==0.0.7 \
         "numpy<1.24" "huggingface_hub<0.26" "setuptools<81" \
-        matplotlib progressbar unidecode soundfile soxr ;;
+        matplotlib soundfile soxr ;;
 esac
 
 "$PYTHON" -c "import audiosr" && echo "audiosr venv ready"

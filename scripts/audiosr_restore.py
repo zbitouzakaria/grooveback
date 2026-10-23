@@ -2,10 +2,10 @@
 
     third_party/audiosr/.venv/bin/python scripts/audiosr_restore.py mp3/ audiosr/
 
-Runs in the environment that scripts/audiosr_setup.sh builds: the package pins
-torch 2.0.1, which conflicts with this project's torch, so this file imports
-nothing from grooveback. The model loads once for the whole directory, and a
-file whose render already exists is skipped.
+Runs in the environment that scripts/audiosr_setup.sh builds, whose pins
+(transformers 4.30.2, librosa 0.9.2, torch 2.0.1) conflict with this project's,
+so this file imports nothing from grooveback. The model loads once for the whole
+directory, and a file whose render already exists is skipped.
 
 The model is mono and 48 kHz: each file is resampled to 48 kHz, each channel is
 restored on its own, and the result is resampled back to the file's rate and
