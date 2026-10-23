@@ -11,6 +11,10 @@ render already exists is skipped.
 One run has one cut-off. On the MP3s of one bitrate it is the codec's, the same
 for every clip; scripts/run_xp.py passes it 250 Hz under the measured codec
 edge, so the model sees full-level content up to a sharp edge.
+
+The fork's inverse STFT returns a whole number of 512-sample hops, which cut the
+last 408 samples off a 6 s clip. Each channel is therefore padded with zeros to
+a whole number of hops, and its render cut back to the channel's length.
 """
 
 from __future__ import annotations
@@ -26,6 +30,7 @@ import soundfile as sf
 import yaml
 
 A2SB_DIR = Path(__file__).resolve().parents[1] / "third_party" / "a2sb"
+HOP = 512  # hop_length of the fork's STFT, configs/inference_files_upsampling.yaml
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -61,7 +66,7 @@ def main(argv: list[str] | None = None) -> None:
             for c, channel in enumerate(audio.T):
                 wav = tmp / f"in_{i}_c{c}.wav"
                 walled = brickwall_lowpass(channel, rate, args.cutoff_hz)
-                sf.write(wav, walled, rate, subtype="FLOAT")
+                sf.write(wav, np.pad(walled, (0, -walled.size % HOP)), rate, subtype="FLOAT")
                 filelist.append({"filepath": str(wav), "output_subdir": f"{i}/c{c}"})
 
         checkpoints = fetch_checkpoints(single_split=False)
@@ -90,8 +95,11 @@ def main(argv: list[str] | None = None) -> None:
             for c in range(info.channels):
                 recon_path = tmp / "out" / str(i) / f"c{c}" / "recon.wav"
                 recon, _ = sf.read(recon_path, dtype="float32", always_2d=True)
-                n = min(info.frames, recon.shape[0])
-                out[c, :n] = recon[:n, 0]
+                if recon.shape[0] < info.frames:
+                    raise RuntimeError(
+                        f"{recon_path} has {recon.shape[0]} samples, {path} has {info.frames}."
+                    )
+                out[c] = recon[: info.frames, 0]
             target = args.output_dir / path.relative_to(args.input_dir)
             target.parent.mkdir(parents=True, exist_ok=True)
             sf.write(target, out.T, info.samplerate, subtype="FLOAT")
