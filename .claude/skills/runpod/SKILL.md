@@ -131,6 +131,9 @@ doubles the bill. Neither is worth it when the alternative is a five-minute setu
 
 - Pods run experiments only. Results come back to the Mac for analysis.
 - **`pod delete` when the run finishes, not `pod stop`** — stopped pods still bill for disk.
+- **`--terminate-after` did not stop a pod.** One created with `--terminate-after 2026-10-23T21:52:20Z` was still
+  RUNNING and billing at 22:33Z. A job that can outlive your watch (the laptop sleeps or shuts down) needs another
+  stop, such as a last step that removes its own pod. Not tried yet: the pod would need an API key to do it.
 - Check `runpodctl pod list` returns `[]` before considering a job done.
 - Pick the cheapest GPU that fits. Most jobs here are small.
 - Watch `runpodctl user` for the balance.
