@@ -1,20 +1,27 @@
-"""Score Apollo on MP3 twins of the MUSDB18-HQ test mixtures.
+"""Score restorations of MP3 twins of the MUSDB18-HQ test mixtures.
 
-    uv run python -m grooveback.cli.musdb_eval musdb18hq/test scores.csv --kbps 24 --earvae
+    uv run python -m grooveback.cli.musdb_eval musdb18hq/test scores.csv --kbps 24 --ae earvae
 
 Each test mixture is cut into 6 s sessions, each session is MP3-compressed,
-and Apollo restores the MP3. The MP3, Apollo's output and, with `--earvae`,
-Apollo's output after an εar-VAE round trip are scored against the clean
-session with the paper's SDR and SI-SNR, and with spectral SNR and
+and Apollo restores the MP3. The MP3, Apollo's output and, with `--ae`, an
+autoencoder's round trip of the MP3 and of Apollo's output are scored against
+the clean session with the paper's SDR and SI-SNR, and with spectral SNR and
 log-spectral distance (ADR-0007). Every step follows the authors' released
 code; each function names its source. The released checkpoint was not trained
 on these songs (JusperLee/Apollo#46).
+
+Models with their own environment restore the MP3s outside this process:
+
+    musdb_eval musdb18hq/test mp3.csv --kbps 24 --no-apollo --clips 100 --mp3-dir mp3
+    third_party/audiosr/.venv/bin/python scripts/audiosr_restore.py mp3 audiosr
+    musdb_eval musdb18hq/test scores.csv --kbps 24 --no-apollo --clips 100 --render audiosr=audiosr
 """
 
 from __future__ import annotations
 
 import argparse
 import csv
+import itertools
 from pathlib import Path
 
 import numpy as np
@@ -97,10 +104,40 @@ def mixtures(musdb_test: Path) -> list[Path]:
     )
 
 
-def evaluate(musdb_test: Path, *, kbps: int, model, earvae=None) -> list[dict]:
+def sessions(musdb_test: Path, *, clips: int | None = None) -> list[tuple[Path, int]]:
+    """`(mixture, start)` of every session `vad_starts` keeps or, given `clips`,
+    the first `clips` of one fixed random order. The draw does not depend on
+    the bitrate, so every bitrate scores the same sessions, and a smaller draw
+    is part of every larger one."""
+    found = [
+        (path, start)
+        for path in mixtures(musdb_test)
+        for start in vad_starts(sf.read(path, always_2d=True)[0].T)
+    ]
+    if clips is None:
+        return found
+    drawn = np.random.default_rng(0).permutation(len(found))[:clips]
+    return [found[i] for i in sorted(drawn)]
+
+
+def evaluate(
+    musdb_test: Path,
+    *,
+    kbps: int,
+    model=None,
+    autoencoders: dict | None = None,
+    renders: dict[str, Path] | None = None,
+    clips: int | None = None,
+    mp3_dir: Path | None = None,
+) -> list[dict]:
     """Per session, SDR, SI-SNR, spectral SNR and LSD of the untouched MP3
-    (`input`), of the model's restoration (`apollo`) and, given εar-VAE, of
-    that restoration after an εar-VAE round trip (`apollo_earvae`, ADR-0011).
+    (`input`) and of each restoration of it:
+
+    - `apollo`, given the model;
+    - `{name}` for each autoencoder's round trip of the MP3 and, given the
+      model, `apollo_{name}` for its round trip of Apollo's output (ADR-0011);
+    - `{name}` for each directory of renders, `{track}/{start}.wav`, made
+      outside this process from the MP3s that `mp3_dir` receives.
 
     Sources in Apollo's repository: both signals are divided by their joint
     peak as in `MusdbMoisesdbDataset.__getitem__`
@@ -108,19 +145,29 @@ def evaluate(musdb_test: Path, *, kbps: int, model, earvae=None) -> list[dict]:
     whole session in one pass as in test.py, and SDR and SI-SNR are those of
     look2hear/metrics/wrapper.py.
     """
+    autoencoders, renders = autoencoders or {}, renders or {}
     rows = []
-    for path in mixtures(musdb_test):
+    for path, picked in itertools.groupby(sessions(musdb_test, clips=clips), key=lambda s: s[0]):
         audio = sf.read(path, always_2d=True)[0].T  # float64, as their preprocessing reads it
-        starts = vad_starts(audio)
+        starts = [start for _, start in picked]
         for start in starts:
             clean = audio[:, start : start + CLIP_SAMPLES].astype(np.float32)
             codec = codec_simu(clean, kbps)
             peak = max(np.abs(clean).max(), np.abs(codec).max())
             clean, codec = clean / peak, codec / peak
-            restored = run_apollo(codec, SR, model=model, chunk_seconds=None)
-            outputs = {"input": codec, "apollo": restored}
-            if earvae is not None:
-                outputs["apollo_earvae"] = roundtrip(earvae, restored, SR, ae="earvae")
+            clip = Path(path.parent.name) / f"{start}.wav"
+            if mp3_dir is not None:
+                (mp3_dir / clip).parent.mkdir(parents=True, exist_ok=True)
+                sf.write(mp3_dir / clip, codec.T, SR, subtype="FLOAT")
+            outputs = {"input": codec}
+            if model is not None:
+                outputs["apollo"] = run_apollo(codec, SR, model=model, chunk_seconds=None)
+            for ae, handle in autoencoders.items():
+                outputs[ae] = roundtrip(handle, codec, SR, ae=ae)
+                if model is not None:
+                    outputs[f"apollo_{ae}"] = roundtrip(handle, outputs["apollo"], SR, ae=ae)
+            for name, render_dir in renders.items():
+                outputs[name] = sf.read(render_dir / clip, dtype="float32", always_2d=True)[0].T
             row = {"track": path.parent.name, "start": start}
             for name, output in outputs.items():
                 row |= {
@@ -142,7 +189,25 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("csv", type=Path)
     parser.add_argument("--kbps", type=int, default=24)
     parser.add_argument("--device", default="auto")
-    parser.add_argument("--earvae", action="store_true", help="also score Apollo → εar-VAE")
+    parser.add_argument("--no-apollo", action="store_true")
+    parser.add_argument(
+        "--ae",
+        action="append",
+        default=[],
+        choices=sorted(gl.AUTOENCODERS),
+        help="also score this autoencoder's round trip of the MP3 and of Apollo's output",
+    )
+    parser.add_argument(
+        "--render",
+        action="append",
+        default=[],
+        metavar="NAME=DIR",
+        help="also score the renders {track}/{start}.wav in DIR, made from --mp3-dir's MP3s",
+    )
+    parser.add_argument(
+        "--clips", type=int, help="score this many sessions drawn at random; default: all"
+    )
+    parser.add_argument("--mp3-dir", type=Path, help="write each MP3 as {track}/{start}.wav")
     args = parser.parse_args(argv)
     if not mixtures(args.musdb_test):
         parser.error(f"no {{track}}/mixture.wav or .flac under {args.musdb_test}")
@@ -150,15 +215,18 @@ def main(argv: list[str] | None = None) -> None:
     rows = evaluate(
         args.musdb_test,
         kbps=args.kbps,
-        model=load_apollo(device=args.device),
-        earvae=gl.load_ae("earvae", device=args.device) if args.earvae else None,
+        model=None if args.no_apollo else load_apollo(device=args.device),
+        autoencoders={ae: gl.load_ae(ae, device=args.device) for ae in args.ae},
+        renders={name: Path(path) for name, path in (r.split("=", 1) for r in args.render)},
+        clips=args.clips,
+        mp3_dir=args.mp3_dir,
     )
     args.csv.parent.mkdir(parents=True, exist_ok=True)
     with args.csv.open("w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=list(rows[0]))
         writer.writeheader()
         writer.writerows(rows)
-    for name in ["input", "apollo"] + (["apollo_earvae"] if args.earvae else []):
+    for name in [column.removesuffix("_sdr") for column in rows[0] if column.endswith("_sdr")]:
         means = ", ".join(
             f"{metric} {np.mean([row[f'{name}_{metric}'] for row in rows]):.2f} dB"
             for metric in ("sdr", "si_snr", "spectral_snr", "lsd")

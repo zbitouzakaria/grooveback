@@ -26,7 +26,7 @@ restoring records that survive only as MP3/AAC/Opus rips. Each set below is one
 experiment: a track with a clean master is compressed to MP3 at a known bitrate,
 and each method restores that MP3. All tracks of a set hold the same excerpt, so
 switching between them compares the methods directly.</p>
-<p>The six tracks:</p>
+<p>The nine tracks:</p>
 <ol class="note">
 <li><b>Ground Truth</b> — the clean master the MP3 was made from; the reference.</li>
 <li><b>Degraded Input</b> — the MP3 each method receives. Above the codec's cutoff
@@ -38,10 +38,19 @@ model trained on MP3-compressed music; it restores the full band in one pass.</l
 <li><b><a href="https://arxiv.org/abs/2501.11311">A²SB</a></b> — a diffusion model
 for bandwidth extension; by design it generates only the band above the cutoff and
 leaves the band below unchanged.</li>
-<li><b>Apollo → <a href="https://arxiv.org/abs/2509.14912">εar-VAE</a></b> — our
-chained method: Apollo's output passed through the εar-VAE autoencoder. The
-autoencoder is trained on clean music only, so the round-trip smooths the
-artifacts Apollo introduces on heavily degraded input.</li>
+<li><b><a href="https://arxiv.org/abs/2309.07314">AudioSR</a></b> — another
+diffusion model for bandwidth extension, which works on mel spectrograms. It
+restores about 10 s at a time, so on the 3-minute excerpt the band it generates can
+change level from one 10 s chunk to the next.</li>
+<li><b><a href="https://arxiv.org/abs/2509.14912">εar-VAE</a></b> — the MP3
+encoded and decoded by the εar-VAE autoencoder, with nothing else done. It shows
+what the autoencoder alone changes, which tracks 8 and 9 build on.</li>
+<li><b><a href="https://arxiv.org/abs/2608.19843">εar-VAE2</a></b> — the same
+round trip through εar-VAE2, the autoencoder's successor. Its open weights are
+retrained on public datasets.</li>
+<li><b>Apollo → εar-VAE</b> — our chained method: Apollo's output passed through
+the εar-VAE autoencoder. The autoencoder is trained on clean music only, so the
+round-trip smooths the artifacts Apollo introduces on heavily degraded input.</li>
 <li><b>εar-VAE − MP3 damage</b> — our latent damage subtraction: the input is
 encoded, the mean shift that MP3 compression causes in εar-VAE's latent space
 (measured on a different track) is subtracted, and the result is decoded. It
@@ -57,63 +66,93 @@ seeks. Differences are clearest on monitoring headphones or speakers.</p>
   "t0": {
    "type": "audio",
    "title": "1 - Ground Truth",
-   "src": "audio/codec_32k/original.flac?v=1792351361",
+   "src": "audio/codec_32k/original.flac?v=1792842363",
    "imageID": "t0Plot",
    "solo": true
   },
   "t0Plot": {
    "type": "image",
-   "src": "media/codec_32k/original.png?v=1792351361"
+   "src": "media/codec_32k/original.png?v=1792842363"
   },
   "t1": {
    "type": "audio",
    "title": "2 - Degraded Input",
-   "src": "audio/codec_32k/input.flac?v=1792351361",
+   "src": "audio/codec_32k/input.flac?v=1792842363",
    "imageID": "t1Plot"
   },
   "t1Plot": {
    "type": "image",
-   "src": "media/codec_32k/input.png?v=1792351361"
+   "src": "media/codec_32k/input.png?v=1792842363"
   },
   "t2": {
    "type": "audio",
    "title": "3 - Apollo",
-   "src": "audio/codec_32k/apollo.flac?v=1792351361",
+   "src": "audio/codec_32k/apollo.flac?v=1792842363",
    "imageID": "t2Plot"
   },
   "t2Plot": {
    "type": "image",
-   "src": "media/codec_32k/apollo.png?v=1792351361"
+   "src": "media/codec_32k/apollo.png?v=1792842363"
   },
   "t3": {
    "type": "audio",
    "title": "4 - A\u00b2SB",
-   "src": "audio/codec_32k/a2sb.flac?v=1792351361",
+   "src": "audio/codec_32k/a2sb.flac?v=1792842363",
    "imageID": "t3Plot"
   },
   "t3Plot": {
    "type": "image",
-   "src": "media/codec_32k/a2sb.png?v=1792351361"
+   "src": "media/codec_32k/a2sb.png?v=1792842363"
   },
   "t4": {
    "type": "audio",
-   "title": "5 - Apollo \u2192 \u03b5ar-VAE",
-   "src": "audio/codec_32k/apollo-earvae.flac?v=1792351361",
+   "title": "5 - AudioSR",
+   "src": "audio/codec_32k/audiosr.flac?v=1792842363",
    "imageID": "t4Plot"
   },
   "t4Plot": {
    "type": "image",
-   "src": "media/codec_32k/apollo-earvae.png?v=1792351361"
+   "src": "media/codec_32k/audiosr.png?v=1792842363"
   },
   "t5": {
    "type": "audio",
-   "title": "6 - \u03b5ar-VAE \u2212 MP3 damage",
-   "src": "audio/codec_32k/earvae-sub.flac?v=1792351361",
+   "title": "6 - \u03b5ar-VAE",
+   "src": "audio/codec_32k/earvae.flac?v=1792842363",
    "imageID": "t5Plot"
   },
   "t5Plot": {
    "type": "image",
-   "src": "media/codec_32k/earvae-sub.png?v=1792351361"
+   "src": "media/codec_32k/earvae.png?v=1792842363"
+  },
+  "t6": {
+   "type": "audio",
+   "title": "7 - \u03b5ar-VAE2",
+   "src": "audio/codec_32k/earvae2.flac?v=1792842363",
+   "imageID": "t6Plot"
+  },
+  "t6Plot": {
+   "type": "image",
+   "src": "media/codec_32k/earvae2.png?v=1792842363"
+  },
+  "t7": {
+   "type": "audio",
+   "title": "8 - Apollo \u2192 \u03b5ar-VAE",
+   "src": "audio/codec_32k/apollo-earvae.flac?v=1792842363",
+   "imageID": "t7Plot"
+  },
+  "t7Plot": {
+   "type": "image",
+   "src": "media/codec_32k/apollo-earvae.png?v=1792842363"
+  },
+  "t8": {
+   "type": "audio",
+   "title": "9 - \u03b5ar-VAE \u2212 MP3 damage",
+   "src": "audio/codec_32k/earvae-sub.flac?v=1792842363",
+   "imageID": "t8Plot"
+  },
+  "t8Plot": {
+   "type": "image",
+   "src": "media/codec_32k/earvae-sub.png?v=1792842363"
   }
  },
  "views": [
@@ -142,7 +181,10 @@ seeks. Differences are clearest on monitoring headphones or speakers.</p>
     "t2",
     "t3",
     "t4",
-    "t5"
+    "t5",
+    "t6",
+    "t7",
+    "t8"
    ],
    "soloGroup": 0
   }
@@ -157,63 +199,93 @@ seeks. Differences are clearest on monitoring headphones or speakers.</p>
   "t0": {
    "type": "audio",
    "title": "1 - Ground Truth",
-   "src": "audio/codec_64k/original.flac?v=1792351361",
+   "src": "audio/codec_64k/original.flac?v=1792842364",
    "imageID": "t0Plot",
    "solo": true
   },
   "t0Plot": {
    "type": "image",
-   "src": "media/codec_64k/original.png?v=1792351361"
+   "src": "media/codec_64k/original.png?v=1792842364"
   },
   "t1": {
    "type": "audio",
    "title": "2 - Degraded Input",
-   "src": "audio/codec_64k/input.flac?v=1792351361",
+   "src": "audio/codec_64k/input.flac?v=1792842364",
    "imageID": "t1Plot"
   },
   "t1Plot": {
    "type": "image",
-   "src": "media/codec_64k/input.png?v=1792351361"
+   "src": "media/codec_64k/input.png?v=1792842364"
   },
   "t2": {
    "type": "audio",
    "title": "3 - Apollo",
-   "src": "audio/codec_64k/apollo.flac?v=1792351361",
+   "src": "audio/codec_64k/apollo.flac?v=1792842364",
    "imageID": "t2Plot"
   },
   "t2Plot": {
    "type": "image",
-   "src": "media/codec_64k/apollo.png?v=1792351361"
+   "src": "media/codec_64k/apollo.png?v=1792842364"
   },
   "t3": {
    "type": "audio",
    "title": "4 - A\u00b2SB",
-   "src": "audio/codec_64k/a2sb.flac?v=1792351361",
+   "src": "audio/codec_64k/a2sb.flac?v=1792842364",
    "imageID": "t3Plot"
   },
   "t3Plot": {
    "type": "image",
-   "src": "media/codec_64k/a2sb.png?v=1792351361"
+   "src": "media/codec_64k/a2sb.png?v=1792842364"
   },
   "t4": {
    "type": "audio",
-   "title": "5 - Apollo \u2192 \u03b5ar-VAE",
-   "src": "audio/codec_64k/apollo-earvae.flac?v=1792351361",
+   "title": "5 - AudioSR",
+   "src": "audio/codec_64k/audiosr.flac?v=1792842364",
    "imageID": "t4Plot"
   },
   "t4Plot": {
    "type": "image",
-   "src": "media/codec_64k/apollo-earvae.png?v=1792351361"
+   "src": "media/codec_64k/audiosr.png?v=1792842364"
   },
   "t5": {
    "type": "audio",
-   "title": "6 - \u03b5ar-VAE \u2212 MP3 damage",
-   "src": "audio/codec_64k/earvae-sub.flac?v=1792351361",
+   "title": "6 - \u03b5ar-VAE",
+   "src": "audio/codec_64k/earvae.flac?v=1792842364",
    "imageID": "t5Plot"
   },
   "t5Plot": {
    "type": "image",
-   "src": "media/codec_64k/earvae-sub.png?v=1792351361"
+   "src": "media/codec_64k/earvae.png?v=1792842364"
+  },
+  "t6": {
+   "type": "audio",
+   "title": "7 - \u03b5ar-VAE2",
+   "src": "audio/codec_64k/earvae2.flac?v=1792842364",
+   "imageID": "t6Plot"
+  },
+  "t6Plot": {
+   "type": "image",
+   "src": "media/codec_64k/earvae2.png?v=1792842364"
+  },
+  "t7": {
+   "type": "audio",
+   "title": "8 - Apollo \u2192 \u03b5ar-VAE",
+   "src": "audio/codec_64k/apollo-earvae.flac?v=1792842364",
+   "imageID": "t7Plot"
+  },
+  "t7Plot": {
+   "type": "image",
+   "src": "media/codec_64k/apollo-earvae.png?v=1792842364"
+  },
+  "t8": {
+   "type": "audio",
+   "title": "9 - \u03b5ar-VAE \u2212 MP3 damage",
+   "src": "audio/codec_64k/earvae-sub.flac?v=1792842364",
+   "imageID": "t8Plot"
+  },
+  "t8Plot": {
+   "type": "image",
+   "src": "media/codec_64k/earvae-sub.png?v=1792842364"
   }
  },
  "views": [
@@ -242,7 +314,10 @@ seeks. Differences are clearest on monitoring headphones or speakers.</p>
     "t2",
     "t3",
     "t4",
-    "t5"
+    "t5",
+    "t6",
+    "t7",
+    "t8"
    ],
    "soloGroup": 0
   }
@@ -257,63 +332,93 @@ seeks. Differences are clearest on monitoring headphones or speakers.</p>
   "t0": {
    "type": "audio",
    "title": "1 - Ground Truth",
-   "src": "audio/codec_128k/original.flac?v=1792351361",
+   "src": "audio/codec_128k/original.flac?v=1792842365",
    "imageID": "t0Plot",
    "solo": true
   },
   "t0Plot": {
    "type": "image",
-   "src": "media/codec_128k/original.png?v=1792351361"
+   "src": "media/codec_128k/original.png?v=1792842365"
   },
   "t1": {
    "type": "audio",
    "title": "2 - Degraded Input",
-   "src": "audio/codec_128k/input.flac?v=1792351361",
+   "src": "audio/codec_128k/input.flac?v=1792842365",
    "imageID": "t1Plot"
   },
   "t1Plot": {
    "type": "image",
-   "src": "media/codec_128k/input.png?v=1792351361"
+   "src": "media/codec_128k/input.png?v=1792842365"
   },
   "t2": {
    "type": "audio",
    "title": "3 - Apollo",
-   "src": "audio/codec_128k/apollo.flac?v=1792351361",
+   "src": "audio/codec_128k/apollo.flac?v=1792842365",
    "imageID": "t2Plot"
   },
   "t2Plot": {
    "type": "image",
-   "src": "media/codec_128k/apollo.png?v=1792351361"
+   "src": "media/codec_128k/apollo.png?v=1792842365"
   },
   "t3": {
    "type": "audio",
    "title": "4 - A\u00b2SB",
-   "src": "audio/codec_128k/a2sb.flac?v=1792351361",
+   "src": "audio/codec_128k/a2sb.flac?v=1792842365",
    "imageID": "t3Plot"
   },
   "t3Plot": {
    "type": "image",
-   "src": "media/codec_128k/a2sb.png?v=1792351361"
+   "src": "media/codec_128k/a2sb.png?v=1792842365"
   },
   "t4": {
    "type": "audio",
-   "title": "5 - Apollo \u2192 \u03b5ar-VAE",
-   "src": "audio/codec_128k/apollo-earvae.flac?v=1792351361",
+   "title": "5 - AudioSR",
+   "src": "audio/codec_128k/audiosr.flac?v=1792842365",
    "imageID": "t4Plot"
   },
   "t4Plot": {
    "type": "image",
-   "src": "media/codec_128k/apollo-earvae.png?v=1792351361"
+   "src": "media/codec_128k/audiosr.png?v=1792842365"
   },
   "t5": {
    "type": "audio",
-   "title": "6 - \u03b5ar-VAE \u2212 MP3 damage",
-   "src": "audio/codec_128k/earvae-sub.flac?v=1792351361",
+   "title": "6 - \u03b5ar-VAE",
+   "src": "audio/codec_128k/earvae.flac?v=1792842365",
    "imageID": "t5Plot"
   },
   "t5Plot": {
    "type": "image",
-   "src": "media/codec_128k/earvae-sub.png?v=1792351361"
+   "src": "media/codec_128k/earvae.png?v=1792842365"
+  },
+  "t6": {
+   "type": "audio",
+   "title": "7 - \u03b5ar-VAE2",
+   "src": "audio/codec_128k/earvae2.flac?v=1792842365",
+   "imageID": "t6Plot"
+  },
+  "t6Plot": {
+   "type": "image",
+   "src": "media/codec_128k/earvae2.png?v=1792842365"
+  },
+  "t7": {
+   "type": "audio",
+   "title": "8 - Apollo \u2192 \u03b5ar-VAE",
+   "src": "audio/codec_128k/apollo-earvae.flac?v=1792842365",
+   "imageID": "t7Plot"
+  },
+  "t7Plot": {
+   "type": "image",
+   "src": "media/codec_128k/apollo-earvae.png?v=1792842365"
+  },
+  "t8": {
+   "type": "audio",
+   "title": "9 - \u03b5ar-VAE \u2212 MP3 damage",
+   "src": "audio/codec_128k/earvae-sub.flac?v=1792842365",
+   "imageID": "t8Plot"
+  },
+  "t8Plot": {
+   "type": "image",
+   "src": "media/codec_128k/earvae-sub.png?v=1792842365"
   }
  },
  "views": [
@@ -342,7 +447,10 @@ seeks. Differences are clearest on monitoring headphones or speakers.</p>
     "t2",
     "t3",
     "t4",
-    "t5"
+    "t5",
+    "t6",
+    "t7",
+    "t8"
    ],
    "soloGroup": 0
   }
@@ -357,63 +465,93 @@ seeks. Differences are clearest on monitoring headphones or speakers.</p>
   "t0": {
    "type": "audio",
    "title": "1 - Ground Truth",
-   "src": "audio/aerofunk_32k/original.flac?v=1792351358",
+   "src": "audio/aerofunk_32k/original.flac?v=1792842369",
    "imageID": "t0Plot",
    "solo": true
   },
   "t0Plot": {
    "type": "image",
-   "src": "media/aerofunk_32k/original.png?v=1792351358"
+   "src": "media/aerofunk_32k/original.png?v=1792842369"
   },
   "t1": {
    "type": "audio",
    "title": "2 - Degraded Input",
-   "src": "audio/aerofunk_32k/input.flac?v=1792351358",
+   "src": "audio/aerofunk_32k/input.flac?v=1792842369",
    "imageID": "t1Plot"
   },
   "t1Plot": {
    "type": "image",
-   "src": "media/aerofunk_32k/input.png?v=1792351358"
+   "src": "media/aerofunk_32k/input.png?v=1792842369"
   },
   "t2": {
    "type": "audio",
    "title": "3 - Apollo",
-   "src": "audio/aerofunk_32k/apollo.flac?v=1792351357",
+   "src": "audio/aerofunk_32k/apollo.flac?v=1792842369",
    "imageID": "t2Plot"
   },
   "t2Plot": {
    "type": "image",
-   "src": "media/aerofunk_32k/apollo.png?v=1792351357"
+   "src": "media/aerofunk_32k/apollo.png?v=1792842369"
   },
   "t3": {
    "type": "audio",
    "title": "4 - A\u00b2SB",
-   "src": "audio/aerofunk_32k/a2sb.flac?v=1792351356",
+   "src": "audio/aerofunk_32k/a2sb.flac?v=1792842370",
    "imageID": "t3Plot"
   },
   "t3Plot": {
    "type": "image",
-   "src": "media/aerofunk_32k/a2sb.png?v=1792351356"
+   "src": "media/aerofunk_32k/a2sb.png?v=1792842370"
   },
   "t4": {
    "type": "audio",
-   "title": "5 - Apollo \u2192 \u03b5ar-VAE",
-   "src": "audio/aerofunk_32k/apollo-earvae.flac?v=1792351357",
+   "title": "5 - AudioSR",
+   "src": "audio/aerofunk_32k/audiosr.flac?v=1792842370",
    "imageID": "t4Plot"
   },
   "t4Plot": {
    "type": "image",
-   "src": "media/aerofunk_32k/apollo-earvae.png?v=1792351357"
+   "src": "media/aerofunk_32k/audiosr.png?v=1792842370"
   },
   "t5": {
    "type": "audio",
-   "title": "6 - \u03b5ar-VAE \u2212 MP3 damage",
-   "src": "audio/aerofunk_32k/earvae-sub.flac?v=1792351358",
+   "title": "6 - \u03b5ar-VAE",
+   "src": "audio/aerofunk_32k/earvae.flac?v=1792842371",
    "imageID": "t5Plot"
   },
   "t5Plot": {
    "type": "image",
-   "src": "media/aerofunk_32k/earvae-sub.png?v=1792351358"
+   "src": "media/aerofunk_32k/earvae.png?v=1792842371"
+  },
+  "t6": {
+   "type": "audio",
+   "title": "7 - \u03b5ar-VAE2",
+   "src": "audio/aerofunk_32k/earvae2.flac?v=1792842371",
+   "imageID": "t6Plot"
+  },
+  "t6Plot": {
+   "type": "image",
+   "src": "media/aerofunk_32k/earvae2.png?v=1792842371"
+  },
+  "t7": {
+   "type": "audio",
+   "title": "8 - Apollo \u2192 \u03b5ar-VAE",
+   "src": "audio/aerofunk_32k/apollo-earvae.flac?v=1792842371",
+   "imageID": "t7Plot"
+  },
+  "t7Plot": {
+   "type": "image",
+   "src": "media/aerofunk_32k/apollo-earvae.png?v=1792842371"
+  },
+  "t8": {
+   "type": "audio",
+   "title": "9 - \u03b5ar-VAE \u2212 MP3 damage",
+   "src": "audio/aerofunk_32k/earvae-sub.flac?v=1792842372",
+   "imageID": "t8Plot"
+  },
+  "t8Plot": {
+   "type": "image",
+   "src": "media/aerofunk_32k/earvae-sub.png?v=1792842372"
   }
  },
  "views": [
@@ -442,7 +580,10 @@ seeks. Differences are clearest on monitoring headphones or speakers.</p>
     "t2",
     "t3",
     "t4",
-    "t5"
+    "t5",
+    "t6",
+    "t7",
+    "t8"
    ],
    "soloGroup": 0
   }
@@ -457,63 +598,93 @@ seeks. Differences are clearest on monitoring headphones or speakers.</p>
   "t0": {
    "type": "audio",
    "title": "1 - Ground Truth",
-   "src": "audio/aerofunk_64k/original.flac?v=1792351361",
+   "src": "audio/aerofunk_64k/original.flac?v=1792842376",
    "imageID": "t0Plot",
    "solo": true
   },
   "t0Plot": {
    "type": "image",
-   "src": "media/aerofunk_64k/original.png?v=1792351361"
+   "src": "media/aerofunk_64k/original.png?v=1792842376"
   },
   "t1": {
    "type": "audio",
    "title": "2 - Degraded Input",
-   "src": "audio/aerofunk_64k/input.flac?v=1792351361",
+   "src": "audio/aerofunk_64k/input.flac?v=1792842377",
    "imageID": "t1Plot"
   },
   "t1Plot": {
    "type": "image",
-   "src": "media/aerofunk_64k/input.png?v=1792351361"
+   "src": "media/aerofunk_64k/input.png?v=1792842377"
   },
   "t2": {
    "type": "audio",
    "title": "3 - Apollo",
-   "src": "audio/aerofunk_64k/apollo.flac?v=1792351360",
+   "src": "audio/aerofunk_64k/apollo.flac?v=1792842377",
    "imageID": "t2Plot"
   },
   "t2Plot": {
    "type": "image",
-   "src": "media/aerofunk_64k/apollo.png?v=1792351360"
+   "src": "media/aerofunk_64k/apollo.png?v=1792842377"
   },
   "t3": {
    "type": "audio",
    "title": "4 - A\u00b2SB",
-   "src": "audio/aerofunk_64k/a2sb.flac?v=1792351359",
+   "src": "audio/aerofunk_64k/a2sb.flac?v=1792842377",
    "imageID": "t3Plot"
   },
   "t3Plot": {
    "type": "image",
-   "src": "media/aerofunk_64k/a2sb.png?v=1792351359"
+   "src": "media/aerofunk_64k/a2sb.png?v=1792842377"
   },
   "t4": {
    "type": "audio",
-   "title": "5 - Apollo \u2192 \u03b5ar-VAE",
-   "src": "audio/aerofunk_64k/apollo-earvae.flac?v=1792351359",
+   "title": "5 - AudioSR",
+   "src": "audio/aerofunk_64k/audiosr.flac?v=1792842378",
    "imageID": "t4Plot"
   },
   "t4Plot": {
    "type": "image",
-   "src": "media/aerofunk_64k/apollo-earvae.png?v=1792351359"
+   "src": "media/aerofunk_64k/audiosr.png?v=1792842378"
   },
   "t5": {
    "type": "audio",
-   "title": "6 - \u03b5ar-VAE \u2212 MP3 damage",
-   "src": "audio/aerofunk_64k/earvae-sub.flac?v=1792351360",
+   "title": "6 - \u03b5ar-VAE",
+   "src": "audio/aerofunk_64k/earvae.flac?v=1792842378",
    "imageID": "t5Plot"
   },
   "t5Plot": {
    "type": "image",
-   "src": "media/aerofunk_64k/earvae-sub.png?v=1792351360"
+   "src": "media/aerofunk_64k/earvae.png?v=1792842378"
+  },
+  "t6": {
+   "type": "audio",
+   "title": "7 - \u03b5ar-VAE2",
+   "src": "audio/aerofunk_64k/earvae2.flac?v=1792842378",
+   "imageID": "t6Plot"
+  },
+  "t6Plot": {
+   "type": "image",
+   "src": "media/aerofunk_64k/earvae2.png?v=1792842378"
+  },
+  "t7": {
+   "type": "audio",
+   "title": "8 - Apollo \u2192 \u03b5ar-VAE",
+   "src": "audio/aerofunk_64k/apollo-earvae.flac?v=1792842379",
+   "imageID": "t7Plot"
+  },
+  "t7Plot": {
+   "type": "image",
+   "src": "media/aerofunk_64k/apollo-earvae.png?v=1792842379"
+  },
+  "t8": {
+   "type": "audio",
+   "title": "9 - \u03b5ar-VAE \u2212 MP3 damage",
+   "src": "audio/aerofunk_64k/earvae-sub.flac?v=1792842379",
+   "imageID": "t8Plot"
+  },
+  "t8Plot": {
+   "type": "image",
+   "src": "media/aerofunk_64k/earvae-sub.png?v=1792842379"
   }
  },
  "views": [
@@ -542,7 +713,10 @@ seeks. Differences are clearest on monitoring headphones or speakers.</p>
     "t2",
     "t3",
     "t4",
-    "t5"
+    "t5",
+    "t6",
+    "t7",
+    "t8"
    ],
    "soloGroup": 0
   }
@@ -557,63 +731,93 @@ seeks. Differences are clearest on monitoring headphones or speakers.</p>
   "t0": {
    "type": "audio",
    "title": "1 - Ground Truth",
-   "src": "audio/aerofunk_128k/original.flac?v=1792351356",
+   "src": "audio/aerofunk_128k/original.flac?v=1792842383",
    "imageID": "t0Plot",
    "solo": true
   },
   "t0Plot": {
    "type": "image",
-   "src": "media/aerofunk_128k/original.png?v=1792351356"
+   "src": "media/aerofunk_128k/original.png?v=1792842383"
   },
   "t1": {
    "type": "audio",
    "title": "2 - Degraded Input",
-   "src": "audio/aerofunk_128k/input.flac?v=1792351355",
+   "src": "audio/aerofunk_128k/input.flac?v=1792842384",
    "imageID": "t1Plot"
   },
   "t1Plot": {
    "type": "image",
-   "src": "media/aerofunk_128k/input.png?v=1792351355"
+   "src": "media/aerofunk_128k/input.png?v=1792842384"
   },
   "t2": {
    "type": "audio",
    "title": "3 - Apollo",
-   "src": "audio/aerofunk_128k/apollo.flac?v=1792351354",
+   "src": "audio/aerofunk_128k/apollo.flac?v=1792842384",
    "imageID": "t2Plot"
   },
   "t2Plot": {
    "type": "image",
-   "src": "media/aerofunk_128k/apollo.png?v=1792351354"
+   "src": "media/aerofunk_128k/apollo.png?v=1792842384"
   },
   "t3": {
    "type": "audio",
    "title": "4 - A\u00b2SB",
-   "src": "audio/aerofunk_128k/a2sb.flac?v=1792351353",
+   "src": "audio/aerofunk_128k/a2sb.flac?v=1792842384",
    "imageID": "t3Plot"
   },
   "t3Plot": {
    "type": "image",
-   "src": "media/aerofunk_128k/a2sb.png?v=1792351353"
+   "src": "media/aerofunk_128k/a2sb.png?v=1792842384"
   },
   "t4": {
    "type": "audio",
-   "title": "5 - Apollo \u2192 \u03b5ar-VAE",
-   "src": "audio/aerofunk_128k/apollo-earvae.flac?v=1792351354",
+   "title": "5 - AudioSR",
+   "src": "audio/aerofunk_128k/audiosr.flac?v=1792842385",
    "imageID": "t4Plot"
   },
   "t4Plot": {
    "type": "image",
-   "src": "media/aerofunk_128k/apollo-earvae.png?v=1792351354"
+   "src": "media/aerofunk_128k/audiosr.png?v=1792842385"
   },
   "t5": {
    "type": "audio",
-   "title": "6 - \u03b5ar-VAE \u2212 MP3 damage",
-   "src": "audio/aerofunk_128k/earvae-sub.flac?v=1792351355",
+   "title": "6 - \u03b5ar-VAE",
+   "src": "audio/aerofunk_128k/earvae.flac?v=1792842385",
    "imageID": "t5Plot"
   },
   "t5Plot": {
    "type": "image",
-   "src": "media/aerofunk_128k/earvae-sub.png?v=1792351355"
+   "src": "media/aerofunk_128k/earvae.png?v=1792842385"
+  },
+  "t6": {
+   "type": "audio",
+   "title": "7 - \u03b5ar-VAE2",
+   "src": "audio/aerofunk_128k/earvae2.flac?v=1792842386",
+   "imageID": "t6Plot"
+  },
+  "t6Plot": {
+   "type": "image",
+   "src": "media/aerofunk_128k/earvae2.png?v=1792842386"
+  },
+  "t7": {
+   "type": "audio",
+   "title": "8 - Apollo \u2192 \u03b5ar-VAE",
+   "src": "audio/aerofunk_128k/apollo-earvae.flac?v=1792842386",
+   "imageID": "t7Plot"
+  },
+  "t7Plot": {
+   "type": "image",
+   "src": "media/aerofunk_128k/apollo-earvae.png?v=1792842386"
+  },
+  "t8": {
+   "type": "audio",
+   "title": "9 - \u03b5ar-VAE \u2212 MP3 damage",
+   "src": "audio/aerofunk_128k/earvae-sub.flac?v=1792842386",
+   "imageID": "t8Plot"
+  },
+  "t8Plot": {
+   "type": "image",
+   "src": "media/aerofunk_128k/earvae-sub.png?v=1792842386"
   }
  },
  "views": [
@@ -642,7 +846,10 @@ seeks. Differences are clearest on monitoring headphones or speakers.</p>
     "t2",
     "t3",
     "t4",
-    "t5"
+    "t5",
+    "t6",
+    "t7",
+    "t8"
    ],
    "soloGroup": 0
   }
