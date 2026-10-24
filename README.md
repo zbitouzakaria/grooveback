@@ -158,8 +158,9 @@ The methods differ in what damage they repair and where they work: on the wavefo
 space of a neural autoencoder. Most rebuild the band above a cut-off, or fix faults like reverb and clipping. Few
 target what MP3, AAC and Opus do inside the band they keep.
 
-- **Supervised restorers** learn from pairs of damaged and clean audio. [Apollo](#ref-apollo) is the only one trained
-  on MP3 damage. [SonicMaster](#ref-sonicmaster) does not cover codec damage.
+- **Supervised restorers** learn from pairs of damaged and clean audio. [SR-GAN](#ref-srgan) and [Apollo](#ref-apollo)
+  are trained on MP3 damage, and SR-GAN's weights are not available. [SonicMaster](#ref-sonicmaster) does not cover
+  codec damage.
 - **Bandwidth extension** rebuilds the band above a cut-off: [AudioSR](#ref-audiosr), [A2SB](#ref-a2sb),
   [AudioLBM](#ref-audiolbm), [HP-codecX](#ref-hpcodec) and [latent upsampling](#ref-latentup). None of them trains on
   codec damage. AudioSR copies the input's band below the cut-off it detects into its output, and on MP3s it detects
@@ -185,6 +186,7 @@ does not restore. *Weights* are **open**, **code** only, **closed** (hosted), or
 
 | Paper | Year | Method | Restores | Targets MP3 | Weights | Tested here |
 |---|---|---|---|---|---|---|
+| [SR-GAN](#ref-srgan) | 2021 | stochastic GAN, complex STFT | full band | ✓ | none | — |
 | [AudioSR](#ref-audiosr) | 2023 | diffusion SR, mel domain + vocoder | missing band | — | open | ✓ [0016](docs/decisions/0016-score-audiosr-a2sb-and-autoencoders-on-musdb.md) |
 | [Apollo](#ref-apollo) | 2024 | band-split GAN, waveform | full band | ✓ | open | ✓ [0006](docs/decisions/0006-baseline-findings.md), [0007](docs/decisions/0007-benchmark-codec-restoration.md), [0011](docs/decisions/0011-benchmark-autoencoder-roundtrips-and-mean-damage-subtraction.md), [0015](docs/decisions/0015-reproduce-apollo-test-protocol.md) |
 | [A2SB](#ref-a2sb) | 2025 | Schrödinger bridge, vocoder-free | missing band + gaps | — | open¹ | ✓ [0006](docs/decisions/0006-baseline-findings.md), [0007](docs/decisions/0007-benchmark-codec-restoration.md), [0011](docs/decisions/0011-benchmark-autoencoder-roundtrips-and-mean-damage-subtraction.md), [0016](docs/decisions/0016-score-audiosr-a2sb-and-autoencoders-on-musdb.md) |
@@ -208,11 +210,14 @@ among them.
 ³ The open weights are retrained on public datasets, not the paper's internal corpus. By ear they sound clearly worse
 than εar-VAE ([ADR-0011](docs/decisions/0011-benchmark-autoencoder-roundtrips-and-mean-damage-subtraction.md)).
 
-Only one model, Apollo, targets MP3 directly, and it is a supervised model. Outside this project, every generative
-method either stops at the missing band or has not been tried on MP3, AAC or Opus. Repairing in-band codec damage with
-a generative model is still open.
+Two models target MP3 directly, SR-GAN and Apollo, and both are supervised. Outside this project, every other
+generative method either stops at the missing band or has not been tried on MP3, AAC or Opus. Repairing in-band codec
+damage with a prior trained only on clean music is still open.
 
 ## References
+
+<a id="ref-srgan"></a>
+[SR-GAN] Lattner & Nistal. *Stochastic Restoration of Heavily Compressed Musical Audio Using Generative Adversarial Networks.* Electronics 2021. [arXiv:2207.01667](https://arxiv.org/abs/2207.01667) · called SR-GAN in the Apollo paper
 
 <a id="ref-audiosr"></a>
 [AudioSR] Liu et al. *AudioSR: Versatile Audio Super-resolution at Scale.* [arXiv:2309.07314](https://arxiv.org/abs/2309.07314) · [code](https://github.com/haoheliu/versatile_audio_super_resolution)
