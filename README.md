@@ -135,9 +135,9 @@ We then scored four more methods the same way
 ([ADR-0016](docs/decisions/0016-score-audiosr-a2sb-and-autoencoders-on-musdb.md)): A2SB, AudioSR, and the round trips of
 the MP3 through εar-VAE and through εar-VAE2. [AudioSR](#ref-audiosr) is another model that fills in the top band; we
 had not run it before. A2SB and AudioSR take 7 to 37 s per clip on a rented GPU, so we scored them on 50 clips drawn at
-random, and the figure shows every method on those 50. Apollo's lines are its ADR-0015 scores of the same clips. The
-draw moves the averages by up to 0.4 dB: Apollo scores 12.2 dB at 24 kbps on the 50 clips, against 11.9 dB on all
-3,677.
+random, and the figure shows every method on those 50. The Apollo and Apollo → εar-VAE lines are their ADR-0015 scores
+of the same clips. The draw moves the averages by up to 0.4 dB: Apollo scores 12.2 dB at 24 kbps on the 50 clips,
+against 11.9 dB on all 3,677.
 
 ![SDR, SI-SNR, spectral SNR and LSD per MP3 bitrate on 50 MUSDB18-HQ test clips, for six restorations and the untouched MP3](docs/decisions/assets/0016/methods.png)
 

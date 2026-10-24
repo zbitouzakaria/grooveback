@@ -23,8 +23,8 @@ each call* — the case where two windows produce the same band at different pha
 Crossfaded chunking is safe only for models whose output is consistent given their input — measured true of Apollo,
 whose chunking and its tests live in the fork. AudioSR is not consistent, and its driver chunks 3-minute tracks
 anyway: a test there pins the cost, invented content 3 dB quieter at the middle of each 0.1 s crossfade. Each chunk
-also sets its own level for what it invents, which stepped by up to 8 dB between chunks; no test covers that. Add such
-a test before chunking any other stochastic model.
+also sets its own level for what it invents, which stepped by up to 14 dB between chunks (ADR-0016); no test covers
+that. Add such a test before chunking any other stochastic model.
 
 ## Findings live in ADRs
 
@@ -49,6 +49,6 @@ the source of truth stays obvious.
 | 0010 | Listen in the browser with trackswitch.js — the A/B instrument behind `demo/` |
 | 0011 | **Autoencoder round-trips and mean damage subtraction** — four open autoencoders at 32/64/128k, the damage-direction formula, chains as solvers |
 | 0015 | **Reproduce Apollo's test protocol** — Apollo and Apollo → εar-VAE scored on the 50 held-out MUSDB18-HQ test mixtures at six bitrates with the authors' own preprocessing, codec and metrics; their codec leaves some MP3s 25 ms late, fixed here with a Hann taper |
-| 0016 | AudioSR, A2SB, εar-VAE and εar-VAE2 on 50 of the MUSDB18-HQ test clips — none scores above the untouched MP3 on SDR; AudioSR rewrites part of the band the MP3 kept; `musdb_eval --clips` draws them, `--render` scores renders made in other environments |
+| 0016 | AudioSR, A2SB, εar-VAE and εar-VAE2 on 50 of the MUSDB18-HQ test clips — none scores above the untouched MP3 on SDR; `musdb_eval --clips` draws them, `--render` scores renders made in other environments |
 | 0009 | **SDEdit solver: built, measured, rejected** — the prior keeps anything plausible; harness, fork and findings remain |
 | 0010 | Listen in the browser with trackswitch — the demo pages and their level-match gate |

@@ -71,7 +71,9 @@ def test_identity_model_returns_the_input_at_its_level(tmp_path):
 
 def test_identity_model_returns_a_long_file_unchanged_across_chunk_seams(tmp_path):
     """25 s is three chunks per channel, so two crossfades and three gains are
-    on the path; atol=1e-6 as in the 6 s test above."""
+    on the path. The tones are faded in and out with a Hann window, so the
+    resampler has no edge to ring on: atol=1e-6 is then above the 1.5e-8 that
+    the 44.1 -> 48 -> 44.1 kHz round trip alone measures."""
     t = np.arange(25 * SR) / SR
     tones = np.stack([0.2 * np.sin(2 * np.pi * 1_000 * t), 0.1 * np.sin(2 * np.pi * 5_000 * t)])
     audio = (np.hanning(25 * SR) * tones).astype(np.float32)
@@ -106,7 +108,7 @@ def test_content_each_chunk_invents_differently_is_3_db_quieter_mid_seam(tmp_pat
     output changes from call to call. At the middle of a crossfade, the two
     chunks' inventions each weigh 1/2, so unrelated content keeps 1/4 + 1/4 of
     its power: -3 dB. The window is the middle fifth of the fade, where the
-    loss is 2.9 to 3.0 dB; abs=0.5 covers the spread of a power estimate over
+    loss is 2.8 to 3.0 dB; abs=0.5 covers the spread of a power estimate over
     its 960 noise samples (about 0.2 dB)."""
     channel = (0.5 * np.sin(2 * np.pi * 440 * np.arange(600_000) / 48_000)).astype(np.float32)
 

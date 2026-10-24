@@ -30,15 +30,16 @@ bitrate, on SI-SNR too, by more than the draw's noise. A2SB comes closest, 0.1 t
 250 Hz under the MP3's, as in ADR-0011, with one cut-off per bitrate: the most common among the 50 clips.
 
 The spectral scores rank the methods differently from SDR. Apollo has the highest spectral SNR and the lowest LSD at
-every bitrate. A2SB and AudioSR have a lower LSD than the MP3, but not a higher spectral SNR: AudioSR's is below the
-MP3's at every bitrate, and A2SB's within 0.35 dB of it.
+every bitrate. A2SB and AudioSR have a lower LSD than the MP3, but their spectral SNR is no better: AudioSR's is below
+the MP3's at every bitrate, and A2SB's within 0.4 dB of it.
 
 ### The εar-VAE and εar-VAE2 round trips do not improve with the bitrate
 
 While the MP3 rises from 13.2 to 19.4 dB SDR between 24 and 128 kbps, the round trip of the MP3 through εar-VAE stays
 between 10.4 and 10.7 dB, and through εar-VAE2 between 8.1 and 8.5 dB. Apollo → εar-VAE stays between 10.6 and
 10.9 dB. The autoencoder sets the score, not the damage. Their LSD stays within 1.4 dB of the MP3's, so neither fills
-the band the MP3 removed.
+the band the MP3 removed. We scored εar-VAE2 after fixing a click at the end of its round trips, which had moved its
+mean SDR by 0.05 dB at most.
 
 ## We scored 50 clips, because the diffusion models are slow
 
@@ -65,6 +66,9 @@ these 50 and adds 50 more.
   `musdb_eval` writes the MP3s it scores and scores renders made in another environment, and `scripts/` holds a driver
   for each of the two diffusion models.
 - This run took about 4 hours of one L40S at $1.09 per hour, about $4.40. A2SB alone took 3.2 hours.
+- The listening page adds AudioSR and the εar-VAE and εar-VAE2 round trips to each of its six sets, now as 16-bit
+  FLAC, 419 MB for the page. AudioSR restores the 3-minute excerpt in 10.24 s chunks, and the level of the band it generates
+  steps from one chunk to the next: in its 11-16 kHz band at 32 kbps, by 3.7 dB at the median seam and up to 14 dB.
 
 ## Revisit triggers
 
