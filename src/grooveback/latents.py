@@ -229,7 +229,8 @@ def load_earvae2(device: str = "auto"):
 
 
 def _earvae2_encode(audio, sample_rate, model):
-    """Audio to εar-VAE2 latents `(128, frames)`, deterministic encode."""
+    """Audio to εar-VAE2 latents `(128, frames)`, deterministic encode. The
+    last frame is silence past the input's end."""
     if sample_rate != SAME_SAMPLE_RATE:
         raise ValueError(
             f"the registry expects {SAME_SAMPLE_RATE} Hz, got {sample_rate} Hz."
@@ -238,9 +239,11 @@ def _earvae2_encode(audio, sample_rate, model):
     device = next(model.parameters()).device
     native = ga.resample(audio, sr_in=sample_rate, sr_out=EARVAE2_SAMPLE_RATE)
     batch = torch.from_numpy(np.ascontiguousarray(native)).unsqueeze(0).to(device)
-    pad = (-batch.shape[-1]) % model.samples_per_latent
-    if pad:
-        batch = torch.nn.functional.pad(batch, (0, pad))
+    # Up to a whole frame, then one more: the upstream inverse STFT cannot
+    # rebuild the last few samples it returns (they reached 2.7 on a clip
+    # peaking at 0.9), so they fall in that extra frame, which the caller trims.
+    pad = (-batch.shape[-1]) % model.samples_per_latent + model.samples_per_latent
+    batch = torch.nn.functional.pad(batch, (0, pad))
     with torch.inference_mode():
         latents = model.encode_audio(batch, **EARVAE2_CHUNK, deterministic=True)
     return latents.squeeze(0).float().cpu().numpy()
