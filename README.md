@@ -134,9 +134,10 @@ scores compare sample by sample, so a 25 ms shift lowers them sharply. On all 3,
 We then scored four more methods the same way
 ([ADR-0016](docs/decisions/0016-score-audiosr-a2sb-and-autoencoders-on-musdb.md)): A2SB, AudioSR, and the round trips of
 the MP3 through εar-VAE and through εar-VAE2. [AudioSR](#ref-audiosr) is another model that fills in the top band; we
-had not run it before. A2SB and AudioSR take 7 to 37 s per clip on a rented GPU, so we scored every method on the same
-50 clips, drawn at random. On these 50 clips the averages differ from those on all 3,677 by up to 0.4 dB: Apollo
-scores 12.2 dB at 24 kbps in the figure, against 11.9 dB on all clips.
+had not run it before. A2SB and AudioSR take 7 to 37 s per clip on a rented GPU, so we scored them on 50 clips drawn at
+random, and the figure shows every method on those 50. Apollo's lines are its ADR-0015 scores of the same clips. The
+draw moves the averages by up to 0.4 dB: Apollo scores 12.2 dB at 24 kbps on the 50 clips, against 11.9 dB on all
+3,677.
 
 ![SDR, SI-SNR, spectral SNR and LSD per MP3 bitrate on 50 MUSDB18-HQ test clips, for six restorations and the untouched MP3](docs/decisions/assets/0016/methods.png)
 
@@ -145,12 +146,9 @@ better. Spectral SNR (higher is better) and the log-spectral distance (LSD, lowe
 how much energy each frequency has over time, as a spectrogram shows it. The grey line scores the untouched MP3 the same
 way.
 
-None of the four scores above the untouched MP3 on SDR. A2SB comes closest, 0.1 to 0.7 dB under it: it keeps the MP3's
-sound below a point 250 Hz under the cut-off and rebuilds only the band above that point, which lowers its LSD. AudioSR
-scores 2.0 to 5.4 dB under the MP3. It fills the band above the cut-off, but it also rewrites part of the band the MP3
-kept: at 64 kbps it changes the sound from 8 kHz up, while the MP3's cut-off is at 11 kHz. The εar-VAE and εar-VAE2
-round trips each score about the same at every bitrate, about 10.6 and 8.2 dB, while the MP3 rises from 13.2 to 19.4 dB:
-the autoencoder sets their score, not the damage.
+None of the four scores above the untouched MP3 on SDR. A2SB comes closest, 0.1 to 0.7 dB under it, and AudioSR scores
+2.0 to 5.4 dB under it. The εar-VAE and εar-VAE2 round trips each score about the same at every bitrate, about 10.6 and
+8.2 dB, while the MP3 rises from 13.2 to 19.4 dB: the autoencoder sets their score, not the damage.
 
 ## Related work
 
@@ -163,8 +161,7 @@ target what MP3, AAC and Opus do inside the band they keep.
   codec damage.
 - **Bandwidth extension** rebuilds the band above a cut-off: [AudioSR](#ref-audiosr), [A2SB](#ref-a2sb),
   [AudioLBM](#ref-audiolbm), [HP-codecX](#ref-hpcodec) and [latent upsampling](#ref-latentup). None of them trains on
-  codec damage. AudioSR copies the input's band below the cut-off it detects into its output, and on MP3s it detects
-  a cut-off below the codec's.
+  codec damage.
 - **Music autoencoders** give generative models their latent space. [SAME](#ref-same), in a large L and a small S, both
   open, is the space of Stable Audio 3. [εar-VAE](#ref-earvae) and [εar-VAE2](#ref-earvae2) are built to keep phase,
   stereo image and high harmonics. [CoDiCodec](#ref-codicodec) gives continuous and discrete latents from one model,
