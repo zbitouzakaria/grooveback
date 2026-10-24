@@ -134,6 +134,9 @@ doubles the bill. Neither is worth it when the alternative is a five-minute setu
 - **`--terminate-after` did not stop a pod.** One created with `--terminate-after 2026-10-23T21:52:20Z` was still
   RUNNING and billing at 22:33Z. A job that can outlive your watch (the laptop sleeps or shuts down) needs another
   stop, such as a last step that removes its own pod. Not tried yet: the pod would need an API key to do it.
+- **Delete a pod only after its results are on the Mac and checked**, in a separate command. Once, a remote `tail`
+  printed into the `tar cf -` stream, the local `tar` failed, and a `pod delete` chained with `;` ran anyway: the
+  scores were lost and had to be rerun. Keep the archive command's stdout for the archive alone.
 - Check `runpodctl pod list` returns `[]` before considering a job done.
 - Pick the cheapest GPU that fits. Most jobs here are small.
 - Watch `runpodctl user` for the balance.
