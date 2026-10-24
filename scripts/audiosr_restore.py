@@ -15,7 +15,8 @@ The driver restores 10.24 s chunks and joins them with 0.1 s linear crossfades;
 a file of up to 10.24 s is one chunk, so a 6 s clip costs as much as 10.24 s.
 Each chunk invents its own band above the cut-off, so at the middle of a
 crossfade two different inventions are averaged, and that band is 3 dB quieter
-there.
+there. Each chunk also sets its own level for that band: on a 3-minute track
+at 32 kbps, the 11-16 kHz band stepped by 3 to 8 dB from one chunk to the next.
 
 Sampling uses 50 DDIM steps, the default of AudioSR's command-line tool (its
 Python function defaults to 200), and the package's own seed and guidance scale.
