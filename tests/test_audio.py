@@ -1,8 +1,7 @@
 """Guards on the audio helpers.
 
-The size bounds matter as much as the maths here: an unbounded spectrogram or a
-full-length notebook player is a hang, not an error, which is the worst way for
-a tool to fail.
+The size bounds matter as much as the maths here: an unbounded spectrogram is a
+hang, not an error, which is the worst way for a tool to fail.
 """
 
 import numpy as np
@@ -60,8 +59,8 @@ def test_load_returns_2d_even_for_mono(tmp_path):
 def test_save_refuses_audio_past_full_scale_in_integer_subtypes(tmp_path):
     """24-bit FLAC clips silently at ±1.0 where float WAV carries the
     overshoot — the failure mode that corrupted the first ADR-0011 render
-    set. Refusing loudly is the audio.md doctrine; a caller with a hot
-    signal must scale it under the ceiling first."""
+    set. `save` raises instead of writing a clipped file, so a caller must
+    scale peaks below full scale first."""
     audio = 1.5 * tone(amplitude=1.0, seconds=0.5)
 
     with pytest.raises(ValueError, match="clips in PCM_24"):
@@ -148,8 +147,9 @@ def test_normalize_loudness_hits_the_target(target):
 
 
 def test_peak_dbfs_reads_the_sine_amplitude():
-    # A 1 s sine samples densely enough that its true peak sits within
-    # 0.01 dB of the amplitude.
+    # At 440 Hz a cycle spans about 100 samples, so the largest sample is at
+    # most 0.0043 dB below the amplitude (20 * log10(cos(pi / 100))); abs=0.01
+    # covers it.
     audio = tone(amplitude=0.5, freq=440.0, seconds=1.0)
 
     assert ga.peak_dbfs(audio) == pytest.approx(20 * np.log10(0.5), abs=0.01)
@@ -192,7 +192,7 @@ def test_spectrogram_frames_are_bounded_for_long_input():
 
     spec = ga.spectrogram_db(audio)
 
-    assert spec.shape[1] <= 4_000
+    assert spec.shape[1] <= 4_000  # spectrogram_db's default max_frames
 
 
 def test_spectrogram_returns_a_frame_for_input_shorter_than_the_window():
@@ -238,7 +238,7 @@ def test_band_energy_is_precise_at_full_track_lengths():
     needs length, so short fixtures never catch it. abs=1.0 covers leakage
     from cutting the excerpt mid-cycle.
     """
-    seconds = 456.0  # 7.6 minutes, AN-2's length
+    seconds = 456.0  # 7.6 minutes, the length of the AN-2 track in ADR-0006
     loud = tone(amplitude=0.3, freq=440.0, seconds=seconds)
     # RMS of a sine is a/sqrt(2), so this amplitude puts the band at -82 dBFS.
     quiet = tone(amplitude=10 ** (-82.0 / 20.0) * np.sqrt(2), freq=16_500.0, seconds=seconds)

@@ -130,7 +130,7 @@ def test_identity_earvae_alone_scores_exactly_like_the_untouched_mp3(musdb_test)
     assert [row["earvae_lsd"] for row in rows] == [row["input_lsd"] for row in rows]
 
 
-def test_cli_scores_renders_of_its_drawn_mp3s_exactly_like_the_mp3(musdb_test, tmp_path):
+def test_cli_scores_copies_of_the_mp3s_it_wrote_exactly_like_the_mp3s(musdb_test, tmp_path):
     """The two calls around a GPU render, end to end: the first draws 4 of the
     6 sessions and writes their MP3s, the second scores renders that copy those
     MP3s. Both calls must draw the same 4 sessions, and each render must be read

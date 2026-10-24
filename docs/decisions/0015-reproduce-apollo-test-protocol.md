@@ -4,9 +4,9 @@ Date: 2026-10-20
 
 ## Status
 
-Accepted — Apollo, and Apollo followed by εar-VAE, are scored at six MP3 bitrates on the 50 MUSDB18-HQ test mixtures
-with the authors' own preprocessing, codec simulation and metrics. One fix to their `codec_simu` keeps every MP3
-within one sample of its clean clip.
+Accepted — we score Apollo, and Apollo followed by εar-VAE, at six MP3 bitrates (24, 32, 48, 64, 96 and 128 kbps) on
+the 50 MUSDB18-HQ test mixtures, with the authors' own preprocessing, codec simulation and metrics. One fix to their
+`codec_simu` keeps every MP3 within one sample of its clean clip.
 
 ## Context
 
@@ -15,22 +15,22 @@ test set of MUSDB18-HQ and MoisesDB (with 5000 samples for each case)", MP3-comp
 never released: the authors' `JusperLee/Apollo-val-test-data` on Hugging Face holds only a README, and the paper never
 names its MoisesDB songs.
 
-The MUSDB18-HQ test split can be used instead. The maintainer states that it "was not used to train or retrain the
+We use the MUSDB18-HQ test split instead. The maintainer states that it "was not used to train or retrain the
 released checkpoint" ([JusperLee/Apollo#46](https://github.com/JusperLee/Apollo/issues/46#issuecomment-6281774888)),
 so its 50 songs are a held-out test for Apollo, and later for this project's own methods.
 
 ## Decision
 
-`python -m grooveback.cli.musdb_eval musdb18hq/test scores.csv --kbps K --ae earvae` scores, per clip, the untouched
-MP3, Apollo, εar-VAE's round trip of the MP3, and Apollo → εar-VAE (Apollo's output after an εar-VAE round trip,
-ADR-0011). Each step is ported from the authors' released code:
+`uv run python -m grooveback.cli.musdb_eval musdb18hq/test scores.csv --kbps K --ae earvae` scores, per clip, the
+untouched MP3, Apollo, εar-VAE's round trip of the MP3, and Apollo → εar-VAE (Apollo's output after an εar-VAE round
+trip, ADR-0011). Each step is ported from the authors' released code:
 
 - 6 s clips of each mixture with a 3 s hop, kept by the authors' loudness filter (`VAD` in Apollo-data-preprocess's
   `musdb_preprocess.py`): 3,677 clips, the same at every bitrate;
 - MP3 through torchaudio's sox, shifted back into alignment by the lag that `match2` finds (`codec_simu`), then both
   signals divided by their joint peak, as in `look2hear/datas`;
 - Apollo once over each whole clip (`test.py`);
-- SDR and SI-SNR as in `look2hear/metrics/wrapper.py`. This project adds spectral SNR and log-spectral distance (LSD),
+- SDR and SI-SNR as in `look2hear/metrics/wrapper.py`. We add spectral SNR and log-spectral distance (LSD),
   as in ADR-0007.
 
 Departures from the released code and the paper:
@@ -69,10 +69,10 @@ the solid lines.
 
 ### `codec_simu` as released leaves some MP3s late
 
-Each clip's lag is measured as the peak of a plain circular cross-correlation between the channel sums of the MP3 and
-the clean clip. With `codec_simu` as released, the MP3 stays 1,105 samples (25 ms) late, LAME's 576-sample encoder
-delay plus the decoder's 529, on 2.5% of the clips at 24 kbps and on fewer at higher bitrates. Two clips are shifted
-by thousands of samples instead.
+We measured each clip's lag as the peak of a plain circular cross-correlation between the channel sums of the MP3 and
+the clean clip. With `codec_simu` as released, the MP3 stays 1,105 samples (25 ms) late on 2.5% of the clips at 24
+kbps, and on fewer at higher bitrates. The 1,105 samples are LAME's 576-sample encoder delay plus the decoder's 529.
+Two clips are shifted by thousands of samples instead.
 
 ![MP3s more than one sample off per bitrate, with codec_simu as released and with the Hann taper](assets/0015/alignment.png)
 
@@ -96,7 +96,8 @@ ffmpeg came back at lag 0 for MP3, AAC, Opus and MP3 then AAC. A codec path thro
 ## Consequences
 
 - The 50 test mixtures at six bitrates are the project's held-out score for Apollo and for later methods. Another
-  method is scored by adding it to `musdb_eval.evaluate`.
+  method is scored by adding it to `musdb_eval.evaluate`, or, if it needs its own environment, by passing its
+  renders with `--render` (ADR-0016).
 - With `codec_simu` as released, a method could raise its score on the late clips just by shifting the MP3 back into
   place; with the fix it cannot.
 - Six bitrates with Apollo → εar-VAE take about an hour on one H100 pod, about $5.

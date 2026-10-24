@@ -4,8 +4,8 @@ SAME is the space any future prior will live in (Stable Audio 3 generates into
 it); εar-VAE, εar-VAE2 and CoDiCodec are the other open music autoencoders the
 round-trip benchmark compares against (ADR-0011). Every wrapper speaks the same
 contract — 44.1 kHz `(channels, samples)` float32 audio in and out, latents as
-`(channels, frames)` float32 — and resampling to a model's native rate is the
-wrapper's private business.
+`(channels, frames)` float32 — and each wrapper resamples to and from its
+model's native rate itself.
 
 Load once with `load_ae` and pass the handle around: loading always costs more
 than encoding a clip.
@@ -54,8 +54,9 @@ def load_same(variant: str = "same-s", device: str = "auto"):
         )
     from stable_audio_3.loading_utils import load_autoencoder
 
-    config_path = hf_hub_download(SAME_CHECKPOINTS[variant], "model_config.json")
-    weights_path = hf_hub_download(SAME_CHECKPOINTS[variant], "model.safetensors")
+    repo_id = SAME_CHECKPOINTS[variant]
+    config_path = hf_hub_download(repo_id=repo_id, filename="model_config.json")
+    weights_path = hf_hub_download(repo_id=repo_id, filename="model.safetensors")
     config_rate = json.loads(Path(config_path).read_text())["sample_rate"]
     if config_rate != SAME_SAMPLE_RATE:
         raise RuntimeError(
@@ -138,7 +139,8 @@ def load_earvae(device: str = "auto"):
     """Load εar-VAE with the repo's config and the official 44.1 kHz weights.
 
     `torch.load` runs with `weights_only=False`, matching the upstream loader —
-    arbitrary deserialization, the usual bargain with research checkpoints.
+    it can run arbitrary code from the file, a risk we accept with research
+    checkpoints.
     """
     ear_vae_cls = _earvae_import()
     config = json.loads((EARVAE_REPO / "config" / "model_config.json").read_text())
@@ -203,7 +205,7 @@ def load_earvae2(device: str = "auto"):
 
     The open weights are retrained on public data, not the paper's corpus.
     Checkpoint handling mirrors the upstream loader exactly: `weights_only=False`
-    (the research-checkpoint bargain), EMA weights preferred, `strict=False`.
+    (it can run arbitrary code from the file), EMA weights preferred, `strict=False`.
     """
     ear_vae2_cls = _earvae2_import()
     config = json.loads((EARVAE2_REPO / "configs" / "ear_vae2.json").read_text())
@@ -268,7 +270,7 @@ def _earvae2_decode(latents, model):
 
 CODICODEC_SAMPLE_RATE = 48_000
 CODICODEC_MAX_BATCH = 4
-"""Patches decoded at once. The package defaults (64 encode / 32 decode) are
+"""Patches encoded or decoded at once. The package defaults (64 encode / 32 decode) are
 sized for large GPUs; 180 s of latents OOMs a 22 GiB L4 at the default."""
 
 

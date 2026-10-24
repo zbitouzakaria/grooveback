@@ -176,6 +176,7 @@ def band_limited_noise(cutoff_hz: float, seconds: float = 4.0) -> np.ndarray:
 
 
 def test_codec_edge_reads_a_brickwall_within_one_band():
+    """abs=250 is one band: codec_edge_hz measures in 250 Hz bands by default."""
     reference = band_limited_noise(cutoff_hz=22_050)
     twin = band_limited_noise(cutoff_hz=11_000)
 

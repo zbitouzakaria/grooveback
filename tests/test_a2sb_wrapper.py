@@ -87,11 +87,10 @@ def test_fork_sha_is_reported(monkeypatch, tmp_path, capsys):
 def test_wrong_sample_rate_is_rejected_before_any_subprocess():
     audio = silence(seconds=0.1)
 
-    with mock.patch.object(baselines, "subprocess", autospec=True) as sub, pytest.raises(
-        ValueError, match="44100"
-    ):
-        baselines.run_a2sb(audio, 48_000)
-    sub.run.assert_not_called()
+    with mock.patch.object(baselines, "subprocess", autospec=True) as subprocess_mock:
+        with pytest.raises(ValueError, match="44100"):
+            baselines.run_a2sb(audio, sample_rate=48_000)
+    subprocess_mock.run.assert_not_called()
 
 
 def test_missing_fork_says_how_to_clone(monkeypatch, tmp_path):
@@ -129,7 +128,7 @@ def test_output_shorter_than_input_is_padded_back_with_zeros(monkeypatch, tmp_pa
     length so outputs stay comparable sample for sample."""
     script = (
         "#!/bin/sh\n"
-        f'{sys.executable} -c "import soundfile as sf, numpy as np, sys; '
+        f'{sys.executable} -c "import soundfile as sf, sys; '
         "a, sr = sf.read(sys.argv[1], always_2d=True); "
         'sf.write(sys.argv[2], a[:-408], sr)" "$2" "$3"\n'
     )

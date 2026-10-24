@@ -51,7 +51,7 @@ Hydra is the harness. `configs/config.yaml` composes the groups a run needs, and
 command line:
 
 ```bash
-python -m grooveback.cli.baseline model=apollo
+uv run python -m grooveback.cli.run model=roundtrip input=data/degraded output_dir=artifacts/roundtrip
 ```
 
 It starts with one group and grows as the runs do. Config files land alongside the code they configure.

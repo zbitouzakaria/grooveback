@@ -10,10 +10,10 @@ at any bitrate. A2SB comes closest, and scores about 0.5 dB above Apollo at 32 t
 ## Context
 
 ADR-0015 scores Apollo, and Apollo followed by εar-VAE, on MP3 copies of the 50 MUSDB18-HQ test songs, with the authors'
-own protocol. We had scored three more open methods against a master only on a few excerpts, ours and Apollo's test
-clip: A2SB (ADR-0006, ADR-0007), and the εar-VAE and εar-VAE2 round trips of the MP3 (ADR-0011). AudioSR, an open model
-from the README's survey that fills in the band above a cut-off, had never run in this repository. We scored all four
-with ADR-0015's harness, at the same six bitrates.
+own protocol. We had scored three more open methods against a master only on a few of our own excerpts and on Apollo's
+test clip: A2SB (ADR-0006, ADR-0007), and the εar-VAE and εar-VAE2 round trips of the MP3 (ADR-0011). AudioSR, an open
+model from the README's survey that fills in the band above a cut-off, had never run in this repository. We scored all
+four with ADR-0015's harness, at the same six bitrates.
 
 ## Results (2026-10-23)
 
@@ -25,9 +25,10 @@ and Apollo → εar-VAE again: their lines are ADR-0015's scores of those 50 cli
 ### No method scores above the untouched MP3 on SDR
 
 The untouched MP3 scores 13.2 dB SDR at 24 kbps and 19.4 dB at 128 kbps. All four methods score below it at every
-bitrate, on SI-SNR too, by more than the draw's noise. A2SB comes closest, 0.1 to 0.7 dB under the MP3, and about
-0.5 dB above Apollo at 32 to 64 kbps. AudioSR scores 2.0 to 5.4 dB under the MP3. A2SB fills the band above a cut-off
-250 Hz under the MP3's, as in ADR-0011, with one cut-off per bitrate: the most common among the 50 clips.
+bitrate, on SI-SNR too, by more than the standard error of the 50-clip draw (see below). A2SB comes closest, 0.1 to 0.7
+dB under the MP3, and about 0.5 dB above Apollo at 32 to 64 kbps. AudioSR scores 2.0 to 5.4 dB under the MP3. As in
+ADR-0011, A2SB fills the band above a cut-off 250 Hz below the MP3's. We gave it one cut-off per bitrate, the most
+common one among the 50 clips.
 
 The spectral scores rank the methods differently from SDR. Apollo has the highest spectral SNR and the lowest LSD at
 every bitrate. A2SB and AudioSR have a lower LSD than the MP3, but their spectral SNR is no better: AudioSR's is below
@@ -67,11 +68,13 @@ these 50 and adds 50 more.
   for each of the two diffusion models.
 - This run took about 4 hours of one L40S at $1.09 per hour, about $4.40. A2SB alone took 3.2 hours.
 - The listening page adds AudioSR and the εar-VAE and εar-VAE2 round trips to each of its six sets, now as 16-bit
-  FLAC, 419 MB for the page. AudioSR restores the 3-minute excerpt in 10.24 s chunks, and the level of the band it generates
-  steps from one chunk to the next: in its 11-16 kHz band at 32 kbps, by 3.7 dB at the median seam and up to 14 dB.
+  FLAC, 419 MB for the page. AudioSR restores the 3-minute aerofunk excerpt in 10.24 s chunks, and the level
+  of the band it generates steps from one chunk to the next: in its 11 to 16 kHz band at 32 kbps, by 3.7 dB at the
+  median chunk boundary and up to 14 dB.
 
 ## Revisit triggers
 
-- Two methods are closer than the draw's noise and the difference matters → run `--clips 100`, which keeps these 50.
+- Two methods are closer than the draw's standard error and the difference matters → run `--clips 100`, which keeps
+  these 50.
 - Blind listening is done (ADR-0011's verdicts were not blind) → compare it with these scores.
 - A method of this project is ready → score it on this draw and on all clips.

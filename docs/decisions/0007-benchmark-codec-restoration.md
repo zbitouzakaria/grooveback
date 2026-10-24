@@ -4,7 +4,10 @@ Date: 2026-09-01
 
 ## Status
 
-Accepted
+Accepted.
+[ADR-0011](0011-benchmark-autoencoder-roundtrips-and-mean-damage-subtraction.md)
+later rebuilt this benchmark at 32, 64 and 128 kbps with four autoencoders
+and deleted this run's renders. The tables below record the 2026-09-02 run.
 
 ## Context
 
@@ -12,13 +15,14 @@ The project's goal is to restore old MP3 rips with a generative model — a
 prior over clean music of the same genre (ADR-0004), generating inside the
 SAME autoencoder's latent space. Scoring `decode(encode(x))` on degraded
 input answers the first question of that plan: is the encode/decode chain by
-itself already enough to generalise a degraded signal into a plausible one?
-The decoder invents content where the input has none, so the bare chain is
-the cheapest restoration the space offers. When the prior exists, its renders
+itself already enough to turn a degraded signal into a plausible one? The
+decoder invents content where the input has none, so the bare chain is the
+cheapest restoration the space offers. When the prior exists, its renders
 will be scored on this same benchmark, and the goal is for them to beat
-everything here — the existing tools and that bare chain. Beating it is
-possible because the encoder is not the decoder's inverse: better latents
-exist to be found. ADR-0005 requires these numbers before any model work.
+everything here — the existing tools and that bare chain. Beating the bare
+chain is possible because the encoder is not the decoder's inverse: better
+latents exist to be found. ADR-0005 requires these numbers before any model
+work.
 
 All of that needs one scoreboard. Real rips have no clean reference to score
 against, so the benchmark makes its own damage: compress clean chunks to MP3
@@ -31,26 +35,32 @@ One script (`scripts/run_xp.py`) runs everything; metrics live in
 at a time.
 
 - **Sources**: one chunk each of two clean files — aerofunk (12 s at 1:00)
-  and the codec asset (6 s whole).
-- **Damage**: LAME MP3 at 64, 128 and 192 kbps, decoded back to wav. A twin
-  even one sample out of alignment is refused (`best_lag == 0`) — that alone
-  ruins a waveform metric.
+  and the clean original of Apollo's `codec_wav` test asset
+  (`data/original_codec_wav.wav`, 6 s whole). ADR-0006 used the damaged
+  `codec_wav` itself.
+- **Damage**: LAME MP3 at 64, 128 and 192 kbps, decoded back to wav. We call
+  each decoded MP3 a twin of its chunk. A twin is refused unless it is
+  sample-aligned with its chunk (`best_lag == 0`): an offset of even one
+  sample ruins a waveform metric.
 - **Methods**: the SAME round-trip (`decode(encode(x))`, S and L variants),
   Apollo, and A2SB. The untouched MP3 is scored too, as the degraded input —
   the do-nothing floor every method must beat.
-- **Metrics**, all against the master: BSS-eval SDR (via fast_bss_eval, what
-  papers publish — a 512-tap filter of the master is fitted first, so gain,
-  EQ and small delays are forgiven), plain SDR (every waveform difference
-  counts), SI-SNR (gain forgiven), spectral SNR (spectrogram magnitudes, so
-  phase costs nothing), and log-spectral distance (lower is better — the gap
-  between the two log spectrograms, the standard in bandwidth-extension
-  papers). Plus spectrograms and level-matched listening sets.
+- **Metrics**, all against the master, plus spectrograms and level-matched
+  listening sets:
+  - BSS-eval SDR, via fast_bss_eval: the number papers publish. It first
+    fits a 512-tap filter of the master, so gain, EQ and small delays are
+    forgiven.
+  - Plain SDR: every waveform difference counts.
+  - SI-SNR: gain is forgiven.
+  - Spectral SNR: compares spectrogram magnitudes, so phase costs nothing.
+  - Log-spectral distance (LSD): the gap between the two log spectrograms,
+    the standard in bandwidth-extension papers. Lower is better.
 - **The band the codec removed is also scored on its own**, above the
   measured codec edge, in waveform SDR, spectral SNR and LSD. The degraded
   input is silence there — 0 dB on both SNRs — so these columns show directly
-  whether an invented top end carries information. The two spectral views
-  punish opposite sins: spectral SNR charges filling too much, LSD charges
-  filling too little.
+  whether an invented top end carries information. The two spectral metrics
+  penalise opposite errors: spectral SNR penalises filling too much, LSD
+  penalises filling too little.
 - **A2SB is told the measured codec edge** rather than using its own cutoff
   detection, which is built for the blurry rolloffs of real rips; on a sharp
   synthetic edge it cuts below the edge and deletes real content.
@@ -125,34 +135,36 @@ Each table is one source at one bitrate; columns are the metrics, all in dB agai
 | same-l | 7.0 | 6.9 | 6.0 | 11.5 | 10.7 |
 | same-s | **5.5** 🔴 | **5.7** 🔴 | **4.6** 🔴 | **9.9** 🔴 | 11.5 |
 
-The fill-band decomposition lives in `results.json` and the notebook.
+The scores on the band the codec removed were written to
+`artifacts/xp/results.json`. ADR-0011's rebuild replaced that file, so they
+are no longer on disk.
 
 ## Consequences
 
 - On the three waveform metrics nothing beats the do-nothing floor: restored
   audio is never closer to the master, sample by sample, than the MP3 it
-  started from. Only the phase-blind metrics reward restoration. That says
-  as much about the metrics as about the methods: by ear, Apollo clearly
+  started from. Only the phase-blind metrics reward restoration. That says as
+  much about the metrics as about the methods: by ear, Apollo clearly
   improves heavily degraded rips (ADR-0006) — an improvement no waveform
-  column registers. The tables rank fidelity; listening judges how it
-  sounds (audio.md).
+  column registers. The tables rank fidelity; listening judges how it sounds
+  (`.claude/rules/audio.md`).
 - Apollo sitting under the floor matches its own paper, which reports
   absolute output scores and never the unprocessed input's. On the authors'
-  released demo files their outputs also score at or below their inputs
-  under their own metric (mean −0.7 dB over 15 samples), and this pipeline
+  released demo files their outputs also score at or below their inputs under
+  their own metric (mean −0.7 dB over 15 samples), and this pipeline
   reproduces their renders to 75–81 dB.
 - The torch pin follows stable-audio-3. Apollo runs on 2.7.1 — verified by
   the suite and a render — and anything that needs a newer torch conflicts
   with the prior's stack.
-- MP3 degrades the band it keeps, not just the band it cuts. The master cut
-  at each twin's own edge still scores 27 / 48 / 55 dB against the full
-  master on aerofunk (18–32 on the brighter codec source); the actual MP3s
-  score 17.6 / 22.1 / 28.1. If the cutoff were the whole damage those columns
-  would match — they do not, so most of the damage lives inside the kept
-  band. That is why a perfect fill of the removed band gains at most 0.5 dB,
-  why pure bandwidth extension is capped there with A2SB within a dB of the
-  ceiling, and why a model aiming to win the table must reinvent in-band
-  content.
+- MP3 degrades the band it keeps, not just the band it cuts. The master
+  low-passed at each twin's own codec edge still scores 27 / 48 / 55 dB SDR
+  against the full master on aerofunk at 64 / 128 / 192 kbps (18–32 dB on the
+  brighter codec source); the actual MP3s score 17.6 / 22.1 / 28.1 dB. If the
+  cutoff were the whole damage those columns would match — they do not, so
+  most of the damage lives inside the kept band. So a perfect fill of the
+  removed band gains at most 0.5 dB. Pure bandwidth extension can gain no
+  more than that, and A2SB is within a dB of that cap. A model that aims to
+  win the table must reinvent content inside the kept band.
 - Synthetic twins are cleaner than real rips: no re-encodes, no unknown
   encoder chain. Results bound the easy case, not the library case.
 

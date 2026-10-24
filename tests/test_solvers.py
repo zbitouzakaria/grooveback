@@ -130,8 +130,9 @@ def test_sdedit_maps_noise_level_and_sampling_settings_onto_generate():
 
 
 def test_sdedit_theta_decouples_schedule_start_from_the_mix():
-    """theta claims the schedule time; noise_level is what actually gets
-    mixed in — noise_level 0 spends the whole budget on the damage itself."""
+    """theta sets the schedule time that denoising starts from; noise_level
+    sets how much noise is mixed into the input. With noise_level 0 no noise
+    is added, so all of the denoising works on the damage itself (ADR-0009)."""
     model = RecordingPrior()
     audio = np.zeros((2, 1_000), dtype=np.float32)
 
@@ -176,7 +177,7 @@ def test_sdedit_matches_output_loudness_to_the_input():
 
 
 @pytest.mark.parametrize("noise_level", [0.0, -0.2, 1.5])
-def test_noise_level_outside_unit_interval_is_rejected_before_generation(noise_level):
+def test_noise_level_of_zero_or_outside_unit_interval_is_rejected_before_generation(noise_level):
     model = RecordingPrior()
     audio = np.zeros((2, 1_000), dtype=np.float32)
 
@@ -186,7 +187,7 @@ def test_noise_level_outside_unit_interval_is_rejected_before_generation(noise_l
 
 
 @pytest.mark.parametrize("theta", [0.0, -0.1, 1.5])
-def test_theta_outside_unit_interval_is_rejected_before_generation(theta):
+def test_theta_of_zero_or_outside_unit_interval_is_rejected_before_generation(theta):
     model = RecordingPrior()
     audio = np.zeros((2, 1_000), dtype=np.float32)
 
@@ -196,7 +197,7 @@ def test_theta_outside_unit_interval_is_rejected_before_generation(theta):
 
 
 @pytest.mark.parametrize("noise_level", [-0.2, 1.5])
-def test_noise_level_outside_zero_one_is_rejected_when_theta_is_set(noise_level):
+def test_noise_level_outside_unit_interval_is_rejected_when_theta_is_set(noise_level):
     model = RecordingPrior()
     audio = np.zeros((2, 1_000), dtype=np.float32)
 
@@ -223,7 +224,7 @@ def test_wrong_sample_rate_is_rejected_before_generation():
     audio = np.zeros((2, 1_000), dtype=np.float32)
 
     with pytest.raises(ValueError, match="44100 Hz"):
-        sdedit(model, audio, 48_000, noise_level=0.5, steps=8, cfg_scale=1.0)
+        sdedit(model, audio, sample_rate=48_000, noise_level=0.5, steps=8, cfg_scale=1.0)
     assert model.calls == []
 
 
@@ -274,8 +275,9 @@ def test_roundtrip_trims_a_decoder_overrun_to_the_input_length(monkeypatch):
 
 def test_roundtrip_pads_a_resampling_shortfall_with_zeros(monkeypatch):
     """A 48 kHz model's output can come back a couple of samples short after
-    the resample home; the render must keep the input's exact length for the
-    pack gates, with silence at the tail rather than garbage."""
+    resampling back to 44.1 kHz. The render must keep the input's exact
+    length, because scripts/build_demo.py refuses a listening pack whose
+    tracks differ in length; the missing tail is filled with silence."""
     codec = RecordingCodec(render=np.ones((2, 998), dtype=np.float32))
     ae = register_fake(monkeypatch, codec)
     audio = np.ones((2, 1_000), dtype=np.float32)

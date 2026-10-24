@@ -25,13 +25,15 @@ proves, and listening stays the judge.
 ## Decision
 
 - `grooveback.priors` wraps the `stable-audio-3` in-process API: `load_prior`
-  / `generate`, all six released model types with their family's sampling
-  settings (post-trained: 8 unguided steps; `-base`: 50 steps at cfg 7).
-- `scripts/run_probe.py` generates the same track from every type — one fixed
-  prompt, seeds 0–2, 12 s scoring clips plus a 45 s listening clip — makes
-  MP3 twins at 64/128/192 kbps, and scores twin against clip. Twins are
-  refused unless aligned; on dense noise-like clips the correlation probe can
-  misread the lag, so alignment is judged by the match at lag zero.
+  / `generate`, all six released checkpoints (the `PRIOR_VARIANTS` table)
+  with their family's sampling settings (post-trained: 8 unguided steps;
+  `-base`: 50 steps at classifier-free guidance scale 7).
+- `scripts/run_probe.py` generates the same track from every checkpoint — one
+  fixed prompt, seeds 0–2, 12 s scoring clips plus a 45 s listening clip —
+  makes MP3 twins at 64/128/192 kbps, and scores twin against clip. Twins are
+  refused unless aligned; on dense noise-like clips the cross-correlation lag
+  search (`best_lag`) can misread the lag, so alignment is judged by the
+  match at lag zero.
 - `notebooks/probe.ipynb` colours by distance to the aerofunk master anchor —
   raw best/worst would praise the dullest clip, since the easiest track to
   compress wins SDR.
@@ -54,17 +56,17 @@ anchor = master-like top end.
 
 The same ordering holds at 128 and 192 kbps (`artifacts/probe/results.json`).
 
-Three observations, weighted for what three seeds of one prompt can carry:
+Four observations, weighted for what three seeds of one prompt can carry:
 
 - **The music models' output loses about as much to MP3 as a real master
-  does** — 10–22 dB against the master's 17.6 at 64k. There is
+  does** — SDR of 10–22 dB against the master's 17.6 dB at 64 kbps. There is
   codec-relevant substance in what they generate. This is the robust
   reading.
 - **The sfx types compress far too easily** (23.3 / 13.8 vs 17.6) — the
   confound demonstrated on genuinely sparse output; they are controls, not
   candidates.
 - The finer patterns — `small-music` losing more than the master, `medium`
-  paying far less LSD — are single numbers from minimalist clips, and SDR is
+  with a far lower LSD — are single numbers from minimalist clips, and SDR is
   relative to each clip's own content, which differs per variant. Recorded,
   not concluded from; the listening packs decide.
 - All 24 generations rendered without failure — the six checkpoints load and
@@ -95,24 +97,27 @@ draws, and chaining them coherently (the API's `inpaint_audio` /
 
 ### The length cap, and two ways past it
 
-The cap is soft. `generate()` clamps the requested duration to its
-`sample_size` argument (`min()` in `_adapt_sample_size`), whose default is
-120 s; the checkpoint's `model_config.json` carries the trained length
-(120 s small, 380 s medium) but nothing enforces it in-process — pass a
-larger `sample_size=` and the model runs past it. The remaining trained
-envelope is the `seconds_total` conditioner, calibrated 0–384 s on every
-checkpoint. Note the clamp is silent: any call past 120 s without an
-explicit `sample_size` quietly returns a shorter clip.
+The cap is soft. The package's `StableAudioModel.generate()` clamps the
+requested duration to its `sample_size` argument (`min()` in
+`_adapt_sample_size`), whose default is 120 s; the checkpoint's
+`model_config.json` carries the trained length (120 s small, 380 s medium)
+but nothing enforces it in-process — pass a larger `sample_size=` and the
+model runs past it. The other length limit from training is the
+`seconds_total` conditioning input, whose range is 0–384 s on every
+checkpoint. Note the clamp is silent: any call past 120 s without an explicit
+`sample_size` quietly returns a shorter clip.
 
 Both routes to 8 minutes work mechanically on `medium` (A100, measured):
 
 - **Forced single call** — `duration=480, sample_size=490*SR`: 480 s in
   3.3 s of compute, 26% past the trained length, energy and top band stable
   across the whole track.
-- **Continuation by inpainting** — 380 s, then a second window keeping the
-  last 60 s as context (`inpaint_audio`, mask regenerating everything after
-  it — continuation was a training task) and 100 s new, crossfaded inside
-  the context: 480 s in 4.2 s total, equally stable.
+- **Continuation by inpainting** — generate 380 s, then a second window
+  that keeps the last 60 s of the first as context and generates 100 s of
+  new audio after it (`inpaint_audio`, with a mask that regenerates
+  everything after the context; continuation was one of the model's
+  training tasks). The two windows are crossfaded inside the context. 480 s
+  in 4.2 s of compute in total, equally stable.
 
 Which one sounds right is a listening question —
 `artifacts/probe/eight/listen/` holds both, level-matched. The winning
