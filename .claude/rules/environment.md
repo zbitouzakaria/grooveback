@@ -12,7 +12,7 @@ by stable-audio-3** — see ADR-0007.
 | Apollo | `third_party/apollo` (git submodule) | imported directly; chunking and its tests live in the fork |
 | A2SB | `third_party/a2sb` (gitignored clone, fork branch `runnable-anywhere`, own venv) | `baselines.run_a2sb` → its `restore.py`, behind a subprocess — its pins genuinely conflict; `scripts/a2sb_restore.py` restores a directory of clips in one run |
 | AudioSR | pip package `audiosr` 0.0.7 in its own venv at `third_party/audiosr/.venv` (gitignored, built by `scripts/audiosr_setup.sh`) | `scripts/audiosr_restore.py`, run with that venv's python — its pins conflict too |
-| SAME | `stable-audio-3`, a git dependency pinned by commit in `pyproject.toml` | `grooveback.latents`, in-process |
+| SAME and the Stable Audio 3 priors | `stable-audio-3`, a git dependency pinned by commit in `pyproject.toml` | `grooveback.latents` and `grooveback.priors`, in-process |
 | εar-VAE | `third_party/earvae` (git submodule; deps in group `aes`) | `grooveback.latents` registry, in-process |
 | εar-VAE2 | `third_party/earvae2` (git submodule) | `grooveback.latents` registry, in-process |
 | CoDiCodec | pip package `codicodec` (group `aes`) | `grooveback.latents` registry, in-process |
@@ -26,15 +26,17 @@ cd third_party/a2sb && ./setup.sh
 ## Running things
 
 ```bash
-uv run python scripts/run_xp.py cuda     # the whole benchmark, one pass
-uv run python -m grooveback.cli.baseline --method apollo <track>
+uv run python scripts/run_xp.py device=cuda     # the whole benchmark, one pass
+uv run python -m grooveback.cli.baseline --method apollo <track> <output.wav>
+uv run python -m grooveback.cli.musdb_eval musdb18hq/test scores.csv --kbps 24   # ADR-0015, ADR-0016
 uv run --group notebooks python scripts/build_demo.py   # listening pages from artifacts/*/listen
-python3 -m http.server 8880 -d demo      # then open /base/ or /sdedit/ (ADR-0010)
+uv run --group notebooks python scripts/publish_listen.py [--page-only]   # the published page, docs/listen/
+python3 -m http.server 8880 -d demo      # then open /base/, /sdedit/ or /roundtrip/ (ADR-0010)
 ```
 
-`run_xp.py` skips any step whose output already exists, so it is safe to
-re-run and picks up renders produced elsewhere — which is how GPU-rendered
-results get folded back in.
+`run_xp.py` skips any render whose file already exists and re-scores
+everything on every run, so it is safe to re-run, and renders made on a GPU
+pod are scored once they are copied back.
 
 ## RunPod by default
 

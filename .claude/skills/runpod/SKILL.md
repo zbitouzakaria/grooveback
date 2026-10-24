@@ -5,7 +5,7 @@ description: Run GPU experiments on RunPod with runpodctl — auth via RUNPOD_AP
 
 # RunPod
 
-The rented-GPU tier. Prepaid credits on Zakaria's account, so a forgotten pod eats the budget directly.
+The rented-GPU tier. Prepaid credits on Zakaria's account, so a forgotten pod spends the credits directly.
 
 `runpodctl` via `brew install runpod/runpodctl/runpodctl` (v2.9.0+).
 
@@ -65,7 +65,7 @@ uv pip install --python /workspace/venv/bin/python \
     numpy soundfile einops safetensors huggingface-hub
 ```
 
-`--system-site-packages` is the load-bearing flag: it lets the venv see the image's torch so only the missing
+`--system-site-packages` is the flag that matters: it lets the venv see the image's torch so only the missing
 packages are fetched.
 
 But uv does not count the image's packages as installed. A package that depends on torch (descript-audio-codec,
@@ -111,11 +111,11 @@ Decide by setup cost, not by habit:
 | | volume | why |
 |---|---|---|
 | A2SB | yes — the existing `grooveback-US-MO-1` (`18v73b8ggl`, 14 GB) | fork clone, its own venv, and checkpoints; rebuilding each time is real work, and it needs an A100 anyway |
+| SAME-L, and anything else | **no** | setup is a git clone plus a venv that inherits the image's torch. The whole 140-window transport run, setup included, was 111 s on a fresh $0.49/h L4 |
 
-On that volume the fork lives at `/workspace/a2sb`, its venv at `/workspace/venv`, and the HF cache at
+On `grooveback-US-MO-1` the fork lives at `/workspace/a2sb`, its venv at `/workspace/venv`, and the HF cache at
 `/workspace/hf` (export `HF_HOME=/workspace/hf`). The clone's `.venv` is a symlink that dangles after a pod
 recycles (it once pointed at container disk): re-point it with `ln -sfn /workspace/venv /workspace/a2sb/.venv`.
-| SAME-L, and anything else | **no** | setup is a git clone plus a venv that inherits the image's torch. The whole 140-window transport run, setup included, was 111 s on a fresh $0.49/h L4 |
 
 So: one volume, where the heavy setup lives, and everything else runs volume-less on whatever GPU is cheapest in any
 region. Do not add a second volume to chase a GPU class.
@@ -130,7 +130,7 @@ doubles the bill. Neither is worth it when the alternative is a five-minute setu
 ## Cost rules
 
 - Pods run experiments only. Results come back to the Mac for analysis.
-- **`pod delete` when the run finishes, not `pod stop`** — stopped pods still bill for disk.
+- **`pod delete`, not `pod stop`** — stopped pods still bill for disk.
 - **`--terminate-after` did not stop a pod.** One created with `--terminate-after 2026-10-23T21:52:20Z` was still
   RUNNING and billing at 22:33Z. A job that can outlive your watch (the laptop sleeps or shuts down) needs another
   stop, such as a last step that removes its own pod. Not tried yet: the pod would need an API key to do it.
@@ -141,5 +141,5 @@ doubles the bill. Neither is worth it when the alternative is a five-minute setu
 - Pick the cheapest GPU that fits. Most jobs here are small.
 - Watch `runpodctl user` for the balance.
 
-Pair every pod setup with the audit loop in `CLAUDE.md` — provisioning is exactly the kind of outside effect that
-hangs silently.
+Pair every pod setup with the audit loop in the owner's global `~/.claude/CLAUDE.md` ("Long-running and remote
+commands") — provisioning is exactly the kind of outside effect that hangs silently.

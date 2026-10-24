@@ -1,7 +1,7 @@
 # One run type exists: mode inference — restore a file or a folder of files
-# with the selected model. `model` composes the method's defaults from
-# configs/model/ and is how methods will be switched later (`model=dps` once
-# such a yaml exists). See ADR-0002, "Configuration".
+# with the selected model. `model` picks the method and its defaults from
+# configs/model/: sdedit by default, or `model=roundtrip`, `model=latent-sub`.
+# See ADR-0002, "Configuration".
 
 defaults:
   - model: sdedit
@@ -11,7 +11,7 @@ defaults:
 mode: inference
 device: auto
 input: ???        # a degraded audio file, or a folder of them
-output_dir: ???   # restored copies land here as {stem}_{model.name}_{noise_level}.wav
+output_dir: ???   # restored copies land here, e.g. {stem}_sdedit_n0.15.wav or {stem}_roundtrip_earvae.wav
 
 hydra:
   run:
