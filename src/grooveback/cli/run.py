@@ -7,8 +7,9 @@
 
 Hydra composes `configs/config.yaml`: `model` selects the restoration method
 and its parameters, `mode` the run type. An output that already exists is
-skipped, so sweeps can share one output_dir — the method's parameters are in
-every filename.
+skipped. A filename carries the method and one parameter — `theta` or
+`noise_level` for sdedit, `ae` for roundtrip and latent-sub — so only a sweep
+over that parameter can share one output_dir.
 """
 
 from __future__ import annotations
@@ -51,8 +52,9 @@ def _sdedit_setup(cfg: DictConfig):
         if cfg.model.cfg_scale is not None
         else variant_defaults["cfg_scale"]
     )
-    # t-runs are named by theta, n-runs by noise level; a run that sets both
-    # (e.g. a prompted variant) gets its own output_dir instead.
+    # Files are named by theta when it is set, else by noise_level. No other
+    # setting is in the name, so a run that changes another one (the variant,
+    # the prompt, the seed) needs its own output_dir.
     if cfg.model.theta is not None:
         suffix = f"_{cfg.model.name}_t{cfg.model.theta:.2f}.wav"
     else:

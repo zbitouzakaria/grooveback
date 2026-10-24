@@ -34,9 +34,10 @@ _APOLLO_REPO = _REPO / "third_party" / "apollo"
 # upstream inference script.
 _APOLLO_ARCH = {"sr": APOLLO_SAMPLE_RATE, "win": 20, "feature_dim": 256, "layer": 6}
 
-# Apollo's rotary tables cover 10_000 positions at 100 frames/s. Past that it
-# dies inside the model on a broadcast mismatch — architectural, not memory, so
-# no GPU raises it. Attention is also quadratic, so the practical limit is lower.
+# Apollo's rotary tables cover 10_000 positions at 100 frames/s. Past that the
+# model fails on a broadcast mismatch. The limit is in the architecture, not in
+# memory, so a bigger GPU does not lift it. Attention is also quadratic, so the
+# practical limit is lower.
 APOLLO_MAX_SECONDS = 10_000 * (_APOLLO_ARCH["win"] // 2) / 1000
 
 
@@ -76,8 +77,8 @@ def load_apollo(checkpoint: str | Path = APOLLO_CHECKPOINT, device: str = "auto"
     """Load the pretrained Apollo model.
 
     The default downloads the official checkpoint from Hugging Face and loads it
-    with `torch.load`, which is arbitrary deserialization — the usual bargain
-    with research checkpoints.
+    with `torch.load`, which can run arbitrary code from the file — a risk we
+    accept with research checkpoints.
     """
     models = _apollo_import("look2hear.models")
 
@@ -185,10 +186,10 @@ def run_a2sb(
 ) -> np.ndarray:
     """Restore `(channels, samples)` audio with the A2SB fork.
 
-    Stereo is restored per channel fork-side (one model load, both channels),
-    so output keeps the input's channel count. Cutoff detection happens
-    fork-side on the audio it is handed, so when processing an excerpt of a
-    longer file, pass the full file's `cutoff_hz` explicitly.
+    The fork restores stereo one channel at a time, with one model load, so
+    the output keeps the input's channel count. The fork detects the cutoff
+    on the audio it receives, so for an excerpt of a longer file, pass the
+    full file's `cutoff_hz`.
     """
     from grooveback import audio as ga
 
@@ -227,7 +228,7 @@ def run_a2sb(
             )
         for line in result.stdout.splitlines():
             if line.startswith("restore:"):
-                print(f"a2sb: {line[9:]}")
+                print(f"a2sb: {line.removeprefix('restore:').strip()}")
         restored, _ = ga.load(wav_out)
 
     out = np.zeros((audio.shape[0], audio.shape[1]), dtype=np.float32)

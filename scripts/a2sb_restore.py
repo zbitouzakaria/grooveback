@@ -9,7 +9,7 @@ single run of the fork's inference, so the checkpoints load once. A file whose
 render already exists is skipped.
 
 One run has one cut-off. On the MP3s of one bitrate it is the codec's, the same
-for every clip; scripts/run_xp.py passes it 250 Hz under the measured codec
+for every clip; scripts/run_xp.py sets it 250 Hz under the measured codec
 edge, so the model sees full-level content up to a sharp edge.
 
 The fork's inverse STFT returns a whole number of 512-sample hops, which cut the

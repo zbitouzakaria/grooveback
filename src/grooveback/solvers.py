@@ -34,7 +34,7 @@ def _fit_to_input(out: np.ndarray, samples: int) -> np.ndarray:
 
 
 def _match_input_loudness(out: np.ndarray, audio: np.ndarray, sample_rate: int) -> np.ndarray:
-    """Gain `out` to the input's integrated loudness (peaks may pass full scale).
+    """Scale `out` to the input's integrated loudness (peaks may pass full scale).
 
     Integrated loudness needs at least the meter's 400 ms block, and digital
     silence (or DC) measures -inf; in both cases the output stays at its
@@ -103,15 +103,14 @@ def sdedit(
     round-trip.
 
     Setting `theta` above `noise_level` makes the model remove more than was
-    added — with `noise_level=0` nothing is added at all, and the θ of
-    denoising budget is spent on what already deviates from clean music: the
+    added. With `noise_level=0` nothing is added at all, so the denoising from
+    θ to 0 can only act on what already deviates from clean music: the
     damage itself (ADR-0009). Deterministic on the -base checkpoints, whose
     euler sampler draws no noise of its own.
 
-    Output comes back at the input's integrated loudness (gain only, so peaks
-    can pass full scale) — the waveform baselines' output tracks the input's
-    level by construction, while the decoder's native level drifts with
-    `noise_level`.
+    Output comes back at the input's integrated loudness, like every solver
+    here (gain only, so peaks can pass full scale); the decoder's own level
+    drifts with `noise_level`.
     """
     if sample_rate != PRIOR_SAMPLE_RATE:
         raise ValueError(

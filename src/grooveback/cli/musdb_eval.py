@@ -7,10 +7,12 @@ and Apollo restores the MP3. The MP3, Apollo's output and, with `--ae`, an
 autoencoder's round trip of the MP3 and of Apollo's output are scored against
 the clean session with the paper's SDR and SI-SNR, and with spectral SNR and
 log-spectral distance (ADR-0007). Every step follows the authors' released
-code; each function names its source. The released checkpoint was not trained
+code; each function names its source. ADR-0015 records how we checked each
+step against their code. The released checkpoint was not trained
 on these songs (JusperLee/Apollo#46).
 
-Models with their own environment restore the MP3s outside this process:
+Models with their own environment restore the MP3s outside this process
+(`musdb_eval` is short for `uv run python -m grooveback.cli.musdb_eval`):
 
     musdb_eval musdb18hq/test mp3.csv --kbps 24 --no-apollo --clips 100 --mp3-dir mp3
     third_party/audiosr/.venv/bin/python scripts/audiosr_restore.py mp3 audiosr

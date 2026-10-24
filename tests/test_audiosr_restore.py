@@ -22,14 +22,16 @@ SR = 44_100
 
 class NormalizingIdentity:
     """AudioSR's level behavior without its content: the file it is given,
-    scaled to a peak of 0.5 and padded to the model's 5.12 s grain at 48 kHz,
-    in the model's `(1, 1, samples)` shape. Records each call's sample count."""
+    scaled to a peak of 0.5 and zero-padded to 10.24 s at 48 kHz, in the
+    model's `(1, 1, samples)` shape. The real model pads to the next multiple
+    of 5.12 s; 10.24 s is the longest chunk the driver sends, so it covers
+    every call. Records each call's sample count."""
 
     def __init__(self):
         self.sizes = []
 
     def __call__(self, wav_path):
-        audio, rate = sf.read(wav_path, dtype="float32")
+        audio, _ = sf.read(wav_path, dtype="float32")
         self.sizes.append(audio.size)
         padded = np.pad(audio, (0, int(10.24 * 48_000) - audio.size))
         return (0.5 * padded / np.abs(padded).max())[None, None, :]

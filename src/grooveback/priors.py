@@ -1,9 +1,10 @@
 """Generating audio with the Stable Audio 3 prior.
 
 The prior is the artifact this project is about (ADR-0004): a generative
-model over music, living in the SAME latent space. This module wraps the
-`stable-audio-3` dependency's in-process API the way `latents.py` wraps the
-autoencoder: load once, pass the model around, numpy out.
+model over music that works in the latent space of SAME, the autoencoder in
+`latents.py`. This module wraps the `stable-audio-3` dependency's in-process
+API the way `latents.py` wraps SAME: load once, pass the model around,
+numpy out.
 """
 
 from __future__ import annotations

@@ -1,8 +1,8 @@
 """Scoring restorations against a reference, and building comparison sets
 that are fair to listen to.
 
-Torch-free to import; `bss_sdr_db` loads torch (via fast_bss_eval) when
-called. No GPU, no network.
+Torch-free to import; `bss_sdr_db` and `bss_si_sdr_db` load torch (via
+fast_bss_eval) when called. No GPU, no network.
 """
 
 from __future__ import annotations
@@ -181,14 +181,14 @@ def codec_edge_hz(
     reference within `track_db`. Bands where the reference itself has fallen
     `floor_db` below its loudest band are ignored — there both signals are
     noise floor and would "track" spuriously. Synthetic MP3 edges are sharp,
-    so this is exact to one band; the smeared-knee detection in the A2SB fork
-    exists for real rips without a reference, not for twins.
+    so this is exact to one band. The A2SB fork has its own cutoff detector,
+    built for the gradual roll-offs of real rips, which have no clean reference.
     """
     ref = reference.mean(axis=0).astype(np.float64)
     deg = degraded.mean(axis=0).astype(np.float64)
     n = min(ref.size, deg.size)
 
-    def band_levels(x: np.ndarray) -> np.ndarray:
+    def band_levels(x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         spectrum = np.abs(np.fft.rfft(x[:n])) ** 2
         freqs = np.fft.rfftfreq(n, 1.0 / sample_rate)
         edges = np.arange(0, sample_rate / 2, band_hz)
@@ -258,7 +258,7 @@ def level_matched_set(
     per-item scaling would undo the level matching.
     """
     matched = {
-        name: ga.normalize_loudness(audio, sample_rate, target_lufs)
+        name: ga.normalize_loudness(audio, sample_rate, target_lufs=target_lufs)
         for name, audio in items.items()
     }
     peak = max(ga.peak_dbfs(audio) for audio in matched.values())

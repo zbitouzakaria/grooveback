@@ -40,7 +40,7 @@ import soundfile as sf
 import soxr
 
 NATIVE_RATE = 48_000
-CHUNK_SAMPLES = 491_520  # 10.24 s at 48 kHz, two of the model's 5.12 s grains
+CHUNK_SAMPLES = 491_520  # 10.24 s at 48 kHz: two 5.12 s blocks, the unit the package pads to
 FADE_SAMPLES = 4_800  # 0.1 s at 48 kHz
 
 
@@ -72,11 +72,12 @@ def restore_channel(channel: np.ndarray, *, sr_fn, tmp_dir: Path) -> np.ndarray:
 
 def restore_file(audio: np.ndarray, rate: int, *, sr_fn, tmp_dir: Path) -> np.ndarray:
     """`(channels, samples)` at `rate` in, the same shape and rate out."""
-    native = soxr.resample(audio.T, rate, NATIVE_RATE, quality="VHQ").T
+    native = soxr.resample(audio.T, in_rate=rate, out_rate=NATIVE_RATE, quality="VHQ").T
     restored = np.stack(
         [restore_channel(channel, sr_fn=sr_fn, tmp_dir=tmp_dir) for channel in native]
     )
-    out = soxr.resample(restored.T, NATIVE_RATE, rate, quality="VHQ").T[:, : audio.shape[1]]
+    out = soxr.resample(restored.T, in_rate=NATIVE_RATE, out_rate=rate, quality="VHQ").T
+    out = out[:, : audio.shape[1]]
     return np.pad(out, ((0, 0), (0, audio.shape[1] - out.shape[1])))
 
 

@@ -4,9 +4,9 @@
 
 Cut one chunk per source, make MP3 twins at three bitrates, restore each twin
 with every method, and score everything against the original chunk. Methods
-are the autoencoder round-trips, a mean-damage subtraction, and the chained
-{anchor}-{ae} renders (the autoencoder run on an anchor's output), anchored
-by apollo and a2sb (ADR-0011):
+are the baselines apollo and a2sb (`anchors`), the autoencoder round-trips, a
+mean-damage subtraction, and the chained {chain}-{ae} renders: the autoencoder
+run on the render of a method in `chains`, such as apollo-earvae (ADR-0011):
 
   artifacts/xp/{source}/original.wav             the clean chunk
   artifacts/xp/{source}/{bitrate}/input.wav      the MP3 round-trip
@@ -75,7 +75,7 @@ def render_path(name: str, bitrate: str, method: str) -> Path:
 
 
 def band_above(x: np.ndarray, lo_hz: float) -> np.ndarray:
-    """The content of `x` at and above `lo_hz` — the codec's fill zone."""
+    """The content of `x` at and above `lo_hz`; at the codec edge, the band the codec removed."""
     spectrum = np.fft.rfft(x, axis=-1)
     freqs = np.fft.rfftfreq(x.shape[-1], 1.0 / SR)
     spectrum[..., freqs < lo_hz] = 0
@@ -165,14 +165,14 @@ def main(cfg: DictConfig) -> None:
     chunks = {name: cut_chunk(name) for name in cfg.sources}
     twins = {(name, bitrate): build_twin(name, bitrate, chunks[name])
              for name in cfg.sources for bitrate in cfg.bitrates}
-    # The frequency the codec actually kept, exact on synthetic twins. A2SB is
-    # walled here rather than at its own detected knee: the knee detector
-    # exists for real rips with smeared rolloffs, and on a sharp LAME edge it
-    # lands below the edge and deletes real content.
+    # The frequency the codec actually kept, exact on synthetic twins. A2SB's
+    # cutoff is set from it rather than by A2SB's own detector: the detector
+    # is built for real rips with gradual rolloffs, and on a sharp LAME edge
+    # it lands below the edge and removes real content.
     edges = {key: codec_edge_hz(chunks[key[0]], twins[key], sample_rate=SR)
              for key in twins}
 
-    # Anchors render first — the chained {anchor}-{ae} renders read them.
+    # Anchors render first — the chained {chain}-{ae} renders read them.
     if "apollo" in cfg.anchors:
         todo = [key for key in twins if not render_path(*key, "apollo").exists()]
         if todo:
@@ -186,14 +186,13 @@ def main(cfg: DictConfig) -> None:
     if "a2sb" in cfg.anchors:
         for name, bitrate in twins:
             if not render_path(name, bitrate, "a2sb").exists():
-                print(f"render a2sb: {name} {bitrate} "
-                      f"(wall at {edges[(name, bitrate)] - 250:.0f} Hz)", flush=True)
-                # 50 steps is the paper's default; ADR-0006 uses it as
-                # canonical. The wall sits one band under the measured edge so
-                # the model sees full-level content right up to a sharp,
-                # training-matched edge.
-                out = run_a2sb(twins[(name, bitrate)], SR, n_steps=50,
-                               cutoff_hz=edges[(name, bitrate)] - 250,
+                # The cutoff sits 250 Hz (one codec_edge_hz band) under the
+                # measured edge, so the model sees full-level content right up
+                # to a sharp, training-matched edge. 50 steps is the paper's
+                # default; ADR-0006 uses it as canonical.
+                cutoff_hz = edges[(name, bitrate)] - 250
+                print(f"render a2sb: {name} {bitrate} (cutoff {cutoff_hz:.0f} Hz)", flush=True)
+                out = run_a2sb(twins[(name, bitrate)], SR, n_steps=50, cutoff_hz=cutoff_hz,
                                device="mps" if cfg.device == "auto" else cfg.device)
                 ga.save(render_path(name, bitrate, "a2sb"), out, SR)
 
@@ -225,8 +224,9 @@ def main(cfg: DictConfig) -> None:
                 out = roundtrip(model, source, SR, ae=ae)
             ga.save(render_path(name, bitrate, tag), out, SR)
         del model
-        # The allocator keeps the freed model's blocks cached; the next
-        # autoencoder then OOMs on a card the two would separately fit.
+        # torch's CUDA allocator keeps the freed model's memory cached; without
+        # emptying it, the next autoencoder runs out of memory on a card that
+        # fits each model alone.
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 

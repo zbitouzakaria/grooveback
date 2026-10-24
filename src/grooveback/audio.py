@@ -32,7 +32,7 @@ def save(
 
     The default float WAV carries peaks past full scale bit-exactly, which
     decoder overshoot and loudness matching both produce. Integer subtypes
-    (`PCM_24` FLAC for listening packs) cannot: libsndfile would clip them
+    (`PCM_24` and `PCM_16` FLAC for listening packs) cannot: libsndfile would clip them
     silently, so audio past full scale is refused here instead — the caller
     must bring the set under the ceiling first.
     """
@@ -119,8 +119,8 @@ def band_energy_db(
 ) -> float:
     """RMS level in dBFS of the content between `low_hz` and `high_hz`.
 
-    The float64 cast is load-bearing: float32 FFT roundoff at full-track
-    lengths buries quiet bands by tens of dB.
+    The float64 cast matters: in float32, FFT roundoff at full-track
+    lengths makes quiet bands read tens of dB too low.
     """
     mono = audio.mean(axis=0).astype(np.float64)
     spectrum = np.fft.rfft(mono)

@@ -23,6 +23,7 @@ class IdentityAE:
         self.calls = []
 
     def parameters(self):
+        # encode and decode read the target device off the first parameter.
         yield torch.zeros(1)
 
     def encode_audio(self, batch):
@@ -49,7 +50,7 @@ def test_encode_rejects_wrong_sample_rate_before_the_model_runs():
     audio = np.zeros((2, 500), dtype=np.float32)
 
     with pytest.raises(ValueError, match="44100"):
-        gl.encode(audio, 48_000, model)
+        gl.encode(audio, sample_rate=48_000, model=model)
     assert model.calls == []
 
 
@@ -72,8 +73,9 @@ def test_decode_rejects_non_finite_latents_before_the_model_runs():
 
 
 def test_decode_rejects_a_model_that_emits_non_finite_audio():
-    """Subtracted latents sit outside the training distribution; a decoder
-    blowing up must fail here, not poison loudness matching downstream."""
+    """Latents with the damage subtracted lie outside the training
+    distribution, so the decoder may return NaN. That must fail here, not
+    later inside loudness matching."""
 
     class NaNDecoder(IdentityAE):
         def decode_audio(self, batch):
