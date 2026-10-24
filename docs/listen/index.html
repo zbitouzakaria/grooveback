@@ -50,7 +50,7 @@ round trip through εar-VAE2, the autoencoder's successor. Its open weights are
 retrained on public datasets.</li>
 <li><b>Apollo → εar-VAE</b> — our chained method: Apollo's output passed through
 the εar-VAE autoencoder. The autoencoder is trained on clean music only, so the
-round-trip smooths the artifacts Apollo introduces on heavily degraded input.</li>
+round trip smooths the artifacts Apollo introduces on heavily degraded input.</li>
 <li><b>εar-VAE − MP3 damage</b> — our latent damage subtraction: the input is
 encoded, the mean shift that MP3 compression causes in εar-VAE's latent space
 (measured on a different track) is subtracted, and the result is decoded. It
@@ -59,7 +59,7 @@ restores spectral balance rather than waveform detail.</li>
 <p class="note">The spectrogram belongs to the selected track, and clicking it
 seeks. Differences are clearest on monitoring headphones or speakers.</p>
 <h2>codec_32k</h2>
-<p class="note">A 6 s clip, the test asset from Apollo's release — the brighter of the two sources. At 32 kbps the codec keeps nothing above about 5.5 kHz; everything a method shows above that edge is generated, not recovered. This is the severe case, where Apollo → εar-VAE sounds cleaner than Apollo alone: the round-trip removes the artifacts Apollo introduces at this damage level.</p>
+<p class="note">A 6 s clip, the test asset from Apollo's release — the brighter of the two sources. At 32 kbps the codec keeps nothing above about 5.5 kHz; everything a method shows above that edge is generated, not recovered. This is the severe case, where Apollo → εar-VAE sounds cleaner than Apollo alone: the round trip removes the artifacts Apollo introduces at this damage level.</p>
 <trackswitch-player>
 <script type="application/json">{
  "media": {
@@ -458,7 +458,7 @@ seeks. Differences are clearest on monitoring headphones or speakers.</p>
 }</script>
 </trackswitch-player>
 <h2>aerofunk_32k</h2>
-<p class="note">A 180 s excerpt of an electronic track, compared against its clean master. At 32 kbps the codec keeps nothing above about 5.5 kHz; everything a method shows above that edge is generated, not recovered. This is the severe case, where Apollo → εar-VAE sounds cleaner than Apollo alone: the round-trip removes the artifacts Apollo introduces at this damage level.</p>
+<p class="note">A 180 s excerpt of an electronic track, compared against its clean master. At 32 kbps the codec keeps nothing above about 5.5 kHz; everything a method shows above that edge is generated, not recovered. This is the severe case, where Apollo → εar-VAE sounds cleaner than Apollo alone: the round trip removes the artifacts Apollo introduces at this damage level.</p>
 <trackswitch-player>
 <script type="application/json">{
  "media": {

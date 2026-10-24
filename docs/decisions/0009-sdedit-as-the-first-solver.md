@@ -5,11 +5,12 @@ Date: 2026-09-07, concluded 2026-09-09
 ## Status
 
 Accepted, and concluded: the method is rejected as restoration. This record
-absorbs the former ADR-0011.
+also holds the second SDEdit experiment (θ and guidance), first drafted as
+ADR-0011. That number now belongs to the autoencoder benchmark.
 
 ## Context
 
-The baseline phase (ADR-0005 → 0008) measured the existing tools. Apollo is
+The baseline phase (ADR-0005 to ADR-0008) measured the existing tools. Apollo is
 a supervised model: trained on pairs of degraded and clean audio, it maps
 one to the other in a single pass. The project's prior (ADR-0004) is a
 generative model trained on clean music only. It synthesizes audio by
@@ -20,8 +21,8 @@ concept of MP3 compression.
 
 SDEdit ([Meng et al., 2022](https://arxiv.org/abs/2108.01073)) is the
 minimal way to apply such a generator to restoration: it requires no
-surrogate model and no fine-tuning. It was selected as the first solver
-with two objectives — establish the full inference chain, and measure the
+surrogate model and no fine-tuning. We chose it as the first solver
+with two goals: build the full inference chain, and measure the
 method's limits on this material.
 
 ## Method
@@ -46,7 +47,7 @@ content — and the experiments below test it directly. Because no
 randomness enters, the output is a deterministic function of the input
 (verified bit-identical across repeated runs on the base checkpoint).
 
-**Implementation.** The vendored API drives both quantities from one
+**Implementation.** The stable-audio-3 API drives both quantities from one
 parameter, so the project pins a
 [fork](https://github.com/zbitouzakaria/stable-audio-3) adding
 `init_mix_level`, which sets the mixed-noise amount independently of the
@@ -85,7 +86,7 @@ measured with the model's own autoencoder.
   input above n ≈ 0.25, far below the level the damage would require.
 - **Classifier-free guidance does not transfer to shortened schedules.**
   cfg 7, calibrated for sampling from pure noise, reduces input
-  correlation from 0.96 to 0.32 on the [0.25, 0] tail while adding energy
+  correlation from 0.96 to 0.32 when sampling only from schedule time 0.25 down to 0, while adding energy
   across the band. At scales that preserve the input, prompts produce no
   measurable or audible change.
 - **Perceptual quality and input fidelity separate by damage level.** On

@@ -10,7 +10,8 @@ Accepted
 
 The goal is a generative model of minimal and electronic music, trained on my own library, working in the latent space
 of a pretrained audio autoencoder. That model — the prior — is the artifact. Restoring degraded rips is its first
-application. Generating new music falls out for free. Conditioning on inspiration samples is a later problem.
+application. The same model can also generate new music at no extra cost. Conditioning on inspiration samples is a
+later problem.
 
 ## Decision
 
@@ -51,8 +52,8 @@ not faithful to the original master. Where the input says nothing, the prior inv
 
 ## Consequences
 
-- Adapting Stable Audio 3 fixes the latent space to SAME. A real loss of optionality, accepted — the alternative is
-  picking a latent space freely and having no pretrained prior in it.
+- Adapting Stable Audio 3 fixes the latent space to SAME. This is a real loss of choice, and we accept it — the
+  alternative is picking a latent space freely and having no pretrained prior in it.
 - A prior can't be moved to a different latent space; changing autoencoder means retraining. So the autoencoder gets
   checked before any adaptation work.
 - Adapted weights inherit the [Stability AI Community License](https://stability.ai/license) — fine for personal and
