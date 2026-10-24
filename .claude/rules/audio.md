@@ -21,8 +21,9 @@ Audio breaks silently: no exception, nothing looks wrong, the output is merely w
 An identity model is coherent by construction, so none of these catch a model that invents content *differently on
 each call* — the case where two windows produce the same band at different phase and blending them loses power.
 Crossfaded chunking is safe only for models whose output is consistent given their input — measured true of Apollo,
-whose chunking and its tests live in the fork. No test covers an inconsistent model; add one before chunking
-anything stochastic.
+whose chunking and its tests live in the fork. AudioSR is not consistent, and its driver chunks 3-minute tracks
+anyway: a test there pins the cost, invented content 3 dB quieter at the middle of each 0.1 s crossfade. Add such a
+test before chunking any other stochastic model.
 
 ## Findings live in ADRs
 

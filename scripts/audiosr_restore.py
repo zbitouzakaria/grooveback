@@ -9,15 +9,20 @@ directory, and a file whose render already exists is skipped.
 
 The model is mono and 48 kHz: each file is resampled to 48 kHz, each channel is
 restored on its own, and the result is resampled back to the file's rate and
-cut to its length. The package pads each input to a multiple of 5.12 s and
-restores it in one pass, so a 6 s clip costs as much as 10.24 s.
+cut to its length. The package pads each input to a multiple of 5.12 s, and its
+attention spans the whole input, so a 3-minute track does not fit in memory.
+The driver restores 10.24 s chunks and joins them with 0.1 s linear crossfades;
+a file of up to 10.24 s is one chunk, so a 6 s clip costs as much as 10.24 s.
+Each chunk invents its own band above the cut-off, so at the middle of a
+crossfade two different inventions are averaged, and that band is 3 dB quieter
+there.
 
 Sampling uses 50 DDIM steps, the default of AudioSR's command-line tool (its
 Python function defaults to 200), and the package's own seed and guidance scale.
 
 The package scales each input to a peak of 0.5 before the model. Below the
 cut-off it detects, the render is the input's own spectrum, so the
-least-squares gain of the render against its input brings back the input's
+least-squares gain of each chunk's render against the chunk brings back its
 level.
 """
 
@@ -33,17 +38,34 @@ import soundfile as sf
 import soxr
 
 NATIVE_RATE = 48_000
+CHUNK_SAMPLES = 491_520  # 10.24 s at 48 kHz, two of the model's 5.12 s grains
+FADE_SAMPLES = 4_800  # 0.1 s at 48 kHz
+
+
+def chunk_starts(n_samples: int) -> list[int]:
+    """Where each chunk starts. A chunk overlaps the next by FADE_SAMPLES, and
+    the last one runs to the end of the input."""
+    return list(range(0, n_samples - FADE_SAMPLES, CHUNK_SAMPLES - FADE_SAMPLES)) or [0]
 
 
 def restore_channel(channel: np.ndarray, *, sr_fn, tmp_dir: Path) -> np.ndarray:
     """Restore one mono 48 kHz channel; `sr_fn(wav_path)` runs the model on a file."""
-    wav = tmp_dir / "channel.wav"
-    sf.write(wav, channel, NATIVE_RATE, subtype="FLOAT")
-    render = np.asarray(sr_fn(str(wav)), dtype=np.float64).squeeze()[: channel.size]
-    reference = channel.astype(np.float64)
-    projection = np.dot(render, reference)
-    gain = np.dot(reference, reference) / projection if projection > 0 else 0.0
-    return (gain * render).astype(np.float32)
+    fade_in = np.linspace(0.0, 1.0, FADE_SAMPLES)
+    out = np.zeros(channel.size)
+    for start in chunk_starts(channel.size):
+        chunk = channel[start : start + CHUNK_SAMPLES]
+        wav = tmp_dir / "chunk.wav"
+        sf.write(wav, chunk, NATIVE_RATE, subtype="FLOAT")
+        render = np.asarray(sr_fn(str(wav)), dtype=np.float64).squeeze()[: chunk.size]
+        reference = chunk.astype(np.float64)
+        projection = np.dot(render, reference)
+        gain = np.dot(reference, reference) / projection if projection > 0 else 0.0
+        piece = gain * render
+        if start:
+            out[start : start + FADE_SAMPLES] *= 1.0 - fade_in
+            piece[:FADE_SAMPLES] *= fade_in
+        out[start : start + chunk.size] += piece
+    return out.astype(np.float32)
 
 
 def restore_file(audio: np.ndarray, rate: int, *, sr_fn, tmp_dir: Path) -> np.ndarray:
