@@ -21,6 +21,40 @@ four, moves the ladder to 32/64/128 kbps, and adds two inference-time
 constructions on top of the round-trip: a mean damage subtraction in latent
 space, and the round-trip applied to a supervised restorer's output.
 
+## Listening verdict (2026-09-10, monitors)
+
+Apollo → εar-VAE is the best method for heavily damaged records: it beats
+Apollo alone on 32 kbps material, and the verdict is split at 64 kbps. Above
+64 kbps, Apollo alone sounds closer to the master. The mechanism as heard is
+that apollo guesses the missing content well, and εar-VAE's decode smooths
+the result — which removes the artifacts apollo itself introduces when the
+compression is severe. At lighter compression apollo adds few artifacts, and
+the same smoothing then moves the sound away from the master.
+
+The mean damage subtraction through εar-VAE stays in the promising set.
+Everything else tried — the other autoencoders' round-trips, chains and
+subtractions — is worse by ear. A2SB is kept as a comparison point rather
+than a contender. The released εar-VAE2 sounds clearly worse than εar-VAE,
+consistent with its public-data retrain (its model card shows the open
+weights losing to the paper's proprietary ones) and with its 50 Hz STFT bins
+in the bass.
+
+The kept set, in solo-key order: ground truth, degraded input, Apollo, A²SB,
+Apollo → εar-VAE, εar-VAE − MP3 damage.
+
+### Published set
+
+`docs/listen/` carries the kept set for the codec and aerofunk sources at
+32/64/128 kbps on GitHub Pages, as 24-bit FLAC listening copies at −14 LUFS
+under one common −1 dBFS gain per pack — about 556 MB of audio committed to
+the repository, accepted over the initial 500 MB budget to keep aerofunk at
+its full three minutes. The same-artist pair stays out of the published set.
+ADR-0016 adds AudioSR and the εar-VAE and εar-VAE2 round trips to these sets,
+and stores all of them as 16-bit FLAC: 392 MB of audio, 419 MB for the page.
+`scripts/publish_listen.py` rebuilds the page, and the audio URLs carry each
+file's mtime, so a browser fetches a republished pack again instead of
+playing a cached copy.
+
 ## Decision
 
 ### The benchmark
@@ -313,40 +347,6 @@ re-invents phase wholesale.
 | apollo-codicodec | **5.5** 🔴 | **5.9** 🔴 | **4.8** 🔴 | **10.8** 🔴 | 9.1 |
 | apollo | 20.2 | 19.9 | 20.1 | **24.6** 🟢 | **7.0** 🟢 |
 | a2sb | 23.8 | 21.9 | 23.7 | 23.4 | 9.8 |
-
-## Listening verdict (2026-09-10, monitors)
-
-Apollo → εar-VAE is the best method for heavily damaged records: it beats
-Apollo alone on 32 kbps material, and the verdict is split at 64 kbps. Above
-64 kbps, Apollo alone sounds closer to the master. The mechanism as heard is
-that apollo guesses the missing content well, and εar-VAE's decode smooths
-the result — which removes the artifacts apollo itself introduces when the
-compression is severe. At lighter compression apollo adds few artifacts, and
-the same smoothing then moves the sound away from the master.
-
-The mean damage subtraction through εar-VAE stays in the promising set.
-Everything else tried — the other autoencoders' round-trips, chains and
-subtractions — is worse by ear. A2SB is kept as a comparison point rather
-than a contender. The released εar-VAE2 sounds clearly worse than εar-VAE,
-consistent with its public-data retrain (its model card shows the open
-weights losing to the paper's proprietary ones) and with its 50 Hz STFT bins
-in the bass.
-
-The kept set, in solo-key order: ground truth, degraded input, Apollo, A²SB,
-Apollo → εar-VAE, εar-VAE − MP3 damage.
-
-### Published set
-
-`docs/listen/` carries the kept set for the codec and aerofunk sources at
-32/64/128 kbps on GitHub Pages, as 24-bit FLAC listening copies at −14 LUFS
-under one common −1 dBFS gain per pack — about 556 MB of audio committed to
-the repository, accepted over the initial 500 MB budget to keep aerofunk at
-its full three minutes. The same-artist pair stays out of the published set.
-ADR-0016 adds AudioSR and the εar-VAE and εar-VAE2 round trips to these sets,
-and stores all of them as 16-bit FLAC: 392 MB of audio, 419 MB for the page.
-`scripts/publish_listen.py` rebuilds the page, and the audio URLs carry each
-file's mtime, so a browser fetches a republished pack again instead of
-playing a cached copy.
 
 ## Consequences
 
