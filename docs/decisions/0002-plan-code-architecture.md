@@ -4,7 +4,9 @@ Date: 2026-08-15
 
 ## Status
 
-Accepted
+Accepted for ADR-0005's work. The code then grew differently from the tree below: there is no
+`manifest.py` or `cli/ingest.py`; `solvers.py`, `cli/run.py` and `cli/musdb_eval.py` were added; `latents.py` holds
+four autoencoders. Model inference now runs on a rented GPU by default (`.claude/rules/environment.md`).
 
 ## Context
 

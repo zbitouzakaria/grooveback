@@ -129,8 +129,9 @@ route is what a `generate_long` in `grooveback.priors` should implement.
   every released checkpoint, in-process, seeded, numpy out.
 - The probe alone does not establish master-grade output either way; what
   it establishes is the pipeline and a repeatable yardstick, with the master
-  anchor as the behaviour a fine-tuned prior should approach. It closes
-  ADR-0005's checklist.
+  anchor as the behaviour a fine-tuned prior should approach. It is the last
+  of ADR-0005's steps to run; the Apollo/A2SB chains (step 2) and the DSP
+  control (step 3) were never run.
 - Three seeds and one prompt bound how far these numbers generalise; the
   listening packs under `artifacts/probe/*/listen/` carry the perceptual
   verdict.

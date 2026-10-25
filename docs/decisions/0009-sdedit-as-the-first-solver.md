@@ -113,7 +113,7 @@ value:
 
 - Retained: the solver and Hydra harness (a further method is one config
   group and one function), the stable-audio-3 fork, the anchored listening
-  packs, and these results.
+  packs (deleted later with the SDEdit renders, ADR-0011), and these results.
 - The next solver carries an observation constraint: the prior proposes
   full-band audio while each sampling step is held to consistency with the
   observed lowpass (the DPS/DAPS/LOUDAR line, per ADR-0004). Its first

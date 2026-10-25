@@ -4,7 +4,9 @@ Date: 2026-09-07
 
 ## Status
 
-Accepted
+Accepted. Since then, the published page is `docs/listen/`, built by `scripts/publish_listen.py` (ADR-0011,
+ADR-0016), not `base`. A third page, `demo/roundtrip`, shows ADR-0011's benchmark. The SDEdit audio that `base` and
+`sdedit` play was deleted (ADR-0011).
 
 ## Context
 
