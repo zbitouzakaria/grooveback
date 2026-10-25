@@ -58,6 +58,26 @@ class RecordingPrior:
         return self._batch
 
 
+class EdgeSpikingEarVAE2(torch.nn.Module):
+    """εar-VAE2's interface around an identity codec. Like the upstream
+    inverse STFT, its decode cannot reconstruct the last three samples it
+    returns: they come back at 2.7."""
+
+    samples_per_latent = 1_920
+
+    def __init__(self):
+        super().__init__()
+        self.anchor = torch.nn.Parameter(torch.zeros(()))
+
+    def encode_audio(self, audio, chunked, chunk_size, overlap, deterministic):
+        return audio
+
+    def decode_audio(self, latents, chunked, chunk_size, overlap):
+        out = latents.clone()
+        out[..., -3:] = 2.7
+        return out
+
+
 def test_sdedit_returns_channels_by_samples_float32_trimmed_to_input():
     model = RecordingPrior(samples=2_000)
     audio = np.zeros((2, 1_500), dtype=np.float32)
@@ -278,6 +298,25 @@ def test_roundtrip_matches_output_loudness_to_the_input(monkeypatch):
     out = roundtrip(object(), loud_input, SR, ae=ae)
 
     assert loudness(out, SR) == pytest.approx(loudness(loud_input, SR), abs=0.01)
+
+
+def test_earvae2_roundtrip_ends_without_the_decoders_edge_spike():
+    """Regression: every εar-VAE2 render ended on a click, its last three
+    samples rising to 2.7 on a clip that peaks at 0.9. The upstream inverse STFT
+    returns a few final samples that no full window covers; torch warns that the
+    frames are shorter than the requested length. It shows when the input lasts
+    a whole number of the model's 40 ms frames, as 6 s clips and 3-minute
+    excerpts do; any other length is padded to the next frame, which holds the
+    spike. So the clip is 0.36 s, nine frames, and under the loudness meter's
+    400 ms block, so no gain is applied. atol=1e-6 is above the error of the
+    44.1 -> 48 -> 44.1 kHz resample on a Hann-faded tone (1.5e-8)."""
+    t = np.arange(15_876) / SR  # 0.36 s, 17,280 samples at 48 kHz: nine 1,920-sample frames
+    audio = (np.hanning(15_876) * 0.5 * np.sin(2 * np.pi * 1_000 * t)).astype(np.float32)
+    audio = np.stack([audio, -audio])
+
+    out = roundtrip(EdgeSpikingEarVAE2(), audio, SR, ae="earvae2")
+
+    np.testing.assert_allclose(out, audio, rtol=0, atol=1e-6)
 
 
 def test_latent_sub_with_zero_damage_equals_the_round_trip(monkeypatch):

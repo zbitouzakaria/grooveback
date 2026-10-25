@@ -2,13 +2,14 @@
 
   uv run --group notebooks python scripts/publish_listen.py [--page-only]
 
-The curated set from ADR-0011's listening verdict: six tracks per
-(source x bitrate), each labeled with its 1-9 solo shortcut, for codec and
-aerofunk at 32/64/128 kbps; the same-artist pair stays out of the published
-set. Unlike `demo/`, the audio
+The curated set from ADR-0011's listening verdict, with the open methods
+ADR-0016 scores: nine tracks per (source x bitrate), each labeled with its
+1-9 solo shortcut, for codec and aerofunk at 32/64/128 kbps; the same-artist
+pair stays out of the published set. Unlike `demo/`, the audio
 is committed: copies at -14 LUFS under one common -1 dBFS gain per pack,
-written as 24-bit FLAC with aerofunk at its full three minutes — 556 MB,
-approved over the initial 500 MB budget.
+written as 16-bit FLAC with triangular dither, with aerofunk at its full
+three minutes. 16-bit halves the size of 24-bit: the nine tracks take
+392 MB.
 
 `--page-only` rewrites index.html from the audio already on disk — for text
 and layout edits. A full rebuild re-encodes every FLAC and PNG, and a library
@@ -35,7 +36,7 @@ REPO = Path(__file__).resolve().parents[1]
 XP = REPO / "artifacts" / "xp"
 OUT = REPO / "docs" / "listen"
 SR = 44_100
-SIZE_BUDGET_MB = 600  # 556 MB at 24-bit/3 min, approved
+SIZE_BUDGET_MB = 600
 
 SOURCES = ("codec", "aerofunk")
 BITRATES = ("32k", "64k", "128k")
@@ -44,11 +45,14 @@ TRACKS = (
     ("2 - Degraded Input", "input"),
     ("3 - Apollo", "apollo"),
     ("4 - A²SB", "a2sb"),
-    ("5 - Apollo → εar-VAE", "apollo-earvae"),
-    ("6 - εar-VAE − MP3 damage", "earvae-sub"),
+    ("5 - AudioSR", "audiosr"),
+    ("6 - εar-VAE", "earvae"),
+    ("7 - εar-VAE2", "earvae2"),
+    ("8 - Apollo → εar-VAE", "apollo-earvae"),
+    ("9 - εar-VAE − MP3 damage", "earvae-sub"),
 )
-"""Label -> benchmark method, in the ADR-0011 keeper order. The prefix is the
-trackswitch solo key."""
+"""Label -> benchmark method: the published methods, the two autoencoders'
+round trips, then ours. The prefix is the trackswitch solo key."""
 
 INTRO = """\
 <p>These are the listening sets of
@@ -57,7 +61,7 @@ restoring records that survive only as MP3/AAC/Opus rips. Each set below is one
 experiment: a track with a clean master is compressed to MP3 at a known bitrate,
 and each method restores that MP3. All tracks of a set hold the same excerpt, so
 switching between them compares the methods directly.</p>
-<p>The six tracks:</p>
+<p>The nine tracks:</p>
 <ol class="note">
 <li><b>Ground Truth</b> — the clean master the MP3 was made from; the reference.</li>
 <li><b>Degraded Input</b> — the MP3 each method receives. Above the codec's cutoff
@@ -69,10 +73,19 @@ model trained on MP3-compressed music; it restores the full band in one pass.</l
 <li><b><a href="https://arxiv.org/abs/2501.11311">A²SB</a></b> — a diffusion model
 for bandwidth extension; by design it generates only the band above the cutoff and
 leaves the band below unchanged.</li>
-<li><b>Apollo → <a href="https://arxiv.org/abs/2509.14912">εar-VAE</a></b> — our
-chained method: Apollo's output passed through the εar-VAE autoencoder. The
-autoencoder is trained on clean music only, so the round-trip smooths the
-artifacts Apollo introduces on heavily degraded input.</li>
+<li><b><a href="https://arxiv.org/abs/2309.07314">AudioSR</a></b> — another
+diffusion model for bandwidth extension, which works on mel spectrograms. It
+restores about 10 s at a time, so on the 3-minute excerpt the band it generates can
+change level from one 10 s chunk to the next.</li>
+<li><b><a href="https://arxiv.org/abs/2509.14912">εar-VAE</a></b> — the MP3
+encoded and decoded by the εar-VAE autoencoder, with nothing else done. It shows
+what the autoencoder alone changes, which tracks 8 and 9 build on.</li>
+<li><b><a href="https://arxiv.org/abs/2608.19843">εar-VAE2</a></b> — the same
+round trip through εar-VAE2, the autoencoder's successor. Its open weights are
+retrained on public datasets.</li>
+<li><b>Apollo → εar-VAE</b> — our chained method: Apollo's output passed through
+the εar-VAE autoencoder. The autoencoder is trained on clean music only, so the
+round-trip smooths the artifacts Apollo introduces on heavily degraded input.</li>
 <li><b>εar-VAE − MP3 damage</b> — our latent damage subtraction: the input is
 encoded, the mean shift that MP3 compression causes in εar-VAE's latent space
 (measured on a different track) is subtracted, and the result is decoded. It
@@ -117,6 +130,15 @@ def pack_items(source: str, bitrate: str) -> dict[str, np.ndarray]:
     return items
 
 
+def dithered(audio: np.ndarray) -> np.ndarray:
+    """`audio` plus triangular dither of one 16-bit step, so rounding to 16 bits
+    leaves a noise floor rather than distortion on quiet passages. Seeded, so a
+    rebuild writes the same bytes."""
+    rng = np.random.default_rng(0)
+    step = 1.0 / 32_768
+    return audio + step * (rng.random(audio.shape) - rng.random(audio.shape))
+
+
 def main(page_only: bool = False) -> None:
     if not page_only:
         shutil.rmtree(OUT, ignore_errors=True)
@@ -134,7 +156,8 @@ def main(page_only: bool = False) -> None:
             if not page_only:
                 matched = level_matched_set(pack_items(source, bitrate), SR)
                 for _, method in TRACKS:
-                    ga.save(pack_dir / f"{method}.flac", matched[method], SR, subtype="PCM_24")
+                    ga.save(pack_dir / f"{method}.flac", dithered(matched[method]), SR,
+                            subtype="PCM_16")
                 (OUT / "media" / pack).mkdir(parents=True, exist_ok=True)
                 for _, method in TRACKS:
                     save_spectrogram(

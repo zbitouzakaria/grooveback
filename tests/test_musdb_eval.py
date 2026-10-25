@@ -1,12 +1,14 @@
 """`evaluate` runs a model over MP3 twins of the test mixtures and scores it
 with Apollo's metrics and this project's spectral ones."""
 
+import csv
+
 import numpy as np
 import pytest
 import soundfile as sf
 import torch
 
-from grooveback.cli.musdb_eval import codec_simu, evaluate
+from grooveback.cli.musdb_eval import codec_simu, evaluate, main, sessions
 
 SR = 44_100
 
@@ -47,15 +49,28 @@ class IdentityEarVAE(torch.nn.Module):
         return latents
 
 
+@pytest.fixture(scope="module")
+def long_musdb_test(tmp_path_factory):
+    """Four tracks of 60 s white noise: 18 sessions each, 72 in all, so a broken
+    draw cannot pass the draw tests by chance."""
+    root = tmp_path_factory.mktemp("long") / "test"
+    rng = np.random.default_rng(0)
+    for track in ("a", "b", "c", "d"):
+        (root / track).mkdir(parents=True)
+        noise = rng.uniform(-0.5, 0.5, size=(60 * SR, 2))
+        sf.write(root / track / "mixture.wav", noise, SR, subtype="PCM_16")
+    return root
+
+
 @pytest.fixture
 def musdb_test(tmp_path):
     """Two tracks of 15 s white noise in MUSDB18-HQ's {track}/mixture.wav layout."""
     rng = np.random.default_rng(0)
     for track in ("a", "b"):
-        (tmp_path / track).mkdir()
+        (tmp_path / "test" / track).mkdir(parents=True)
         noise = rng.uniform(-0.5, 0.5, size=(15 * SR, 2))
-        sf.write(tmp_path / track / "mixture.wav", noise, SR, subtype="PCM_16")
-    return tmp_path
+        sf.write(tmp_path / "test" / track / "mixture.wav", noise, SR, subtype="PCM_16")
+    return tmp_path / "test"
 
 
 def test_identity_model_scores_exactly_like_the_untouched_mp3(musdb_test):
@@ -91,11 +106,93 @@ def test_identity_earvae_scores_exactly_like_the_model_it_follows(musdb_test):
     except (RuntimeError, OSError, ImportError) as error:
         pytest.skip(f"sox MP3 is unavailable: {error}")
 
-    rows = evaluate(musdb_test, kbps=24, model=ToneModel(), earvae=IdentityEarVAE())
+    rows = evaluate(
+        musdb_test, kbps=24, model=ToneModel(), autoencoders={"earvae": IdentityEarVAE()}
+    )
 
     assert [row["apollo_earvae_sdr"] for row in rows] == [row["apollo_sdr"] for row in rows]
     assert [row["apollo_earvae_lsd"] for row in rows] == [row["apollo_lsd"] for row in rows]
     assert [row["apollo_sdr"] for row in rows] != [row["input_sdr"] for row in rows]
+
+
+def test_identity_earvae_alone_scores_exactly_like_the_untouched_mp3(musdb_test):
+    """Without Apollo, the round trip must receive the MP3 itself."""
+    try:
+        import torchaudio
+
+        torchaudio.functional.apply_codec(torch.zeros(2, SR), SR, format="mp3", compression=24)
+    except (RuntimeError, OSError, ImportError) as error:
+        pytest.skip(f"sox MP3 is unavailable: {error}")
+
+    rows = evaluate(musdb_test, kbps=24, autoencoders={"earvae": IdentityEarVAE()})
+
+    assert [row["earvae_sdr"] for row in rows] == [row["input_sdr"] for row in rows]
+    assert [row["earvae_lsd"] for row in rows] == [row["input_lsd"] for row in rows]
+
+
+def test_cli_scores_renders_of_its_drawn_mp3s_exactly_like_the_mp3(musdb_test, tmp_path):
+    """The two calls around a GPU render, end to end: the first draws 4 of the
+    6 sessions and writes their MP3s, the second scores renders that copy those
+    MP3s. Both calls must draw the same 4 sessions, and each render must be read
+    from the clip its MP3 was written as and scored against its clean session."""
+    try:
+        import torchaudio
+
+        torchaudio.functional.apply_codec(torch.zeros(2, SR), SR, format="mp3", compression=24)
+    except (RuntimeError, OSError, ImportError) as error:
+        pytest.skip(f"sox MP3 is unavailable: {error}")
+    main(
+        [str(musdb_test), str(tmp_path / "mp3.csv"), "--kbps", "24", "--no-apollo",
+         "--clips", "4", "--mp3-dir", str(tmp_path / "mp3")]
+    )  # fmt: skip
+
+    main(
+        [str(musdb_test), str(tmp_path / "scores.csv"), "--kbps", "24", "--no-apollo",
+         "--clips", "4", "--render", f"copy={tmp_path / 'mp3'}"]
+    )  # fmt: skip
+
+    with (tmp_path / "scores.csv").open(newline="") as f:
+        rows = list(csv.DictReader(f))
+    assert len(rows) == 4
+    assert [row["copy_sdr"] for row in rows] == [row["input_sdr"] for row in rows]
+    assert [row["copy_lsd"] for row in rows] == [row["input_lsd"] for row in rows]
+
+
+def test_clip_draw_picks_distinct_sessions(long_musdb_test):
+    every = sessions(long_musdb_test)
+
+    drawn = sessions(long_musdb_test, clips=10)
+
+    assert len(set(drawn)) == 10
+    assert set(drawn) <= set(every)
+
+
+def test_clip_draw_samples_across_tracks(long_musdb_test):
+    """The first 10 sessions in track order all come from track a, which holds 18."""
+    drawn = sessions(long_musdb_test, clips=10)
+
+    assert len({path.parent.name for path, _ in drawn}) > 1
+
+
+def test_clip_draw_is_the_same_on_every_call(long_musdb_test):
+    """Every bitrate is scored in its own call, so they score the same
+    sessions only if the draw repeats."""
+    first = sessions(long_musdb_test, clips=10)
+
+    second = sessions(long_musdb_test, clips=10)
+
+    assert first == second
+
+
+def test_smaller_clip_draw_is_part_of_a_larger_one(long_musdb_test):
+    """A run on more clips then only renders the clips the smaller run did not.
+    Two independent draws of 10 and 20 of the 72 sessions would nest by chance
+    with a probability of about 3e-7."""
+    larger = sessions(long_musdb_test, clips=20)
+
+    smaller = sessions(long_musdb_test, clips=10)
+
+    assert set(smaller) <= set(larger)
 
 
 def test_codec_simu_aligns_the_mp3_of_a_clip_whose_edges_jump():

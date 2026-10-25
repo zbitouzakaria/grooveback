@@ -119,7 +119,7 @@ keeping; plain round trips of the MP3 sounded worse than these two. Every score 
 sounds better, so here we trust the ear. Our listening is not blind yet: we knew which track was which. Whether any
 method makes a 128 kbps MP3, the bitrate of a typical rip, sound better than it already does is still open.
 
-### The Apollo benchmark
+### The MUSDB18-HQ benchmark
 
 Scores cannot tell us what sounds better, but they are how published work compares methods. Apollo is our baseline, so
 we also score it with its authors' own code and protocol
@@ -128,16 +128,27 @@ public research dataset, compressed to MP3 at 24 to 128 kbps. According to [Apol
 maintainer](https://github.com/JusperLee/Apollo/issues/46#issuecomment-6281774888), the released model was not trained
 on these songs. On the same clips at 24 kbps, our evaluation gives the same average scores as the authors' own
 evaluation script. We also fixed a bug in their MP3 simulation that left 2.5% of the 24 kbps clips 25 ms late; the
-scores compare sample by sample, so a 25 ms shift lowers them sharply.
+scores compare sample by sample, so a 25 ms shift lowers them sharply. On all 3,677 clips, Apollo's SDR rises from
+11.9 dB at 24 kbps to 19.1 dB at 128 kbps: these are the numbers we will compare our own methods with.
 
-![SDR, SI-SNR, spectral SNR and LSD per MP3 bitrate on the 50 MUSDB18-HQ test songs, for Apollo and the untouched MP3](docs/assets/apollo-musdb.png)
+We then scored four more methods the same way
+([ADR-0016](docs/decisions/0016-score-audiosr-a2sb-and-autoencoders-on-musdb.md)): A2SB, AudioSR, and the round trips of
+the MP3 through εar-VAE and through εar-VAE2. [AudioSR](#ref-audiosr) is another model that fills in the top band; we
+had not run it before. A2SB and AudioSR take 7 to 37 s per clip on a rented GPU, so we scored them on 50 clips drawn at
+random, and the figure shows every method on those 50. The Apollo and Apollo → εar-VAE lines are their ADR-0015 scores
+of the same clips. The draw moves the averages by up to 0.4 dB: Apollo scores 12.2 dB at 24 kbps on the 50 clips,
+against 11.9 dB on all 3,677.
+
+![SDR, SI-SNR, spectral SNR and LSD per MP3 bitrate on 50 MUSDB18-HQ test clips, for six restorations and the untouched MP3](docs/decisions/assets/0016/methods.png)
 
 SDR and SI-SNR (scale-invariant signal-to-noise ratio, which ignores overall volume) are the authors' scores; higher is
 better. Spectral SNR (higher is better) and the log-spectral distance (LSD, lower is better) are ours: they compare only
 how much energy each frequency has over time, as a spectrogram shows it. The grey line scores the untouched MP3 the same
-way. The dotted line is Apollo as published, on a different test set, and is not comparable with the solid lines.
-Apollo's SDR rises from 11.9 dB at 24 kbps to 19.1 dB at 128 kbps: these are the numbers we will compare our own methods
-with.
+way.
+
+None of the four scores above the untouched MP3 on SDR. A2SB comes closest, 0.1 to 0.7 dB under it, and AudioSR scores
+2.0 to 5.4 dB under it. The εar-VAE and εar-VAE2 round trips each score about the same at every bitrate, about 10.6 and
+8.2 dB, while the MP3 rises from 13.2 to 19.4 dB: the autoencoder sets their score, not the damage.
 
 ## Related work
 
@@ -145,11 +156,12 @@ The methods differ in what damage they repair and where they work: on the wavefo
 space of a neural autoencoder. Most rebuild the band above a cut-off, or fix faults like reverb and clipping. Few
 target what MP3, AAC and Opus do inside the band they keep.
 
-- **Supervised restorers** learn from pairs of damaged and clean audio. [Apollo](#ref-apollo) is the only one trained
-  on MP3 damage. [SonicMaster](#ref-sonicmaster) does not cover codec damage.
+- **Supervised restorers** learn from pairs of damaged and clean audio. [SR-GAN](#ref-srgan) and [Apollo](#ref-apollo)
+  are trained on MP3 damage, and SR-GAN's weights are not available. [SonicMaster](#ref-sonicmaster) does not cover
+  codec damage.
 - **Bandwidth extension** rebuilds the band above a cut-off: [AudioSR](#ref-audiosr), [A2SB](#ref-a2sb),
   [AudioLBM](#ref-audiolbm), [HP-codecX](#ref-hpcodec) and [latent upsampling](#ref-latentup). None of them trains on
-  codec damage, and AudioSR copies the input's band below the cut-off into its output unchanged.
+  codec damage.
 - **Music autoencoders** give generative models their latent space. [SAME](#ref-same), in a large L and a small S, both
   open, is the space of Stable Audio 3. [εar-VAE](#ref-earvae) and [εar-VAE2](#ref-earvae2) are built to keep phase,
   stereo image and high harmonics. [CoDiCodec](#ref-codicodec) gives continuous and discrete latents from one model,
@@ -171,13 +183,14 @@ does not restore. *Weights* are **open**, **code** only, **closed** (hosted), or
 
 | Paper | Year | Method | Restores | Targets MP3 | Weights | Tested here |
 |---|---|---|---|---|---|---|
-| [AudioSR](#ref-audiosr) | 2023 | diffusion SR, mel domain + vocoder | missing band | — | open | — |
+| [SR-GAN](#ref-srgan) | 2021 | stochastic GAN, complex STFT | full band | ✓ | none | — |
+| [AudioSR](#ref-audiosr) | 2023 | diffusion SR, mel domain + vocoder | missing band | — | open | ✓ [0016](docs/decisions/0016-score-audiosr-a2sb-and-autoencoders-on-musdb.md) |
 | [Apollo](#ref-apollo) | 2024 | band-split GAN, waveform | full band | ✓ | open | ✓ [0006](docs/decisions/0006-baseline-findings.md), [0007](docs/decisions/0007-benchmark-codec-restoration.md), [0011](docs/decisions/0011-benchmark-autoencoder-roundtrips-and-mean-damage-subtraction.md), [0015](docs/decisions/0015-reproduce-apollo-test-protocol.md) |
-| [A2SB](#ref-a2sb) | 2025 | Schrödinger bridge, vocoder-free | missing band + gaps | — | open¹ | ✓ [0006](docs/decisions/0006-baseline-findings.md), [0007](docs/decisions/0007-benchmark-codec-restoration.md), [0011](docs/decisions/0011-benchmark-autoencoder-roundtrips-and-mean-damage-subtraction.md) |
+| [A2SB](#ref-a2sb) | 2025 | Schrödinger bridge, vocoder-free | missing band + gaps | — | open¹ | ✓ [0006](docs/decisions/0006-baseline-findings.md), [0007](docs/decisions/0007-benchmark-codec-restoration.md), [0011](docs/decisions/0011-benchmark-autoencoder-roundtrips-and-mean-damage-subtraction.md), [0016](docs/decisions/0016-score-audiosr-a2sb-and-autoencoders-on-musdb.md) |
 | [Latent upsample/upmix](#ref-latentup) | 2025 | supervised latent-to-latent BWE/upmix | missing band | — | none | — |
 | [SonicMaster](#ref-sonicmaster) | 2025 | text-guided flow matching, all-in-one | in-band faults² | — | open | demo only, dropped ([0005](docs/decisions/0005-baselines-and-prior-viability-on-real-library-material.md)) |
 | [CoDiCodec](#ref-codicodec) | 2025 | consistency autoencoder, continuous + discrete latents | round trip | — | open | ✓ [0011](docs/decisions/0011-benchmark-autoencoder-roundtrips-and-mean-damage-subtraction.md) |
-| [εar-VAE](#ref-earvae) | 2025 | perceptual VAE, phase + M/S losses | round trip | — | open | ✓ [0011](docs/decisions/0011-benchmark-autoencoder-roundtrips-and-mean-damage-subtraction.md), [0015](docs/decisions/0015-reproduce-apollo-test-protocol.md) |
+| [εar-VAE](#ref-earvae) | 2025 | perceptual VAE, phase + M/S losses | round trip | — | open | ✓ [0011](docs/decisions/0011-benchmark-autoencoder-roundtrips-and-mean-damage-subtraction.md), [0015](docs/decisions/0015-reproduce-apollo-test-protocol.md), [0016](docs/decisions/0016-score-audiosr-a2sb-and-autoencoders-on-musdb.md) |
 | [AudioLBM](#ref-audiolbm) | 2025 | latent bridge SR, cascaded to 192 kHz | missing band | — | none | — |
 | [HP-codecX](#ref-hpcodec) | 2025 | codec tokens + transformer LM | missing band | — | open | — |
 | [Stable Audio 3](#ref-sa3) | 2026 | latent diffusion prior + inpainting | prior | — | open | ✓ [0008](docs/decisions/0008-sa3-generation-probe.md), [0009](docs/decisions/0009-sdedit-as-the-first-solver.md) (SDEdit, rejected) |
@@ -186,7 +199,7 @@ does not restore. *Weights* are **open**, **code** only, **closed** (hosted), or
 | [Qwen-Music](#ref-qwenmusic) | 2026 | semantic-token LLM + stereo renderer | — | — | closed | — |
 | [Qwen-Audio-3.0-Gen](#ref-qwengen) | 2026 | DiT + shared VAE, scene generation | — | — | closed | — |
 | [LOUDAR](#ref-loudar) | 2026 | latent operator + diffusion prior | full band, blind | — | code | — |
-| [εar-VAE2](#ref-earvae2) | 2026 | complex-STFT autoencoder, band refiner | round trip | — | open³ | ✓ [0011](docs/decisions/0011-benchmark-autoencoder-roundtrips-and-mean-damage-subtraction.md) |
+| [εar-VAE2](#ref-earvae2) | 2026 | complex-STFT autoencoder, band refiner | round trip | — | open³ | ✓ [0011](docs/decisions/0011-benchmark-autoencoder-roundtrips-and-mean-damage-subtraction.md), [0016](docs/decisions/0016-score-audiosr-a2sb-and-autoencoders-on-musdb.md) |
 
 ¹ Only the 1- and 2-split checkpoints are released; the paper's 4-split ensemble is not.
 ² Its nineteen faults cover EQ, dynamics, reverb, amplitude and stereo; MP3/AAC/Opus and bandwidth damage are not
@@ -194,11 +207,14 @@ among them.
 ³ The open weights are retrained on public datasets, not the paper's internal corpus. By ear they sound clearly worse
 than εar-VAE ([ADR-0011](docs/decisions/0011-benchmark-autoencoder-roundtrips-and-mean-damage-subtraction.md)).
 
-Only one model, Apollo, targets MP3 directly, and it is a supervised model. Outside this project, every generative
-method either stops at the missing band or has not been tried on MP3, AAC or Opus. Repairing in-band codec damage with
-a generative model is still open.
+Two models target MP3 directly, SR-GAN and Apollo, and both are supervised. Outside this project, every other
+generative method either stops at the missing band or has not been tried on MP3, AAC or Opus. Repairing in-band codec
+damage with a prior trained only on clean music is still open.
 
 ## References
+
+<a id="ref-srgan"></a>
+[SR-GAN] Lattner & Nistal. *Stochastic Restoration of Heavily Compressed Musical Audio Using Generative Adversarial Networks.* Electronics 2021. [arXiv:2207.01667](https://arxiv.org/abs/2207.01667) · called SR-GAN in the Apollo paper
 
 <a id="ref-audiosr"></a>
 [AudioSR] Liu et al. *AudioSR: Versatile Audio Super-resolution at Scale.* [arXiv:2309.07314](https://arxiv.org/abs/2309.07314) · [code](https://github.com/haoheliu/versatile_audio_super_resolution)

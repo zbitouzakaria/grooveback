@@ -29,7 +29,8 @@ jobs:
         run: uv run --no-sync ruff check src tests
 
   test:
-    runs-on: ubuntu-latest
+    # ubuntu-26.04 ships sox_ng (libsox-ng3), which crashes torchaudio 2.7.1's sox backend.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       # The Apollo tests import the vendored fork, so the submodule is needed.

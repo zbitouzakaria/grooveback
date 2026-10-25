@@ -339,6 +339,8 @@ Apollo → εar-VAE, εar-VAE − MP3 damage.
 under one common −1 dBFS gain per pack — about 556 MB of audio committed to
 the repository, accepted over the initial 500 MB budget to keep aerofunk at
 its full three minutes. The same-artist pair stays out of the published set.
+ADR-0016 adds AudioSR and the εar-VAE and εar-VAE2 round trips to these sets,
+and stores all of them as 16-bit FLAC: 392 MB of audio, 419 MB for the page.
 `scripts/publish_listen.py` rebuilds the page, and the audio URLs carry each
 file's mtime so a republished pack defeats any cached copy.
 
