@@ -83,6 +83,8 @@ waveforms, and spectral SNR and LSD compare the spectrograms. Higher is better, 
 
 The grey line is the untouched MP3. No method scores above it on SDR.
 
+The full write-up of each experiment, with its evidence, is in [`docs/decisions/`](docs/decisions/).
+
 ## Related work
 
 The methods differ in what damage they repair and where they work: on the waveform, on spectrograms, or in the latent
