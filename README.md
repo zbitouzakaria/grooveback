@@ -214,6 +214,39 @@ Two models target MP3 directly, SR-GAN and Apollo, and both are supervised. Outs
 generative method either stops at the missing band or has not been tried on MP3, AAC or Opus. Repairing in-band codec
 damage with a prior trained only on clean music is still open.
 
+## Running the code
+
+The code runs with [uv](https://docs.astral.sh/uv/) and Python 3.12. Apollo, εar-VAE and εar-VAE2 come in as git
+submodules:
+
+```bash
+git submodule update --init --recursive
+uv sync --all-groups
+uv run pytest
+```
+
+The MUSDB18-HQ benchmark ([ADR-0015](docs/decisions/0015-reproduce-apollo-test-protocol.md)) scores Apollo on the 50
+test songs at one MP3 bitrate and writes one row per 6 s clip. Its MP3 step needs sox with MP3 support (on Ubuntu,
+`apt install sox libsox-fmt-mp3`); without it, the tests that need it are skipped.
+
+```bash
+uv run python -m grooveback.cli.musdb_eval musdb18hq/test scores.csv --kbps 24
+```
+
+The smaller benchmark of [ADR-0007](docs/decisions/0007-benchmark-codec-restoration.md) and
+[ADR-0011](docs/decisions/0011-benchmark-autoencoder-roundtrips-and-mean-damage-subtraction.md) restores one excerpt per
+track at 32, 64 and 128 kbps with every method, and scores the results against the clean excerpt. It reads the clean
+tracks from `data/`, which is not in the repository.
+
+```bash
+uv run python scripts/run_xp.py device=cuda
+```
+
+The library is in `src/grooveback`, the scripts that run the models and build the listening page are in `scripts/`, and
+the page itself is in `docs/listen/`. A2SB and AudioSR need dependency versions that conflict with this project's, so
+each runs in its own environment; [`.claude/rules/environment.md`](.claude/rules/environment.md) says how to set them up
+and which jobs need a rented GPU.
+
 ## References
 
 <a id="ref-srgan"></a>
@@ -294,8 +327,8 @@ damage with a prior trained only on clean music is still open.
 ---
 
 The code here is MIT-licensed. The third-party code it runs has its own licenses: Apollo CC BY-SA 4.0, A2SB the NVIDIA
-Source Code License (non-commercial), εar-VAE and εar-VAE2 Apache-2.0, CoDiCodec CC BY-NC 4.0, and the vendored
-trackswitch.js player MIT. The Stable Audio 3 checkpoints are released under the
+Source Code License (non-commercial), AudioSR MIT, εar-VAE and εar-VAE2 Apache-2.0, CoDiCodec CC BY-NC 4.0, and the
+vendored trackswitch.js player MIT. The Stable Audio 3 checkpoints are released under the
 [Stability AI Community License](https://stability.ai/license), which any weights adapted from them would inherit; it
 permits the personal and research use this project is scoped to. The audio on the listening page belongs to its owners
 and is not covered by the MIT license.
