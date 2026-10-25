@@ -8,7 +8,7 @@ import pytest
 import soundfile as sf
 import torch
 
-from grooveback.cli.musdb_eval import codec_simu, evaluate, main, sessions
+from grooveback.cli.musdb_eval import clip_starts, codec_simu, evaluate, main
 
 SR = 44_100
 
@@ -51,7 +51,7 @@ class IdentityEarVAE(torch.nn.Module):
 
 @pytest.fixture(scope="module")
 def long_musdb_test(tmp_path_factory):
-    """Four tracks of 60 s white noise: 18 sessions each, 72 in all, so a broken
+    """Four tracks of 60 s white noise: 18 clips each, 72 in all, so a broken
     draw cannot pass the draw tests by chance."""
     root = tmp_path_factory.mktemp("long") / "test"
     rng = np.random.default_rng(0)
@@ -74,9 +74,9 @@ def musdb_test(tmp_path):
 
 
 def test_identity_model_scores_exactly_like_the_untouched_mp3(musdb_test):
-    """The model must receive the MP3 and be scored against the clean session:
-    fed the clean session instead, the identity would score infinitely high.
-    A 15 s track holds 3 sessions of 6 s at a 3 s hop, so 2 tracks give 6."""
+    """The model must receive the MP3 and be scored against the clean clip:
+    fed the clean clip instead, the identity would score infinitely high.
+    A 15 s track holds 3 clips of 6 s at a 3 s hop, so 2 tracks give 6."""
     try:
         import torchaudio
 
@@ -132,9 +132,9 @@ def test_identity_earvae_alone_scores_exactly_like_the_untouched_mp3(musdb_test)
 
 def test_cli_scores_copies_of_the_mp3s_it_wrote_exactly_like_the_mp3s(musdb_test, tmp_path):
     """The two calls around a GPU render, end to end: the first draws 4 of the
-    6 sessions and writes their MP3s, the second scores renders that copy those
-    MP3s. Both calls must draw the same 4 sessions, and each render must be read
-    from the clip its MP3 was written as and scored against its clean session."""
+    6 clips and writes their MP3s, the second scores renders that copy those
+    MP3s. Both calls must draw the same 4 clips, and each render must be read
+    from the file its MP3 was written as and scored against its clean clip."""
     try:
         import torchaudio
 
@@ -158,39 +158,39 @@ def test_cli_scores_copies_of_the_mp3s_it_wrote_exactly_like_the_mp3s(musdb_test
     assert [row["copy_lsd"] for row in rows] == [row["input_lsd"] for row in rows]
 
 
-def test_clip_draw_picks_distinct_sessions(long_musdb_test):
-    every = sessions(long_musdb_test)
+def test_clip_draw_picks_distinct_clips(long_musdb_test):
+    every = clip_starts(long_musdb_test)
 
-    drawn = sessions(long_musdb_test, clips=10)
+    drawn = clip_starts(long_musdb_test, clips=10)
 
     assert len(set(drawn)) == 10
     assert set(drawn) <= set(every)
 
 
 def test_clip_draw_samples_across_tracks(long_musdb_test):
-    """The first 10 sessions in track order all come from track a, which holds 18."""
-    drawn = sessions(long_musdb_test, clips=10)
+    """The first 10 clips in track order all come from track a, which holds 18."""
+    drawn = clip_starts(long_musdb_test, clips=10)
 
     assert len({path.parent.name for path, _ in drawn}) > 1
 
 
 def test_clip_draw_is_the_same_on_every_call(long_musdb_test):
     """Every bitrate is scored in its own call, so they score the same
-    sessions only if the draw repeats."""
-    first = sessions(long_musdb_test, clips=10)
+    clips only if the draw repeats."""
+    first = clip_starts(long_musdb_test, clips=10)
 
-    second = sessions(long_musdb_test, clips=10)
+    second = clip_starts(long_musdb_test, clips=10)
 
     assert first == second
 
 
 def test_smaller_clip_draw_is_part_of_a_larger_one(long_musdb_test):
     """A run on more clips then only renders the clips the smaller run did not.
-    Two independent draws of 10 and 20 of the 72 sessions would nest by chance
+    Two independent draws of 10 and 20 of the 72 clips would nest by chance
     with a probability of about 3e-7."""
-    larger = sessions(long_musdb_test, clips=20)
+    larger = clip_starts(long_musdb_test, clips=20)
 
-    smaller = sessions(long_musdb_test, clips=10)
+    smaller = clip_starts(long_musdb_test, clips=10)
 
     assert set(smaller) <= set(larger)
 
