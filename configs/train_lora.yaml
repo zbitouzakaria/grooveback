@@ -1,0 +1,43 @@
+# python -m grooveback.cli.train_lora: LoRA fine-tune of Stable Audio 3 to restore MP3s.
+# Every field is CLI-overridable, e.g. `model=medium-base lr=5e-5`.
+
+model: small-music-base   # SA3 base checkpoint: small-music-base (SAME-S) or medium-base (SAME-L)
+device: auto
+train_dir: ???            # scripts/prepare_dataset.py output: {song}/original.wav, {song}/{kbps}k.wav
+valid_dir: ???
+save_dir: ???             # checkpoint-{step}/ lands here after every epoch
+bitrates: [24, 32, 48, 64, 96, 128]   # one item per bitrate per window; musdb_eval's six (ADR-0015)
+window_seconds: 10.0      # cut to whole latent frames: 107 frames, 9.94 s
+
+# LoRA on the frozen transformer; the new MP3 input trains in full.
+rank: 16
+lora_alpha: 16            # the update is scaled by lora_alpha / rank
+
+# AdamW as in stable-audio-3's scripts/train_lora.py.
+lr: 1.0e-4
+betas: [0.9, 0.95]
+weight_decay: 0.01
+max_grad_norm: 1.0
+batch_size: 8
+num_train_epochs: 1
+seed: 0
+
+inpaint_mask_value: 0.0   # 0 = nothing given, generate every frame (upstream's convention)
+validation_timesteps: [0.1, 0.3, 0.5, 0.7, 0.9]
+sample_steps: 50          # sampling steps for the listening window; base checkpoints use 50
+log_every: 10
+
+# Continue from .../checkpoint-{step}: weights, Adam's averages, step and epoch.
+# The optimizer settings above replace the ones saved in the checkpoint.
+resume_from_checkpoint: null
+
+hydra:
+  output_subdir: null
+  job:
+    chdir: false
+  run:
+    dir: .
+
+defaults:
+  - override hydra/job_logging: disabled
+  - _self_
