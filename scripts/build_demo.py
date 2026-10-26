@@ -14,9 +14,9 @@ track's integrated loudness within 0.1 LU of the others' — which is what the
 page's loudness note promises.
 
 A `tracks` mapping (label -> filename) makes one player per pack. `tracks: all`
-takes every flac in the pack and makes one player per variant family
-(`small-music_s8`, `medium-base_s50`, ...), each a noise-level sweep behind the
-input / master / apollo anchors; those players are created only when their
+takes every flac in the pack and makes one player per sweep family
+(`base-n`, `base-t`, ... in SWEEP_FAMILIES), each holding one noise or theta
+sweep and the input / master / apollo / a2sb anchors; those players are created only when their
 section is expanded, and at most one keeps decoded audio at a time.
 """
 
@@ -97,8 +97,8 @@ def save_spectrogram(path: Path, audio, sample_rate: int) -> None:
 def variant_families(pack_dir: Path) -> dict[str, list[tuple[str, str]]]:
     """Family -> [(label, filename)] for every non-anchor flac, by sweep value.
 
-    A render is named `sdedit_{family}_{value}.flac`: `sdedit_n_0.15.flac`
-    belongs to the noise sweep with label `n 0.15`; SWEEP_FAMILIES lists the
+    A render is named `sdedit_{family}_{value}.flac`: `sdedit_base-n_0.15.flac`
+    belongs to the base noise sweep with label `base-n 0.15`; SWEEP_FAMILIES lists the
     families and fixes the section order.
     """
     anchor_files = {filename for _, filename in ANCHORS}

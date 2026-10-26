@@ -2,15 +2,17 @@
 
     uv run python -m grooveback.cli.musdb_eval musdb18hq/test scores.csv --kbps 24 --ae earvae
 
-Each test mixture is cut into 6 s sessions, each session is MP3-compressed,
+Each test mixture is cut into 6 s clips, each clip is MP3-compressed,
 and Apollo restores the MP3. The MP3, Apollo's output and, with `--ae`, an
 autoencoder's round trip of the MP3 and of Apollo's output are scored against
-the clean session with the paper's SDR and SI-SNR, and with spectral SNR and
+the clean clip with the paper's SDR and SI-SNR, and with spectral SNR and
 log-spectral distance (ADR-0007). Every step follows the authors' released
-code; each function names its source. The released checkpoint was not trained
+code; each function names its source. ADR-0015 records how we checked each
+step against their code. The released checkpoint was not trained
 on these songs (JusperLee/Apollo#46).
 
-Models with their own environment restore the MP3s outside this process:
+Models with their own environment restore the MP3s outside this process
+(`musdb_eval` is short for `uv run python -m grooveback.cli.musdb_eval`):
 
     musdb_eval musdb18hq/test mp3.csv --kbps 24 --no-apollo --clips 100 --mp3-dir mp3
     third_party/audiosr/.venv/bin/python scripts/audiosr_restore.py mp3 audiosr
@@ -43,11 +45,11 @@ CLIP_SAMPLES = 6 * SR
 
 
 def vad_starts(audio: np.ndarray, win: int = 441) -> list[int]:
-    """Starts of the 6 s sessions Apollo's preprocessing keeps from a track.
+    """Starts of the 6 s clips Apollo's preprocessing keeps from a track.
 
     Source: `VAD` in Apollo-data-preprocess's musdb_preprocess.py (bb37a7b),
-    rewritten with array operations; it keeps the same sessions. Over 10 ms
-    frames, a session is kept when more than half its frames are louder than
+    rewritten with array operations; it keeps the same clips. Over 10 ms
+    frames, a clip is kept when more than half its frames are louder than
     the 15th percentile of the track's non-silent frames.
     """
     n = audio.shape[-1] // SR * SR
@@ -104,10 +106,10 @@ def mixtures(musdb_test: Path) -> list[Path]:
     )
 
 
-def sessions(musdb_test: Path, *, clips: int | None = None) -> list[tuple[Path, int]]:
-    """`(mixture, start)` of every session `vad_starts` keeps or, given `clips`,
+def clip_starts(musdb_test: Path, *, clips: int | None = None) -> list[tuple[Path, int]]:
+    """`(mixture, start)` of every clip `vad_starts` keeps or, given `clips`,
     the first `clips` of one fixed random order. The draw does not depend on
-    the bitrate, so every bitrate scores the same sessions, and a smaller draw
+    the bitrate, so every bitrate scores the same clips, and a smaller draw
     is part of every larger one."""
     found = [
         (path, start)
@@ -130,7 +132,7 @@ def evaluate(
     clips: int | None = None,
     mp3_dir: Path | None = None,
 ) -> list[dict]:
-    """Per session, SDR, SI-SNR, spectral SNR and LSD of the untouched MP3
+    """Per clip, SDR, SI-SNR, spectral SNR and LSD of the untouched MP3
     (`input`) and of each restoration of it:
 
     - `apollo`, given the model;
@@ -142,12 +144,12 @@ def evaluate(
     Sources in Apollo's repository: both signals are divided by their joint
     peak as in `MusdbMoisesdbDataset.__getitem__`
     (look2hear/datas/musdb_moisesdb_datamodule.py), the model restores each
-    whole session in one pass as in test.py, and SDR and SI-SNR are those of
+    whole clip in one pass as in test.py, and SDR and SI-SNR are those of
     look2hear/metrics/wrapper.py.
     """
     autoencoders, renders = autoencoders or {}, renders or {}
     rows = []
-    for path, picked in itertools.groupby(sessions(musdb_test, clips=clips), key=lambda s: s[0]):
+    for path, picked in itertools.groupby(clip_starts(musdb_test, clips=clips), key=lambda s: s[0]):
         audio = sf.read(path, always_2d=True)[0].T  # float64, as their preprocessing reads it
         starts = [start for _, start in picked]
         for start in starts:
@@ -155,10 +157,10 @@ def evaluate(
             codec = codec_simu(clean, kbps)
             peak = max(np.abs(clean).max(), np.abs(codec).max())
             clean, codec = clean / peak, codec / peak
-            clip = Path(path.parent.name) / f"{start}.wav"
+            clip_path = Path(path.parent.name) / f"{start}.wav"
             if mp3_dir is not None:
-                (mp3_dir / clip).parent.mkdir(parents=True, exist_ok=True)
-                sf.write(mp3_dir / clip, codec.T, SR, subtype="FLOAT")
+                (mp3_dir / clip_path).parent.mkdir(parents=True, exist_ok=True)
+                sf.write(mp3_dir / clip_path, codec.T, SR, subtype="FLOAT")
             outputs = {"input": codec}
             if model is not None:
                 outputs["apollo"] = run_apollo(codec, SR, model=model, chunk_seconds=None)
@@ -167,7 +169,8 @@ def evaluate(
                 if model is not None:
                     outputs[f"apollo_{ae}"] = roundtrip(handle, outputs["apollo"], SR, ae=ae)
             for name, render_dir in renders.items():
-                outputs[name] = sf.read(render_dir / clip, dtype="float32", always_2d=True)[0].T
+                render = sf.read(render_dir / clip_path, dtype="float32", always_2d=True)[0]
+                outputs[name] = render.T
             row = {"track": path.parent.name, "start": start}
             for name, output in outputs.items():
                 row |= {
@@ -205,7 +208,7 @@ def main(argv: list[str] | None = None) -> None:
         help="also score the renders {track}/{start}.wav in DIR, made from --mp3-dir's MP3s",
     )
     parser.add_argument(
-        "--clips", type=int, help="score this many sessions drawn at random; default: all"
+        "--clips", type=int, help="score this many clips drawn at random; default: all"
     )
     parser.add_argument("--mp3-dir", type=Path, help="write each MP3 as {track}/{start}.wav")
     args = parser.parse_args(argv)

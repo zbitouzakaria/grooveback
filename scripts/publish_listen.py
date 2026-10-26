@@ -8,8 +8,8 @@ ADR-0016 scores: nine tracks per (source x bitrate), each labeled with its
 pair stays out of the published set. Unlike `demo/`, the audio
 is committed: copies at -14 LUFS under one common -1 dBFS gain per pack,
 written as 16-bit FLAC with triangular dither, with aerofunk at its full
-three minutes. 16-bit halves the size of 24-bit: the nine tracks take
-392 MB.
+three minutes. 16-bit halves the size of 24-bit: the six packs of
+nine tracks take 392 MB.
 
 `--page-only` rewrites index.html from the audio already on disk — for text
 and layout edits. A full rebuild re-encodes every FLAC and PNG, and a library
@@ -85,7 +85,7 @@ round trip through εar-VAE2, the autoencoder's successor. Its open weights are
 retrained on public datasets.</li>
 <li><b>Apollo → εar-VAE</b> — our chained method: Apollo's output passed through
 the εar-VAE autoencoder. The autoencoder is trained on clean music only, so the
-round-trip smooths the artifacts Apollo introduces on heavily degraded input.</li>
+round trip smooths the artifacts Apollo introduces on heavily degraded input.</li>
 <li><b>εar-VAE − MP3 damage</b> — our latent damage subtraction: the input is
 encoded, the mean shift that MP3 compression causes in εar-VAE's latent space
 (measured on a different track) is subtracted, and the result is decoded. It
@@ -105,15 +105,14 @@ SOURCE_NOTES = {
 BITRATE_NOTES = {
     "32k": "At 32 kbps the codec keeps nothing above about 5.5 kHz; everything a "
            "method shows above that edge is generated, not recovered. This is the "
-           "severe case, where Apollo → εar-VAE sounds cleaner than Apollo alone: "
-           "the round-trip removes the artifacts Apollo introduces at this damage "
-           "level.",
-    "64k": "At 64 kbps the kept band reaches about 11 kHz. This is the crossover "
-           "case: by ear, the verdict splits between Apollo and Apollo → εar-VAE.",
+           "severe case, and the only one where Apollo → εar-VAE helps: it smooths "
+           "Apollo's output.",
+    "64k": "At 64 kbps the kept band reaches about 11 kHz. Here Apollo → εar-VAE "
+           "sounds worse than Apollo alone.",
     "128k": "At 128 kbps the kept band reaches about 16.5 kHz — the damage level "
             "of a typical rip — and most of the remaining damage sits inside the "
-            "kept band. Here Apollo alone stays closest to the master; the "
-            "smoothing that helps at 32 kbps moves the output away from it.",
+            "kept band. As at 64 kbps, Apollo → εar-VAE sounds worse than Apollo "
+            "alone.",
 }
 """Bitrate -> the damage level and ADR-0011's listening verdict on it."""
 

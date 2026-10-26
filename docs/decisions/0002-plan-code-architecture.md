@@ -4,7 +4,9 @@ Date: 2026-08-15
 
 ## Status
 
-Accepted
+Accepted for ADR-0005's work. The code then grew differently from the tree below: there is no
+`manifest.py` or `cli/ingest.py`; `solvers.py`, `cli/run.py` and `cli/musdb_eval.py` were added; `latents.py` holds
+four autoencoders. Model inference now runs on a rented GPU by default (`.claude/rules/environment.md`).
 
 ## Context
 
@@ -51,7 +53,7 @@ Hydra is the harness. `configs/config.yaml` composes the groups a run needs, and
 command line:
 
 ```bash
-python -m grooveback.cli.baseline model=apollo
+uv run python -m grooveback.cli.run model=roundtrip input=data/degraded output_dir=artifacts/roundtrip
 ```
 
 It starts with one group and grows as the runs do. Config files land alongside the code they configure.

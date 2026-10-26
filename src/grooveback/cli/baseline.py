@@ -33,7 +33,8 @@ def main(argv: list[str] | None = None) -> None:
         "--cutoff-hz",
         type=float,
         default=None,
-        help="a2sb: cutoff Hz; default: detected fork-side (pass it for excerpts)",
+        help="a2sb: frequency in Hz above which the model fills in; "
+        "default: the fork detects it (pass it for excerpts)",
     )
     parser.add_argument(
         "--start", type=float, default=None, help="excerpt start in seconds"
@@ -51,9 +52,9 @@ def main(argv: list[str] | None = None) -> None:
     signal, sample_rate = ga.load(args.input)
 
     if args.start is not None or args.seconds is not None:
-        a = int((args.start or 0.0) * sample_rate)
-        b = a + int(args.seconds * sample_rate) if args.seconds else signal.shape[1]
-        signal = signal[:, a:b]
+        start = int((args.start or 0.0) * sample_rate)
+        end = start + int(args.seconds * sample_rate) if args.seconds else signal.shape[1]
+        signal = signal[:, start:end]
     print(
         f"{args.input.name}: {sample_rate} Hz, {signal.shape[0]}ch, "
         f"{signal.shape[1] / sample_rate:.1f}s, "

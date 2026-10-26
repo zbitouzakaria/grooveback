@@ -4,16 +4,18 @@ Date: 2026-09-07
 
 ## Status
 
-Accepted
+Accepted. Since then, the published page is `docs/listen/`, built by `scripts/publish_listen.py` (ADR-0011,
+ADR-0016), not `base`. A third page, `demo/roundtrip`, shows ADR-0011's benchmark. The SDEdit audio that `base` and
+`sdedit` play was deleted (ADR-0011).
 
 ## Context
 
-Listening verdicts (ADR-0006, the open sdedit comparison) are made by A/B-ing level-matched renders. A file player
-restarts from zero on every switch, which makes real comparison impossible; what the comparisons need is switching
-that keeps the playhead, exclusive solo under one key each, loopable sections, per-track spectrograms, and the
-method's real name on every button. Surveyed and passed over: jaakkopasanen/ABX (blind-test shaped, anonymizes
-labels), webMUSHRA-class suites (rating machinery we don't want), a hand-rolled Web Audio page (the maintained
-purpose-built player already exists).
+Listening verdicts (ADR-0006, ADR-0009's SDEdit comparison) are made by A/B-ing level-matched renders. A file
+player restarts from zero on every switch, which makes real comparison impossible; what the comparisons need is
+switching that keeps the playhead, exclusive solo under one key each, loopable sections, per-track spectrograms,
+and the method's real name on every button. Surveyed and passed over: jaakkopasanen/ABX (blind-test shaped,
+anonymizes labels), webMUSHRA-class suites (rating machinery we don't want), a hand-rolled Web Audio page (the
+maintained purpose-built player already exists).
 
 ## Decision
 
@@ -26,7 +28,7 @@ tracks within 0.1 LU). A comparison that needs different material is a different
 
 - **`base`** — the curated set: input / master / apollo / picked sdedits per (source × bitrate). New methods land
   here, and this is the page that gets published.
-- **`sdedit`** — the instrument: every variant of every pack, one player per family, created only when its section
+- **`sdedit`** — the full sweep: every variant of every pack, one player per family, created only when its section
   is expanded; at most one player stays decoded at a time.
 
 ## Consequences

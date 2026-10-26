@@ -6,11 +6,11 @@ Every released model type generates the same track — one fixed prompt, fixed
 seeds. Each clip is MP3-compressed and the compression is scored against the
 clip itself with the benchmark's five metrics. A generated clip is its own
 reference: if MP3 removes less from it than it removes from a real master at
-the same bitrate, the clip was missing the content MP3 normally eats. The
+the same bitrate, the clip was missing the content MP3 normally removes. The
 master anchors are the degraded-input rows of artifacts/xp/results.json.
 
   artifacts/probe/{variant}/seed{n}.wav            12 s scoring clips
-  artifacts/probe/{variant}/listen_45s.wav         one longer clip, for ears
+  artifacts/probe/{variant}/listen_45s.wav         one longer clip, for listening
   artifacts/probe/{variant}/{bitrate}/seed{n}.wav  the MP3 round-trips
   artifacts/probe/{variant}/listen/                level-matched A/B pack
   artifacts/probe/results.json                     per variant x bitrate
@@ -104,7 +104,7 @@ def render_variant(variant: str, device: str) -> None:
 
 
 def score_variant(variant: str, results: dict) -> None:
-    """Codec-cost every existing clip of one variant and write its pack."""
+    """Score what MP3 removes from every existing clip of one variant, and write its pack."""
     clips = [PROBE / variant / f"seed{seed}.wav" for seed in SEEDS]
     clips = [wav for wav in clips if wav.exists()]
     if not clips:
@@ -149,7 +149,7 @@ def main() -> None:
     for variant in gp.PRIOR_VARIANTS:
         try:
             render_variant(variant, device)
-        except Exception as error:  # one missing gate or wheel must not end the run
+        except Exception as error:  # a gated checkpoint or a missing wheel must not end the run
             print(f"render {variant} FAILED: {error}", flush=True)
             traceback.print_exc()
             results["variants"][variant] = {

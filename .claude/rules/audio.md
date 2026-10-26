@@ -18,13 +18,13 @@ Audio breaks silently: no exception, nothing looks wrong, the output is merely w
 - loudness is asserted before any comparison is scored
 - property tests on invariants: sample rate and channel count preserved, no NaN, no clipping introduced
 
-An identity model is coherent by construction, so none of these catch a model that invents content *differently on
+An identity model is consistent by construction, so none of these catch a model that invents content *differently on
 each call* — the case where two windows produce the same band at different phase and blending them loses power.
 Crossfaded chunking is safe only for models whose output is consistent given their input — measured true of Apollo,
-whose chunking and its tests live in the fork. AudioSR is not consistent, and its driver chunks 3-minute tracks
-anyway: a test there pins the cost, invented content 3 dB quieter at the middle of each 0.1 s crossfade. Each chunk
-also sets its own level for what it invents, which stepped by up to 14 dB between chunks (ADR-0016); no test covers
-that. Add such a test before chunking any other stochastic model.
+whose chunking and its tests live in the fork. AudioSR is not consistent, and `scripts/audiosr_restore.py` chunks
+3-minute tracks anyway: `tests/test_audiosr_restore.py` pins the cost, invented content 3 dB quieter at the middle
+of each 0.1 s crossfade. Each chunk also sets its own level for what it invents, which stepped by up to 14 dB
+between chunks (ADR-0016); no test covers that. Add such a test before chunking any other stochastic model.
 
 ## Findings live in ADRs
 
@@ -49,6 +49,4 @@ the source of truth stays obvious.
 | 0010 | Listen in the browser with trackswitch.js — the A/B instrument behind `demo/` |
 | 0011 | **Autoencoder round-trips and mean damage subtraction** — four open autoencoders at 32/64/128k, the damage-direction formula, chains as solvers |
 | 0015 | **Reproduce Apollo's test protocol** — Apollo and Apollo → εar-VAE scored on the 50 held-out MUSDB18-HQ test mixtures at six bitrates with the authors' own preprocessing, codec and metrics; their codec leaves some MP3s 25 ms late, fixed here with a Hann taper |
-| 0016 | AudioSR, A2SB, εar-VAE and εar-VAE2 on 50 of the MUSDB18-HQ test clips — none scores above the untouched MP3 on SDR; `musdb_eval --clips` draws them, `--render` scores renders made in other environments |
-| 0009 | **SDEdit solver: built, measured, rejected** — the prior keeps anything plausible; harness, fork and findings remain |
-| 0010 | Listen in the browser with trackswitch — the demo pages and their level-match gate |
+| 0016 | AudioSR, A2SB, εar-VAE and εar-VAE2 on 50 clips drawn from the MUSDB18-HQ test mixtures — none scores above the untouched MP3 on SDR; `musdb_eval --clips` draws them, `--render` scores renders made in other environments |

@@ -4,7 +4,8 @@ Date: 2026-08-15
 
 ## Status
 
-Accepted
+Accepted. Apollo and A2SB ran in ADR-0006, the SAME round trip in ADR-0007 and a Stable Audio 3 probe in
+ADR-0008. Apollo and A2SB chained (step 2) and the DSP control (step 3) were never run.
 
 Supersedes [3. Run Apollo on target distribution and analyse results](0003-run-apollo-on-target-distribution-and-analyse-results.md)
 

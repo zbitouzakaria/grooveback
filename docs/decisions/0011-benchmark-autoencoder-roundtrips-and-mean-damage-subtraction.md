@@ -4,16 +4,17 @@ Date: 2026-09-10
 
 ## Status
 
-Accepted — concluded: apollo → εar-VAE restores heavily damaged records best;
-apollo alone stays closer to the master above 64 kbps. The kept set is
-published.
+Accepted — concluded: by ear, Apollo → εar-VAE helps only at 32 kbps, where
+it smooths Apollo's output, and sounds worse than Apollo alone at 64 and
+128 kbps. The kept set is published. We corrected the listening verdict on
+2026-10-26.
 
 ## Context
 
 An autoencoder trained on clean music outputs clean-sounding audio, so a
-degraded input may come back cleaner from a bare `decode(encode(x))` — and
-better latents than `encode(x)` exist to be found, because the encoder is not
-the decoder's inverse. ADR-0007 measured this once, with SAME only, at
+degraded input may come back cleaner from a bare `decode(encode(x))`. Better
+latents than `encode(x)` also exist, because the encoder is not the
+decoder's inverse. ADR-0007 measured this once, with SAME only, at
 64/128/192 kbps. Three further open music autoencoders have since released
 weights (εar-VAE, εar-VAE2, CoDiCodec), and the bitrates that matter for the
 library sit lower. This experiment widens the round-trip comparison to all
@@ -21,11 +22,45 @@ four, moves the ladder to 32/64/128 kbps, and adds two inference-time
 constructions on top of the round-trip: a mean damage subtraction in latent
 space, and the round-trip applied to a supervised restorer's output.
 
+## Listening verdict (corrected 2026-10-26)
+
+By ear, Apollo → εar-VAE helps only at 32 kbps: there, it smooths Apollo's
+output. At 64 and 128 kbps, it sounds worse than Apollo alone.
+
+The first version of this verdict, from 2026-09-10 on monitors, said
+Apollo → εar-VAE was the best method for heavily damaged records. It also
+said the verdict at 64 kbps was split.
+
+The mean damage subtraction through εar-VAE stays in the promising set.
+Everything else tried — the other autoencoders' round-trips, chains and
+subtractions — is worse by ear. A2SB is kept as a comparison point rather
+than a contender. The released εar-VAE2 sounds clearly worse than εar-VAE,
+consistent with its public-data retrain (its model card shows the open
+weights losing to the paper's proprietary ones) and with its 50 Hz STFT bins
+in the bass.
+
+The kept set, in solo-key order: ground truth, degraded input, Apollo, A²SB,
+Apollo → εar-VAE, εar-VAE − MP3 damage.
+
+### Published set
+
+`docs/listen/` carries the kept set for the codec and aerofunk sources at
+32/64/128 kbps on GitHub Pages, as 24-bit FLAC listening copies at −14 LUFS
+under one common −1 dBFS gain per pack — about 556 MB of audio committed to
+the repository, accepted over the initial 500 MB budget to keep aerofunk at
+its full three minutes. The same-artist pair stays out of the published set.
+ADR-0016 adds AudioSR and the εar-VAE and εar-VAE2 round trips to these sets,
+and stores all of them as 16-bit FLAC: 392 MB of audio, 419 MB for the page.
+`scripts/publish_listen.py` rebuilds the page, and the audio URLs carry each
+file's mtime, so a browser fetches a republished pack again instead of
+playing a cached copy.
+
 ## Decision
 
 ### The benchmark
 
-We cut three sources at 44.1 kHz: the 6 s severe codec asset (whole), a 180 s
+We cut three sources at 44.1 kHz: the clean version of Apollo's 6 s test
+clip (whole, `codec` in the tables), a 180 s
 excerpt of the aerofunk track, and a 180 s excerpt of a third track whose
 artist also provides the damage donor below. The
 two 48 kHz masters are resampled once to the benchmark grid at ingestion
@@ -35,23 +70,23 @@ verified at the start, middle and end of every twin); the measured codec
 edges on the codec source are 5.5, 11 and 16.5 kHz.
 
 Four autoencoders run in-process, since their dependencies resolve under the
-stable-audio-3 torch pin (dependency group `aes`): SAME-L, εar-VAE (the
-44.1 kHz checkpoint), εar-VAE2 and CoDiCodec. The εar repositories are
-vendored as pinned submodules and CoDiCodec is a pip package. εar-VAE2 and
-CoDiCodec are natively 48 kHz, so their wrappers resample 44.1↔48 privately —
-the two models that pay a double resample, worth ~−140 dBFS in soxr
-artifacts. Apollo and A2SB anchor the comparison exactly as in ADR-0007,
-with A2SB walled at the measured edge − 250 Hz at 50 steps.
+stable-audio-3 torch pin (dependency group `aes`): SAME-L, εar-VAE (the 44.1
+kHz checkpoint), εar-VAE2 and CoDiCodec. The εar repositories are vendored as
+pinned submodules and CoDiCodec is a pip package. εar-VAE2 and CoDiCodec are
+natively 48 kHz, so their wrappers resample 44.1↔48 internally, and
+resampling twice adds soxr artifacts at about −140 dBFS. Apollo and A2SB
+anchor the comparison exactly as in ADR-0007, with A2SB at 50 steps and a
+cut-off 250 Hz below the measured edge.
 
 Renders, twins and originals are stored as float32 WAV, and only the
 listening packs — pulled under −1 dBFS by one common gain per pack — are
-24-bit FLAC. A first pass stored everything as FLAC, which hard-clips at
-±1.0 silently: decoder overshoot (εar-VAE2 reaches a 2.1 peak on a 0.5-peak
-tone), loudness matching, MP3 decode ringing, and soxr's intersample
-overshoot on 0 dBFS masters all push past full scale, so every file class
-touched the ceiling and the set was re-rendered. `ga.save` now refuses audio
-past full scale in any integer subtype, which makes this failure loud
-instead of silent.
+24-bit FLAC. A first pass stored everything as FLAC, which hard-clips at ±1.0
+silently: decoder overshoot (εar-VAE2 reaches a 2.1 peak on a 0.5-peak tone),
+loudness matching, MP3 decode ringing, and soxr's intersample overshoot on 0
+dBFS masters all push past full scale, so files of every kind clipped, and we
+re-rendered the whole set. `grooveback.audio.save` now refuses audio past
+full scale in any integer subtype, which makes this failure loud instead of
+silent.
 
 ### The chains are solvers
 
@@ -77,8 +112,9 @@ grid, so frame t of the donor says nothing about frame t of the input, and
 only the average direction can transfer. The damage encodes are
 deterministic by construction — SAME's bottleneck is affine, εar-VAE takes
 the posterior mean, εar-VAE2 runs its deterministic mode, and CoDiCodec's
-encoder draws no noise. The same-artist pairing is the favourable case on
-record; the codec and aerofunk sources test transfer across artists.
+encoder draws no noise. The same-artist pair is the favourable case; the
+codec and aerofunk sources test whether the direction transfers to other
+artists.
 
 ### Chained renders
 
@@ -97,39 +133,40 @@ note records why it does not come back.
 
 ## Results (2026-09-10 run, float-WAV storage)
 
-The renders were produced on an A100 80 GB — the four autoencoders, their
-subtraction and chained arms, and apollo; A2SB was kept from the first pass,
-whose renders were the least ceiling-touched class at ≤0.02 % of samples —
-and scored locally against the verified lag-0 twins. Each table below is one
+We rendered the four autoencoders, their subtraction and chained renders,
+and Apollo on an A100 80 GB. A2SB's renders were kept from the first pass:
+they clipped least, on at most 0.02 % of samples. We scored everything
+locally against the verified lag-0 twins. Each table below is one
 source at one bitrate; columns are the five metrics against the master, LSD
 lower-is-better, **bold green** best in column, **bold red** worst. The
-fill-band decomposition lives in `results.json`.
+scores of the band above the codec edge alone are in
+`artifacts/xp/results.json` (the `fill_*` fields).
 
 The metrics, ahead of listening, say the following. The ADR-0007 pattern
 holds everywhere: in all nine packs, no method beats the untouched input on
 any of the three waveform metrics, and only the phase-blind columns reward
 restoration. Chaining an autoencoder after apollo helps almost always — the
 chained render beats the plain round-trip's LSD in 35 of 36 cases, and on
-aerofunk at 32 and 64 kbps `apollo-earvae2` edges out apollo itself (10.35
-vs 10.41 and 8.86 vs 8.91 dB), the first rows in this benchmark where
-anything passes apollo; apollo keeps the best LSD in the other seven packs.
-The mean damage subtraction works on the spectral metrics: it beats its own
-round-trip's LSD in 34 of 36 cases and the untouched input's full-band LSD
-in 32 of 36, with the gain concentrated in the codec-dead band (on the
-same-artist source at 128 kbps, fill-LSD falls from 26.2 on the input to 8.7
-after subtraction, where the plain round-trip leaves it at 26.1). Every
-failure sits on aerofunk at 128 kbps — the lightest damage on a
-cross-artist source, where the donor's direction overcorrects — and the
-subtraction leaves the waveform columns essentially unchanged: it adds
-spectral plausibility, not waveform fidelity. The damage direction behaves
-like a measurement, its norm growing monotonically with compression in every
-latent space (εar-VAE 6.2/5.2/3.7, SAME-L 8.2/5.4/2.3, εar-VAE2
+aerofunk at 32 and 64 kbps `apollo-earvae2` edges out apollo itself (10.35 vs
+10.41 and 8.86 vs 8.91 dB), the first rows in this benchmark where anything
+passes apollo; apollo keeps the best LSD in the other seven packs. The mean
+damage subtraction works on the spectral metrics: it beats its own
+round-trip's LSD in 34 of 36 cases and the untouched input's full-band LSD in
+32 of 36, with the gain concentrated in the band the codec removed (on the
+same-artist source at 128 kbps, LSD above the codec edge falls from 26.2 dB
+on the input to 8.7 dB after subtraction, where the plain round-trip leaves
+it at 26.1 dB). Every failure sits on aerofunk at 128 kbps — the lightest
+damage on a cross-artist source, where the donor's direction overcorrects —
+and the subtraction leaves the waveform columns essentially unchanged: it
+adds spectral plausibility, not waveform fidelity. The damage direction
+behaves like a measurement, its norm growing monotonically with compression
+in every latent space (εar-VAE 6.2/5.2/3.7, SAME-L 8.2/5.4/2.3, εar-VAE2
 3.5/2.7/1.7, CoDiCodec 14.5/9.5/4.5 at 32/64/128 kbps). The round-trips
-differ in what they do to the codec-dead band — SAME-L invents top-band
-content, εar-VAE leaves the band essentially empty, εar-VAE2 and CoDiCodec
-sit between — and CoDiCodec's waveform scores collapse to 5–8 dB BSS-SDR
-while its LSD stays VAE-like, because its diffusion decoder re-invents phase
-wholesale.
+differ in what they do to the band the codec removed — SAME-L invents
+top-band content, εar-VAE leaves the band essentially empty, εar-VAE2 and
+CoDiCodec sit between — and CoDiCodec's waveform scores collapse to 5–8 dB
+BSS-SDR while its LSD stays VAE-like, because its diffusion decoder
+re-invents phase wholesale.
 
 **aerofunk @ 32k** (edge 5.5 kHz)
 
@@ -310,39 +347,6 @@ wholesale.
 | apollo-codicodec | **5.5** 🔴 | **5.9** 🔴 | **4.8** 🔴 | **10.8** 🔴 | 9.1 |
 | apollo | 20.2 | 19.9 | 20.1 | **24.6** 🟢 | **7.0** 🟢 |
 | a2sb | 23.8 | 21.9 | 23.7 | 23.4 | 9.8 |
-
-## Listening verdict (2026-09-10, monitors)
-
-Apollo → εar-VAE is the method for really damaged records: it beats apollo
-alone on 32 kbps material, splits with it at 64 kbps, and above 64 kbps
-apollo alone sounds closer to the master. The mechanism as heard is that
-apollo guesses the missing content well, and εar-VAE's decode smooths the
-result — which removes the artifacts apollo itself introduces when the
-compression is severe. At lighter compression apollo adds few artifacts, and
-the same smoothing then moves the sound away from the master.
-
-The mean damage subtraction through εar-VAE stays in the promising set.
-Everything else tried — the other autoencoders' round-trips, chains and
-subtractions — is worse by ear. A²SB is kept as a comparison point rather
-than a contender. The released εar-VAE2 sounds clearly worse than εar-VAE,
-consistent with its public-data retrain (its model card shows the open
-weights losing to the paper's proprietary ones) and with its 50 Hz STFT bins
-in the bass.
-
-The kept set, in solo-key order: ground truth, degraded input, Apollo, A²SB,
-Apollo → εar-VAE, εar-VAE − MP3 damage.
-
-### Published set
-
-`docs/listen/` carries the kept set for the codec and aerofunk sources at
-32/64/128 kbps on GitHub Pages, as 24-bit FLAC listening copies at −14 LUFS
-under one common −1 dBFS gain per pack — about 556 MB of audio committed to
-the repository, accepted over the initial 500 MB budget to keep aerofunk at
-its full three minutes. The same-artist pair stays out of the published set.
-ADR-0016 adds AudioSR and the εar-VAE and εar-VAE2 round trips to these sets,
-and stores all of them as 16-bit FLAC: 392 MB of audio, 419 MB for the page.
-`scripts/publish_listen.py` rebuilds the page, and the audio URLs carry each
-file's mtime so a republished pack defeats any cached copy.
 
 ## Consequences
 

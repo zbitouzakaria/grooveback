@@ -1,6 +1,6 @@
-# The instrument: every sdedit render of every pack — the noise sweep, the
-# theta sweep, and the prompted variant — behind the four anchors, one player
-# per sweep, created only when its section is opened.
+# Every sdedit render of every pack: the noise and theta sweeps of the base and
+# inference checkpoints. One player per sweep, which also holds the four anchors
+# (input, master, apollo, a2sb) and is created only when its section is opened.
 #   uv run --group notebooks python scripts/build_demo.py demo/sdedit/config.yaml
 
 aerofunk_32k:
