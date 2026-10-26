@@ -6,8 +6,11 @@ device: auto
 train_dir: ???            # scripts/prepare_dataset.py output: {song}/original.wav, {song}/{kbps}k.wav
 valid_dir: ???
 save_dir: ???             # checkpoint-{step}/ lands here after every epoch
-mlflow_db: artifacts/mlflow.db   # local MLflow store: training and validation loss per epoch
-bitrates: [24, 32, 48, 64, 96, 128]   # one item per bitrate per window; musdb_eval's six (ADR-0015)
+mlflow_db: artifacts/mlflow.db   # local MLflow store: losses per epoch and per step
+log_system_metrics: true  # GPU/CPU utilisation, memory and power in MLflow, one mean per minute
+# Each training window is drawn at one of these, uniformly, every epoch; each validation
+# window keeps one, drawn once into valid_dir/validation_bitrates.json. musdb_eval's six.
+bitrates: [24, 32, 48, 64, 96, 128]
 window_seconds: 10.0      # cut to whole latent frames: 107 frames, 9.94 s
 
 # LoRA on the frozen transformer; the new MP3 input trains in full.
@@ -21,12 +24,13 @@ weight_decay: 0.01
 max_grad_norm: 1.0
 batch_size: 8
 num_train_epochs: 1
+max_train_minutes: null   # stop after the epoch that crosses this budget
 seed: 0
 
 inpaint_mask_value: 0.0   # 0 = nothing given, generate every frame (upstream's convention)
 validation_timesteps: [0.1, 0.3, 0.5, 0.7, 0.9]
-sample_steps: 50          # sampling steps for the listening window; base checkpoints use 50
-log_every: 10
+sample_steps: 50          # sampling steps for the last checkpoint's listening window
+log_every: 10             # steps between batch_loss / seconds_per_step points
 
 # Continue from .../checkpoint-{step}: weights, Adam's averages, step and epoch.
 # The optimizer settings above replace the ones saved in the checkpoint.

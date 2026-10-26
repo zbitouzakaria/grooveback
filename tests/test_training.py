@@ -2,6 +2,8 @@
 SA3's own factory (tests/conftest.py), so the real model code runs on CPU
 with no download."""
 
+import json
+
 import numpy as np
 import pytest
 import torch
@@ -13,13 +15,21 @@ SR = 44_100
 CPU = torch.device("cpu")
 
 
+def mean_encode(model, audio):
+    """Stands in for the tiny SA3's encoder, whose random weights map any audio to
+    the same latents: the mean of every 64 samples, repeated to 8 channels."""
+    padded = np.pad(audio, ((0, 0), (0, -audio.shape[-1] % 64)))
+    return torch.from_numpy(padded.reshape(2, -1, 64).mean(-1)).repeat(4, 1)
+
+
 def write_song(root, name, *, seconds, bitrates, seed):
-    """One song in prepare_dataset's layout: white noise, and a quieter copy of it per bitrate."""
+    """One song in prepare_dataset's layout: white noise, and per bitrate a copy
+    scaled by kbps / 256, so each bitrate's version differs from the others."""
     rng = np.random.default_rng(seed)
     original = rng.uniform(-0.5, 0.5, size=(2, int(seconds * SR))).astype(np.float32)
     ga.save(root / name / "original.wav", original, SR)
     for kbps in bitrates:
-        ga.save(root / name / f"{kbps}k.wav", 0.5 * original, SR)
+        ga.save(root / name / f"{kbps}k.wav", kbps / 256 * original, SR)
 
 
 def test_new_mp3_input_leaves_the_base_model_output_unchanged_before_training(
@@ -116,6 +126,86 @@ def test_saved_weights_reload_to_the_same_validation_loss(tmp_path, monkeypatch,
     trained_loss = gt.validation_loss(trained, dataset, **settings)
     reloaded_loss = gt.validation_loss(reloaded, dataset, **settings)
     assert reloaded_loss == trained_loss
+
+
+def test_an_epoch_holds_each_window_once_whatever_the_bitrates(
+    tmp_path, monkeypatch, tiny_checkpoint
+):
+    """1 s is 689 frames of 64 samples, so 21 windows of 32 at either bitrate."""
+    write_song(tmp_path / "songs", "a", seconds=1.0, bitrates=[24, 128], seed=0)
+    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
+    model = gt.load_model("small-music-base", device=CPU)
+
+    dataset = gt.LatentPairDataset(tmp_path / "songs", model, bitrates=[24, 128], window_frames=32)
+
+    assert len(dataset) == 21
+
+
+def test_a_training_item_pairs_its_window_with_one_of_its_mp3s(
+    tmp_path, monkeypatch, tiny_checkpoint
+):
+    write_song(tmp_path / "songs", "a", seconds=1.0, bitrates=[24, 128], seed=0)
+    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
+    monkeypatch.setattr(gt, "encode", mean_encode)
+    model = gt.load_model("small-music-base", device=CPU)
+    dataset = gt.LatentPairDataset(tmp_path / "songs", model, bitrates=[24, 128], window_frames=32)
+
+    clean, mp3 = dataset[3]
+
+    window = slice(3 * 32, 4 * 32)  # item 3 is the song's fourth window
+    torch.testing.assert_close(clean, dataset.clean["a"][:, window], rtol=0, atol=0)
+    low, high = dataset.mp3[("a", 24)][:, window], dataset.mp3[("a", 128)][:, window]
+    assert torch.equal(mp3, low) or torch.equal(mp3, high)
+
+
+def test_a_validation_item_uses_its_stored_bitrate(tmp_path, monkeypatch, tiny_checkpoint):
+    write_song(tmp_path / "songs", "a", seconds=1.0, bitrates=[24, 128], seed=0)
+    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
+    monkeypatch.setattr(gt, "encode", mean_encode)
+    model = gt.load_model("small-music-base", device=CPU)
+    windows = [["a", 32 * index] for index in range(21)]
+    stored = {"drawn_from": [24, 128], "windows": windows, "bitrates": [128] + [24] * 20}
+    (tmp_path / "bitrates.json").write_text(json.dumps(stored))
+    dataset = gt.LatentPairDataset(
+        tmp_path / "songs",
+        model,
+        bitrates=[24, 128],
+        window_frames=32,
+        bitrates_file=tmp_path / "bitrates.json",
+    )
+
+    _, mp3 = dataset[0]
+
+    torch.testing.assert_close(mp3, dataset.mp3[("a", 128)][:, 0:32], rtol=0, atol=0)
+
+
+def test_fixed_bitrates_store_one_bitrate_per_window_on_first_use(tmp_path):
+    windows = [("a", 0), ("a", 107), ("b", 0)]
+
+    drawn = gt.fixed_bitrates(tmp_path / "bitrates.json", windows, bitrates=[24, 128])
+
+    assert json.loads((tmp_path / "bitrates.json").read_text())["bitrates"] == drawn
+    assert len(drawn) == 3
+    assert set(drawn) <= {24, 128}
+
+
+def test_fixed_bitrates_refuse_a_draw_stored_for_other_windows(tmp_path):
+    """A new window length moves every window, so the stored draw no longer fits."""
+    gt.fixed_bitrates(tmp_path / "bitrates.json", [("a", 0), ("a", 107)], bitrates=[24, 128])
+
+    with pytest.raises(ValueError, match="other windows"):
+        gt.fixed_bitrates(tmp_path / "bitrates.json", [("a", 0), ("a", 64)], bitrates=[24, 128])
+
+
+def test_fixed_bitrates_refuse_a_draw_from_another_bitrate_list(tmp_path):
+    """A draw from [24, 32] read by a six-bitrate run would quietly validate it at
+    its two hardest bitrates only."""
+    gt.fixed_bitrates(tmp_path / "bitrates.json", [("a", 0), ("a", 107)], bitrates=[24, 32])
+
+    with pytest.raises(ValueError, match="drawn from"):
+        gt.fixed_bitrates(
+            tmp_path / "bitrates.json", [("a", 0), ("a", 107)], bitrates=[24, 32, 48, 64, 96, 128]
+        )
 
 
 def test_resume_restores_the_saved_training_state(tmp_path, monkeypatch, tiny_checkpoint):

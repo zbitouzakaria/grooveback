@@ -8,10 +8,14 @@
 
 `train_dir` and `valid_dir` are `scripts/prepare_dataset.py` outputs. After
 every epoch the run writes `save_dir/checkpoint-{step}/`: the trained weights
-(`lora.safetensors`), the optimizer state (`state.pt`), and a level-matched
-listening pack (`listen/`) with one restored validation window next to its
-original, its MP3, and the original's own round trip through the autoencoder.
-Training and validation loss per epoch go to MLflow (`mlflow_db`); browse them with
+(`lora.safetensors`) and the optimizer state (`state.pt`). The last checkpoint
+also gets a level-matched listening pack (`listen/`): one restored validation
+window next to its original, its MP3, and the original's own round trip
+through the autoencoder.
+
+MLflow (`mlflow_db`) gets the losses per epoch (epoch 0 = before training),
+the batch loss and seconds per step every `log_every` steps, peak GPU memory
+per epoch, and GPU/CPU system metrics once a minute. Browse them with
 
     uv run mlflow ui --backend-store-uri sqlite:///artifacts/mlflow.db
 """
@@ -19,6 +23,7 @@ Training and validation loss per epoch go to MLflow (`mlflow_db`); browse them w
 from __future__ import annotations
 
 import os
+import time
 from pathlib import Path
 
 import hydra
@@ -66,11 +71,16 @@ def write_listening_window(
 
 def train(cfg: DictConfig) -> None:
     # MLflow keeps one run per call, in a local SQLite file: its parameters are
-    # this config, and its metrics are indexed by epoch (0 = before training).
-    # A resumed run is a new MLflow run whose epochs continue the old one's.
-    # Opened first, so a store that cannot be written fails before any loading.
+    # this config; epoch metrics are indexed by epoch (0 = before training), batch
+    # metrics by step. A resumed run is a new MLflow run whose epochs continue the
+    # old one's. Opened first, so a store that cannot be written fails before any
+    # loading; likewise the GPU metrics, which MLflow would skip with one log line.
     mlflow.set_tracking_uri(f"sqlite:///{Path(cfg.mlflow_db).resolve()}")
     mlflow.set_experiment("train_lora")
+    if cfg.log_system_metrics and torch.cuda.is_available():
+        import pynvml
+
+        pynvml.nvmlInit()
 
     torch.manual_seed(cfg.seed)
     model = gt.load_model(cfg.variant, device=select_device(cfg.device))
@@ -87,7 +97,11 @@ def train(cfg: DictConfig) -> None:
         cfg.train_dir, model, bitrates=bitrates, window_frames=window_frames
     )
     valid_set = gt.LatentPairDataset(
-        cfg.valid_dir, model, bitrates=bitrates, window_frames=window_frames
+        cfg.valid_dir,
+        model,
+        bitrates=bitrates,
+        window_frames=window_frames,
+        bitrates_file=Path(cfg.valid_dir) / "validation_bitrates.json",
     )
     print(f"{len(train_set)} training windows, {len(valid_set)} validation windows", flush=True)
     if len(train_set) < cfg.batch_size:
@@ -113,7 +127,14 @@ def train(cfg: DictConfig) -> None:
             inpaint_mask_value=cfg.inpaint_mask_value,
         )
 
-    with mlflow.start_run(run_name=Path(cfg.save_dir).name):
+    # System metrics: GPU utilisation, GPU memory and power, CPU and RAM, sampled
+    # every 10 s and logged as the mean of 6 samples, one point per minute, on
+    # their own time axis (psutil and nvidia-ml-py).
+    mlflow.set_system_metrics_sampling_interval(10)
+    mlflow.set_system_metrics_samples_before_logging(6)
+    with mlflow.start_run(
+        run_name=Path(cfg.save_dir).name, log_system_metrics=cfg.log_system_metrics
+    ):
         mlflow.log_params(OmegaConf.to_container(cfg, resolve=True))
         if step == 0:
             # The baseline every later validation loss is read against.
@@ -121,6 +142,8 @@ def train(cfg: DictConfig) -> None:
             print(f"step 0 validation loss {baseline:.4f}", flush=True)
             mlflow.log_metric("validation_loss", baseline, step=0)
 
+        started = time.perf_counter()
+        directory = None
         for epoch in range(start_epoch, cfg.num_train_epochs):
             # A fixed seed per epoch, so a resumed run shuffles like an uninterrupted one.
             loader = torch.utils.data.DataLoader(
@@ -131,6 +154,7 @@ def train(cfg: DictConfig) -> None:
                 generator=torch.Generator().manual_seed(cfg.seed + epoch),
             )
             losses = []
+            since, since_step = time.perf_counter(), step
             for clean, mp3 in loader:
                 loss = gt.training_step(
                     model, clean, mp3=mp3, inpaint_mask_value=cfg.inpaint_mask_value
@@ -142,7 +166,19 @@ def train(cfg: DictConfig) -> None:
                 step += 1
                 losses.append(loss.item())
                 if step % cfg.log_every == 0:
-                    print(f"epoch {epoch + 1} step {step} loss {loss.item():.4f}", flush=True)
+                    # Per-step metrics, indexed by step, so the curves move during an epoch.
+                    # Divided by the steps actually timed: an epoch's first log can
+                    # come after fewer than log_every steps.
+                    seconds = (time.perf_counter() - since) / (step - since_step)
+                    since, since_step = time.perf_counter(), step
+                    print(
+                        f"epoch {epoch + 1} step {step} loss {loss.item():.4f} "
+                        f"{seconds:.2f} s/step",
+                        flush=True,
+                    )
+                    mlflow.log_metrics(
+                        {"batch_loss": loss.item(), "seconds_per_step": seconds}, step=step
+                    )
 
             valid = validate()
             print(f"epoch {epoch + 1} step {step} validation loss {valid:.4f}", flush=True)
@@ -150,10 +186,32 @@ def train(cfg: DictConfig) -> None:
             mlflow.log_metrics(
                 {"training_loss": training, "validation_loss": valid}, step=epoch + 1
             )
+            if torch.cuda.is_available():
+                # Peaks since the process started, so they include the encoding. Allocated
+                # is what the tensors needed; reserved adds PyTorch's cache, and is the
+                # number a smaller card must hold.
+                peaks = {
+                    "peak_gpu_allocated_gb": torch.cuda.max_memory_allocated() / 1e9,
+                    "peak_gpu_reserved_gb": torch.cuda.max_memory_reserved() / 1e9,
+                }
+                mlflow.log_metrics(peaks, step=epoch + 1)
             directory = Path(cfg.save_dir) / f"checkpoint-{step}"
             gt.save_checkpoint(
                 directory, model, optimizer, config=lora_config, step=step, epoch=epoch + 1
             )
+            print(f"wrote {directory}", flush=True)
+            if cfg.max_train_minutes is not None and (
+                time.perf_counter() - started >= 60 * cfg.max_train_minutes
+            ):
+                print(
+                    f"stopping after epoch {epoch + 1}: {cfg.max_train_minutes} min budget",
+                    flush=True,
+                )
+                break
+
+        # One listening window for the last checkpoint: on medium-base each render
+        # costs about 30 s, too much to repeat after every short epoch.
+        if directory is not None:
             write_listening_window(
                 model,
                 valid_set,
@@ -162,7 +220,6 @@ def train(cfg: DictConfig) -> None:
                 steps=cfg.sample_steps,
                 inpaint_mask_value=cfg.inpaint_mask_value,
             )
-            print(f"wrote {directory}", flush=True)
 
 
 @hydra.main(config_path="../../../configs", config_name="train_lora", version_base=None)

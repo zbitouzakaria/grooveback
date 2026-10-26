@@ -40,8 +40,9 @@ def config(tmp_path, *overrides):
                 # Overridden like a user would, which a name clash with a config group breaks.
                 "variant=small-music-base",
                 "device=cpu",
+                "log_system_metrics=false",
                 "window_seconds=0.5",
-                "batch_size=4",
+                "batch_size=2",
                 "bitrates=[24,32]",
                 "sample_steps=2",
                 "rank=4",
@@ -54,7 +55,7 @@ def config(tmp_path, *overrides):
 def test_one_epoch_writes_weights_optimizer_state_and_a_listening_pack(
     tmp_path, monkeypatch, tiny_checkpoint
 ):
-    """2 s is 1_378 frames, so 4 windows of 344 at 2 bitrates: 8 items, 2 steps of 4."""
+    """2 s is 1_378 frames, so 4 windows of 344, one item each: 2 steps of 2."""
     monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
     write_song(tmp_path / "train", "a", seconds=2.0, bitrates=[24, 32], seed=0)
     write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
@@ -87,6 +88,33 @@ def test_mlflow_metrics_are_indexed_by_epoch_with_the_untrained_model_at_0(
     training = client.get_metric_history(run.info.run_id, "training_loss")
     assert [metric.step for metric in validation] == [0, 1, 2]
     assert [metric.step for metric in training] == [1, 2]
+
+
+def test_mlflow_batch_loss_is_indexed_by_step(tmp_path, monkeypatch, tiny_checkpoint):
+    """One epoch of 2 steps, logged every step."""
+    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
+    write_song(tmp_path / "train", "a", seconds=2.0, bitrates=[24, 32], seed=0)
+    write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
+
+    train(config(tmp_path, "log_every=1"))
+
+    client = mlflow.tracking.MlflowClient(f"sqlite:///{tmp_path / 'mlflow.db'}")
+    (run,) = client.search_runs([client.get_experiment_by_name("train_lora").experiment_id])
+    batch = client.get_metric_history(run.info.run_id, "batch_loss")
+    assert [metric.step for metric in batch] == [1, 2]
+
+
+def test_time_budget_stops_after_the_epoch_that_crosses_it(tmp_path, monkeypatch, tiny_checkpoint):
+    """A budget of 0 minutes is crossed by the first epoch, so a 3-epoch run
+    ends after it: 2 steps, checkpoint-2, with the listening pack there."""
+    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
+    write_song(tmp_path / "train", "a", seconds=2.0, bitrates=[24, 32], seed=0)
+    write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
+
+    train(config(tmp_path, "num_train_epochs=3", "max_train_minutes=0"))
+
+    assert sorted(path.name for path in (tmp_path / "run").iterdir()) == ["checkpoint-2"]
+    assert (tmp_path / "run" / "checkpoint-2" / "listen" / "restored.flac").is_file()
 
 
 def test_resume_continues_from_the_checkpoint_with_the_new_learning_rate(
