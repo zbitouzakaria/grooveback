@@ -69,8 +69,8 @@ segmented workaround within 1–3 dB per band. The cause is not identified yet.
 - **codec set** (monitoring headphones): Apollo preferred. It at least tries to invent things, and is brighter.
   A2SB fills in missing frequencies minimally — I hear some hats, but it's very shy in adding anything else.
   Apollo sounds way more musical: it adds a full hi-hat, A2SB sounds more like a click.
-- **AN-2 set** (monitoring headphones): everything sounds the same — before, Apollo, both A2SB renders. To retry
-  on the monitoring speakers.
+- **AN-2 set**: Apollo sounds far better than the MP3 and both A2SB renders. We corrected this note on 2026-10-26.
+  Its first version, from monitoring headphones, said the MP3, Apollo and both A2SB renders all sounded the same.
 - Apollo crackles on an unchunked render: to check.
 
 ## What this means for the project

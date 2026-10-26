@@ -4,9 +4,10 @@ Date: 2026-09-10
 
 ## Status
 
-Accepted — concluded: by ear, Apollo → εar-VAE restores heavily damaged
-records best; Apollo alone stays closer to the master above 64 kbps. The
-kept set is published.
+Accepted — concluded: by ear, Apollo → εar-VAE helps only at 32 kbps, where
+it smooths Apollo's output, and sounds worse than Apollo alone at 64 and
+128 kbps. The kept set is published. We corrected the listening verdict on
+2026-10-26.
 
 ## Context
 
@@ -21,15 +22,14 @@ four, moves the ladder to 32/64/128 kbps, and adds two inference-time
 constructions on top of the round-trip: a mean damage subtraction in latent
 space, and the round-trip applied to a supervised restorer's output.
 
-## Listening verdict (2026-09-10, monitors)
+## Listening verdict (corrected 2026-10-26)
 
-Apollo → εar-VAE is the best method for heavily damaged records: it beats
-Apollo alone on 32 kbps material, and the verdict is split at 64 kbps. Above
-64 kbps, Apollo alone sounds closer to the master. The mechanism as heard is
-that apollo guesses the missing content well, and εar-VAE's decode smooths
-the result — which removes the artifacts apollo itself introduces when the
-compression is severe. At lighter compression apollo adds few artifacts, and
-the same smoothing then moves the sound away from the master.
+By ear, Apollo → εar-VAE helps only at 32 kbps: there, it smooths Apollo's
+output. At 64 and 128 kbps, it sounds worse than Apollo alone.
+
+The first version of this verdict, from 2026-09-10 on monitors, said
+Apollo → εar-VAE was the best method for heavily damaged records. It also
+said the verdict at 64 kbps was split.
 
 The mean damage subtraction through εar-VAE stays in the promising set.
 Everything else tried — the other autoencoders' round-trips, chains and
