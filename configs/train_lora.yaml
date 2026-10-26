@@ -6,6 +6,7 @@ device: auto
 train_dir: ???            # scripts/prepare_dataset.py output: {song}/original.wav, {song}/{kbps}k.wav
 valid_dir: ???
 save_dir: ???             # checkpoint-{step}/ lands here after every epoch
+mlflow_db: artifacts/mlflow.db   # local MLflow store: training and validation loss per epoch
 bitrates: [24, 32, 48, 64, 96, 128]   # one item per bitrate per window; musdb_eval's six (ADR-0015)
 window_seconds: 10.0      # cut to whole latent frames: 107 frames, 9.94 s
 

@@ -24,6 +24,7 @@ dependencies = [
     "fast-bss-eval>=0.1.4",
     "soxr>=0.5",
     "einops>=0.8",
+    "mlflow>=3.17.2",
 ]
 
 [tool.uv.sources]

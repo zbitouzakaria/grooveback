@@ -11,6 +11,9 @@ every epoch the run writes `save_dir/checkpoint-{step}/`: the trained weights
 (`lora.safetensors`), the optimizer state (`state.pt`), and a level-matched
 listening pack (`listen/`) with one restored validation window next to its
 original, its MP3, and the original's own round trip through the autoencoder.
+Training and validation loss per epoch go to MLflow (`mlflow_db`); browse them with
+
+    uv run mlflow ui --backend-store-uri sqlite:///artifacts/mlflow.db
 """
 
 from __future__ import annotations
@@ -18,8 +21,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import hydra
+import mlflow
 import torch
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 
 from grooveback import audio as ga
 from grooveback import training as gt
@@ -57,6 +61,13 @@ def write_listening_window(
 
 
 def train(cfg: DictConfig) -> None:
+    # MLflow keeps one run per call, in a local SQLite file: its parameters are
+    # this config, and its metrics are indexed by epoch (0 = before training).
+    # A resumed run is a new MLflow run whose epochs continue the old one's.
+    # Opened first, so a store that cannot be written fails before any loading.
+    mlflow.set_tracking_uri(f"sqlite:///{Path(cfg.mlflow_db).resolve()}")
+    mlflow.set_experiment("train_lora")
+
     torch.manual_seed(cfg.seed)
     model = gt.load_model(cfg.variant, device=select_device(cfg.device))
     lora_config = gt.lora_config(rank=cfg.rank, lora_alpha=cfg.lora_alpha)
@@ -75,6 +86,10 @@ def train(cfg: DictConfig) -> None:
         cfg.valid_dir, model, bitrates=bitrates, window_frames=window_frames
     )
     print(f"{len(train_set)} training windows, {len(valid_set)} validation windows", flush=True)
+    if len(train_set) < cfg.batch_size:
+        raise ValueError(
+            f"{len(train_set)} training windows, fewer than one batch of {cfg.batch_size}."
+        )
 
     optimizer = torch.optim.AdamW(
         params, lr=cfg.lr, betas=tuple(cfg.betas), weight_decay=cfg.weight_decay
@@ -94,45 +109,56 @@ def train(cfg: DictConfig) -> None:
             inpaint_mask_value=cfg.inpaint_mask_value,
         )
 
-    if step == 0:
-        # The baseline every later validation loss is read against.
-        print(f"step 0 validation loss {validate():.4f}", flush=True)
+    with mlflow.start_run(run_name=Path(cfg.save_dir).name):
+        mlflow.log_params(OmegaConf.to_container(cfg, resolve=True))
+        if step == 0:
+            # The baseline every later validation loss is read against.
+            baseline = validate()
+            print(f"step 0 validation loss {baseline:.4f}", flush=True)
+            mlflow.log_metric("validation_loss", baseline, step=0)
 
-    for epoch in range(start_epoch, cfg.num_train_epochs):
-        # A fixed seed per epoch, so a resumed run shuffles the same way as an uninterrupted one.
-        loader = torch.utils.data.DataLoader(
-            train_set,
-            batch_size=cfg.batch_size,
-            shuffle=True,
-            drop_last=True,
-            generator=torch.Generator().manual_seed(cfg.seed + epoch),
-        )
-        for clean, mp3 in loader:
-            loss = gt.training_step(
-                model, clean, mp3=mp3, inpaint_mask_value=cfg.inpaint_mask_value
+        for epoch in range(start_epoch, cfg.num_train_epochs):
+            # A fixed seed per epoch, so a resumed run shuffles like an uninterrupted one.
+            loader = torch.utils.data.DataLoader(
+                train_set,
+                batch_size=cfg.batch_size,
+                shuffle=True,
+                drop_last=True,
+                generator=torch.Generator().manual_seed(cfg.seed + epoch),
             )
-            optimizer.zero_grad()
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(params, cfg.max_grad_norm)
-            optimizer.step()
-            step += 1
-            if step % cfg.log_every == 0:
-                print(f"epoch {epoch + 1} step {step} loss {loss.item():.4f}", flush=True)
+            losses = []
+            for clean, mp3 in loader:
+                loss = gt.training_step(
+                    model, clean, mp3=mp3, inpaint_mask_value=cfg.inpaint_mask_value
+                )
+                optimizer.zero_grad()
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(params, cfg.max_grad_norm)
+                optimizer.step()
+                step += 1
+                losses.append(loss.item())
+                if step % cfg.log_every == 0:
+                    print(f"epoch {epoch + 1} step {step} loss {loss.item():.4f}", flush=True)
 
-        print(f"epoch {epoch + 1} step {step} validation loss {validate():.4f}", flush=True)
-        directory = Path(cfg.save_dir) / f"checkpoint-{step}"
-        gt.save_checkpoint(
-            directory, model, optimizer, config=lora_config, step=step, epoch=epoch + 1
-        )
-        write_listening_window(
-            model,
-            valid_set,
-            directory / "listen",
-            kbps=min(bitrates),
-            steps=cfg.sample_steps,
-            inpaint_mask_value=cfg.inpaint_mask_value,
-        )
-        print(f"wrote {directory}", flush=True)
+            valid = validate()
+            print(f"epoch {epoch + 1} step {step} validation loss {valid:.4f}", flush=True)
+            training = sum(losses) / len(losses)
+            mlflow.log_metrics(
+                {"training_loss": training, "validation_loss": valid}, step=epoch + 1
+            )
+            directory = Path(cfg.save_dir) / f"checkpoint-{step}"
+            gt.save_checkpoint(
+                directory, model, optimizer, config=lora_config, step=step, epoch=epoch + 1
+            )
+            write_listening_window(
+                model,
+                valid_set,
+                directory / "listen",
+                kbps=min(bitrates),
+                steps=cfg.sample_steps,
+                inpaint_mask_value=cfg.inpaint_mask_value,
+            )
+            print(f"wrote {directory}", flush=True)
 
 
 @hydra.main(config_path="../../../configs", config_name="train_lora", version_base=None)

@@ -3,6 +3,7 @@
 
 from pathlib import Path
 
+import mlflow
 import numpy as np
 import torch
 from hydra import compose, initialize_config_dir
@@ -35,6 +36,7 @@ def config(tmp_path, *overrides):
                 f"train_dir={tmp_path / 'train'}",
                 f"valid_dir={tmp_path / 'valid'}",
                 f"save_dir={tmp_path / 'run'}",
+                f"mlflow_db={tmp_path / 'mlflow.db'}",
                 # Overridden like a user would, which a name clash with a config group breaks.
                 "variant=small-music-base",
                 "device=cpu",
@@ -68,6 +70,23 @@ def test_one_epoch_writes_weights_optimizer_state_and_a_listening_pack(
         "original.flac",
         "restored.flac",
     ]
+
+
+def test_mlflow_metrics_are_indexed_by_epoch_with_the_untrained_model_at_0(
+    tmp_path, monkeypatch, tiny_checkpoint
+):
+    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
+    write_song(tmp_path / "train", "a", seconds=2.0, bitrates=[24, 32], seed=0)
+    write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
+
+    train(config(tmp_path, "num_train_epochs=2"))
+
+    client = mlflow.tracking.MlflowClient(f"sqlite:///{tmp_path / 'mlflow.db'}")
+    (run,) = client.search_runs([client.get_experiment_by_name("train_lora").experiment_id])
+    validation = client.get_metric_history(run.info.run_id, "validation_loss")
+    training = client.get_metric_history(run.info.run_id, "training_loss")
+    assert [metric.step for metric in validation] == [0, 1, 2]
+    assert [metric.step for metric in training] == [1, 2]
 
 
 def test_resume_continues_from_the_checkpoint_with_the_new_learning_rate(
