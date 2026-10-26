@@ -36,66 +36,7 @@ plan is to take [Stable Audio 3](#ref-sa3), an open music generator, and train i
 215 hours of music. We call the trained model the prior: it knows only what clean music sounds like, and never hears an
 MP3. A second program, the solver, uses the prior to produce a clean track that matches the rip.
 
-We have not trained the prior yet. First, we measured what existing restorers do.
-
-## What we found
-
-### What do existing restorers put back?
-
-We started with two open models. [Apollo](#ref-apollo) is trained on pairs of MP3 and clean audio to repair MP3 damage.
-[A2SB](#ref-a2sb), as we use it, only fills in the top band. On a heavily damaged 6 s clip, Apollo put back a full
-hi-hat where A2SB added a click. The figure shows that clip as a 32 kbps MP3, with both restorations: Apollo fills the
-top band and the holes below the cut-off, while A2SB only adds short bursts above it. On a real 128 kbps rip, the MP3
-and both restorations sounded the same on headphones.
-
-![Spectrograms of a 6 s clip: the master, its MP3 at 32 kbps, Apollo's restoration, and A2SB's restoration](docs/assets/restorations-32k.png)
-
-### Can a denoiser started from the MP3 converge to a plausible master?
-
-Stable Audio 3 is a diffusion model: it generates music by starting from pure noise and removing it step by step.
-[SDEdit](#ref-sdedit), first proposed for images, uses such a model to edit an existing input rather than generate one
-from scratch, and it is the simplest way to restore with a model that has only heard clean music. It adds noise to the
-MP3 and lets the model remove it, in the hope that the damage goes away with the noise. The damage stays: to the model,
-music without its top band is still plausible music, so the model treats the damage as part of the signal. With more
-noise the model rebuilds more, but its output moves audibly away from the track well before the noise is strong enough
-to cover the damage. We rejected SDEdit, and will test it again once our own prior is trained.
-
-### Can an autoencoder trained on clean music remove the damage?
-
-An autoencoder is a network that compresses audio into a much shorter list of numbers, its latent, and rebuilds the
-audio from it. One trained only on clean music may rebuild a damaged input as clean music, and so remove part of the
-damage. We tried four open music autoencoders, on the MP3 itself and on Apollo's restoration of it. On heavy damage, the
-best result by ear comes from Apollo's output passed through [εar-VAE](#ref-earvae). As we hear it, Apollo guesses the
-missing sound well, and εar-VAE smooths away the faults Apollo itself adds when the damage is heavy. This chain sounds
-better than Apollo alone at 32 kbps, neither clearly wins at 64 kbps, and at 128 kbps Apollo alone sounds closer to the
-master. Scores that measure how close a restoration is to the master all rate it below Apollo alone, so here we trust
-the ear. Our listening is not blind yet: we knew which version we were hearing.
-
-### Benchmark on MUSDB18-HQ
-
-Until then, we had compared the methods on a few clips of our own, mostly by ear. To compare them the way published work
-does, we scored them on 6 s clips from the test songs of the public MUSDB18-HQ dataset, compressed to MP3 at 24 to
-128 kbps. The figure shows Apollo, A2SB, [AudioSR](#ref-audiosr) (another model that fills in the top band), Apollo
-followed by εar-VAE, and the MP3 passed through εar-VAE or [εar-VAE2](#ref-earvae2) alone.
-
-We use four scores, each a different way to measure how similar a restoration is to the master. SDR and SI-SNR compare
-the waveforms, and spectral SNR and LSD compare the spectrograms. Higher is better, except for LSD.
-
-![SDR, SI-SNR, spectral SNR and LSD per MP3 bitrate on 50 MUSDB18-HQ test clips, for six restorations and the untouched MP3](docs/decisions/assets/0016/methods.png)
-
-The two kinds of score rank the methods differently. On the waveform scores, A2SB and Apollo come first: A2SB is ahead
-by about 0.5 dB at 32 to 64 kbps, and the two are within about 0.2 dB of each other at the other bitrates. AudioSR is 2
-to 5 dB behind them on SDR. On the spectrogram scores, Apollo is the best method at every bitrate. εar-VAE and εar-VAE2
-applied to the MP3 alone score about 10.5 dB and 8.2 dB SDR at every bitrate, so the autoencoder, not the damage, sets
-their score. Apollo followed by εar-VAE matches εar-VAE alone on the waveform scores, but its LSD is second only to
-Apollo's at every bitrate.
-
-As a curiosity, we also scored the untouched MP3 against the master; its scores are the grey line. No method beats it on
-the waveform scores. On LSD, Apollo, A2SB, AudioSR and Apollo followed by εar-VAE all beat it at every bitrate, but on
-spectral SNR only Apollo clearly does, by 2.2 to 2.7 dB. Ideally, a restoration would score at least as well as the MP3
-it starts from; one that scores worse may lose relevant information while it rebuilds the signal.
-
-The full write-up of each experiment, with its evidence, is in [`docs/decisions/`](docs/decisions/).
+We have not trained the prior yet. First, we looked at what existing methods do, and measured the open ones.
 
 ## Related work
 
@@ -124,7 +65,7 @@ latent of full-band audio, and learns to turn mono into stereo the same way.
 **Music autoencoders** compress audio into a latent and decode it back. Most generative music models work in such a
 latent space because it is small, so every sound they produce passes through the decoder. A method that works in a
 latent space therefore cannot sound better than the decoder. A round trip through the encoder and the decoder can also
-serve as a simple restorer, as we tried above. [SAME](#ref-same) is Stable Audio 3's autoencoder, and its large (L) and
+serve as a simple restorer, as we try below. [SAME](#ref-same) is Stable Audio 3's autoencoder, and its large (L) and
 small (S) versions are both open. [εar-VAE](#ref-earvae) and [εar-VAE2](#ref-earvae2) are built to keep phase, stereo
 image and high harmonics. [CoDiCodec](#ref-codicodec) gives continuous and discrete latents from one model, and
 [Elastic Time](#ref-elastic) spends more latent frames where the signal is dense.
@@ -180,6 +121,62 @@ Two models target MP3 directly, SR-GAN and Apollo, and both are supervised. Ever
 at the missing band or, outside this project, has not been tried on MP3, AAC or Opus. Whether a prior trained only on
 clean music can repair the damage a codec leaves inside the band it keeps is still an open question, and it is the
 question this project sets out to answer.
+
+## Benchmark on MUSDB18-HQ
+
+We tested the three open restorers in the table, Apollo, A2SB and AudioSR, the way published work compares methods: on
+6 s clips from the test songs of the public MUSDB18-HQ dataset, compressed to MP3 at 24 to 128 kbps. The figure also
+shows three runs from [our own experiments](#our-contribution): the MP3 passed through εar-VAE or εar-VAE2, and Apollo's
+output passed through εar-VAE.
+
+We use four scores, each a different way to measure how similar a restoration is to the master. SDR and SI-SNR compare
+the waveforms, and spectral SNR and LSD compare the spectrograms. Higher is better, except for LSD.
+
+![SDR, SI-SNR, spectral SNR and LSD per MP3 bitrate on 50 MUSDB18-HQ test clips, for six restorations and the untouched MP3](docs/decisions/assets/0016/methods.png)
+
+The two kinds of score rank the restorers differently. On the waveform scores, A2SB and Apollo come first: A2SB is ahead
+by about 0.5 dB at 32 to 64 kbps, and the two are within about 0.2 dB of each other at the other bitrates. AudioSR is 2
+to 5 dB behind them on SDR. On the spectrogram scores, Apollo is the best method at every bitrate.
+
+By ear, Apollo sounds far better than anything else we tried, including on a real 128 kbps rip. Apollo is trained on MP3
+damage, while A2SB, as we use it, only fills in the top band. The figure below shows the difference on a heavily damaged
+6 s clip, compressed to 32 kbps: Apollo fills the top band and the holes below the cut-off, while A2SB only adds short
+bursts above it. On this clip, Apollo put back a full hi-hat where A2SB added a click.
+
+![Spectrograms of a 6 s clip: the master, its MP3 at 32 kbps, Apollo's restoration, and A2SB's restoration](docs/assets/restorations-32k.png)
+
+As a curiosity, we also scored the untouched MP3 against the master; its scores are the grey line. No method beats it on
+the waveform scores. On LSD, Apollo, A2SB, AudioSR and Apollo followed by εar-VAE all beat it at every bitrate, but on
+spectral SNR only Apollo clearly does, by 2.2 to 2.7 dB. Ideally, a restoration would score at least as well as the MP3
+it starts from; one that scores worse may lose relevant information while it rebuilds the signal.
+
+## Our contribution
+
+The restorers above either learn MP3 damage from pairs of damaged and clean audio, or only fill in the top band. Our
+experiments so far test the route our plan takes: restoring with models that have only heard clean music.
+
+### Can a denoiser started from the MP3 converge to a plausible master?
+
+Stable Audio 3 is a diffusion model: it generates music by starting from pure noise and removing it step by step.
+[SDEdit](#ref-sdedit), first proposed for images, uses such a model to edit an existing input rather than generate one
+from scratch, and it is the simplest way to restore with a model that has only heard clean music. It adds noise to the
+MP3 and lets the model remove it, in the hope that the damage goes away with the noise. The damage stays: to the model,
+music without its top band is still plausible music, so the model treats the damage as part of the signal. With more
+noise the model rebuilds more, but its output moves audibly away from the track well before the noise is strong enough
+to cover the damage. We rejected SDEdit, and will test it again once our own prior is trained.
+
+### Can an autoencoder trained on clean music remove the damage?
+
+An autoencoder is a network that compresses audio into a much shorter list of numbers, its latent, and rebuilds the
+audio from it. One trained only on clean music may rebuild a damaged input as clean music, and so remove part of the
+damage. We tried four open music autoencoders, on the MP3 itself and on Apollo's restoration of it.
+
+Applied to the MP3 alone, εar-VAE and εar-VAE2 score about 10.5 dB and 8.2 dB SDR in the benchmark, whatever the
+bitrate, so the autoencoder, not the damage, sets their score. Applied to Apollo's output, εar-VAE helped only at
+32 kbps, where it smooths the sound. At 64 and 128 kbps, it made Apollo's output sound worse. All four scores rate this
+chain below Apollo alone at every bitrate. Our listening is not blind yet: we knew which version we were hearing.
+
+The full write-up of each experiment, with its evidence, is in [`docs/decisions/`](docs/decisions/).
 
 ## Running the code
 
