@@ -22,7 +22,7 @@ Here's 6 s of an electronic track as spectrograms (time left to right, frequency
 
 [![Spectrograms of 6 s of an electronic track: the master, its MP3 at 128 kbps, and its MP3 at 32 kbps](docs/assets/mp3-spectrograms.png)](docs/assets/mp3-spectrograms.png)
 
-## Can we get the damage back?
+## Can we undo the damage?
 
 Not exactly. The information is gone, so any restorer has to make up the missing sound. The best it can do is plausible, never identical to the master. But making up plausible sound is exactly what generative models are good at.
 
@@ -184,4 +184,4 @@ The library lives in `src/grooveback`, the scripts that run the models and build
 
 ---
 
-My code is MIT-licensed. The third-party code it runs comes with its own licenses: Apollo is CC BY-SA 4.0, A2SB is under the NVIDIA Source Code License (non-commercial), AudioSR is MIT, εar-VAE and εar-VAE2 are Apache-2.0, CoDiCodec is CC BY-NC 4.0, and the vendored trackswitch.js player is MIT. The Stable Audio 3 checkpoints are under the [Stability AI Community License](https://stability.ai/license), which carries over to any weights fine-tuned from them. It allows the personal and research use this project is meant for. The audio on the listening page belongs to its owners and isn't covered by the MIT license.
+The code is MIT-licensed.
