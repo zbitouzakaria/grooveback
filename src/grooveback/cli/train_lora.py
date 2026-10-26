@@ -18,10 +18,10 @@ Training and validation loss per epoch go to MLflow (`mlflow_db`); browse them w
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import hydra
-import mlflow
 import torch
 from omegaconf import DictConfig, OmegaConf
 
@@ -29,6 +29,10 @@ from grooveback import audio as ga
 from grooveback import training as gt
 from grooveback.baselines import select_device
 from grooveback.evaluation import write_listening_pack
+
+# MLflow sends usage telemetry unless this is set when it is first imported.
+os.environ.setdefault("MLFLOW_DISABLE_TELEMETRY", "true")
+import mlflow  # noqa: E402
 
 
 def write_listening_window(

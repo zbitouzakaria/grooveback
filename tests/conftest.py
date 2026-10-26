@@ -1,7 +1,12 @@
 import copy
+import os
 
 import pytest
 import torch
+
+# No network from the suite: MLflow sends usage telemetry unless this is set
+# when it is first imported, and test modules import it before the trainer does.
+os.environ.setdefault("MLFLOW_DISABLE_TELEMETRY", "true")
 
 
 def _same(decoder: bool) -> dict:
