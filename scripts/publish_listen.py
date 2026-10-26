@@ -105,15 +105,14 @@ SOURCE_NOTES = {
 BITRATE_NOTES = {
     "32k": "At 32 kbps the codec keeps nothing above about 5.5 kHz; everything a "
            "method shows above that edge is generated, not recovered. This is the "
-           "severe case, where Apollo → εar-VAE sounds cleaner than Apollo alone: "
-           "the round trip removes the artifacts Apollo introduces at this damage "
-           "level.",
-    "64k": "At 64 kbps the kept band reaches about 11 kHz. This is the crossover "
-           "case: by ear, the verdict splits between Apollo and Apollo → εar-VAE.",
+           "severe case, and the only one where Apollo → εar-VAE helps: it smooths "
+           "Apollo's output.",
+    "64k": "At 64 kbps the kept band reaches about 11 kHz. Here Apollo → εar-VAE "
+           "sounds worse than Apollo alone.",
     "128k": "At 128 kbps the kept band reaches about 16.5 kHz — the damage level "
             "of a typical rip — and most of the remaining damage sits inside the "
-            "kept band. Here Apollo alone stays closest to the master; the "
-            "smoothing that helps at 32 kbps moves the output away from it.",
+            "kept band. As at 64 kbps, Apollo → εar-VAE sounds worse than Apollo "
+            "alone.",
 }
 """Bitrate -> the damage level and ADR-0011's listening verdict on it."""
 
