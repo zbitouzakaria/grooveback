@@ -368,6 +368,19 @@ def load_lora_weights(model, path: Path, *, config: dict) -> None:
     model.model.load_state_dict(weights, strict=False)
 
 
+def load_trained_model(variant: str, checkpoint: Path, *, device: torch.device):
+    """Base SA3 plus the LoRA and MP3 input saved in `checkpoint/lora.safetensors`,
+    ready to restore. The LoRA's shape is read from the file itself."""
+    from stable_audio_3.models.lora import load_lora_checkpoint
+
+    path = Path(checkpoint) / "lora.safetensors"
+    _, config = load_lora_checkpoint(path)
+    model = load_model(variant, device=device)
+    add_lora(model, config)
+    load_lora_weights(model, path, config=config)
+    return model
+
+
 def load_training_state(directory: Path, optimizer) -> tuple[int, int]:
     """Restore Adam's running averages and the step count; return (step, epoch).
 

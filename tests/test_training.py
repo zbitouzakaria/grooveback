@@ -109,10 +109,8 @@ def test_saved_weights_reload_to_the_same_validation_loss(tmp_path, monkeypatch,
     gt.training_step(trained, clean[None], mp3=mp3[None], inpaint_mask_value=0.0).backward()
     optimizer.step()
     gt.save_checkpoint(tmp_path / "ckpt", trained, optimizer, config=config, step=1, epoch=1)
-    reloaded = gt.load_model("small-music-base", device=CPU)
-    gt.add_lora(reloaded, config)
 
-    gt.load_lora_weights(reloaded, tmp_path / "ckpt" / "lora.safetensors", config=config)
+    reloaded = gt.load_trained_model("small-music-base", tmp_path / "ckpt", device=CPU)
 
     settings = {"timesteps": [0.2, 0.8], "batch_size": 4, "inpaint_mask_value": 0.0}
     trained_loss = gt.validation_loss(trained, dataset, **settings)

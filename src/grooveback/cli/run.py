@@ -8,8 +8,8 @@
 Hydra composes `configs/config.yaml`: `model` selects the restoration method
 and its parameters, `mode` the run type. An output that already exists is
 skipped. A filename carries the method and one parameter — `theta` or
-`noise_level` for sdedit, `ae` for roundtrip and latent-sub — so only a sweep
-over that parameter can share one output_dir.
+`noise_level` for sdedit, `ae` for roundtrip and latent-sub, the checkpoint
+for lora — so only a sweep over that parameter can share one output_dir.
 """
 
 from __future__ import annotations
@@ -23,8 +23,10 @@ from tqdm import tqdm
 
 from grooveback import audio as ga
 from grooveback import latents as gl
+from grooveback import training as gt
+from grooveback.baselines import select_device
 from grooveback.priors import PRIOR_VARIANTS, load_prior
-from grooveback.solvers import latent_sub, roundtrip, sdedit
+from grooveback.solvers import latent_sub, lora, roundtrip, sdedit
 
 AUDIO_SUFFIXES = (".wav", ".mp3", ".flac")
 
@@ -106,10 +108,28 @@ def _latent_sub_setup(cfg: DictConfig):
     return suffix, load, restore
 
 
+def _lora_setup(cfg: DictConfig):
+    # Named by run and step, e.g. _lora_small-checkpoint-32: steps repeat across runs.
+    checkpoint = Path(cfg.model.checkpoint)
+    suffix = f"_{cfg.model.name}_{checkpoint.parent.name}-{checkpoint.name}.wav"
+
+    def load():
+        return gt.load_trained_model(
+            cfg.model.variant, Path(cfg.model.checkpoint), device=select_device(cfg.device)
+        )
+
+    def restore(model, signal, sample_rate):
+        return lora(model, signal, sample_rate, steps=cfg.model.steps,
+                    inpaint_mask_value=cfg.model.inpaint_mask_value)
+
+    return suffix, load, restore
+
+
 SETUPS = {
     "sdedit": _sdedit_setup,
     "roundtrip": _roundtrip_setup,
     "latent-sub": _latent_sub_setup,
+    "lora": _lora_setup,
 }
 
 
