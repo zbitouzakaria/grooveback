@@ -1,7 +1,7 @@
 # python -m grooveback.cli.train_lora: LoRA fine-tune of Stable Audio 3 to restore MP3s.
-# Every field is CLI-overridable, e.g. `model=medium-base lr=5e-5`.
+# Every field is CLI-overridable, e.g. `variant=medium-base lr=5e-5`.
 
-model: small-music-base   # SA3 base checkpoint: small-music-base (SAME-S) or medium-base (SAME-L)
+variant: small-music-base   # SA3 base checkpoint: small-music-base (SAME-S) or medium-base (SAME-L)
 device: auto
 train_dir: ???            # scripts/prepare_dataset.py output: {song}/original.wav, {song}/{kbps}k.wav
 valid_dir: ???

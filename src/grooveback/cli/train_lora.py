@@ -58,10 +58,10 @@ def write_listening_window(
 
 def train(cfg: DictConfig) -> None:
     torch.manual_seed(cfg.seed)
-    model = gt.load_model(cfg.model, device=select_device(cfg.device))
+    model = gt.load_model(cfg.variant, device=select_device(cfg.device))
     lora_config = gt.lora_config(rank=cfg.rank, lora_alpha=cfg.lora_alpha)
     params = gt.add_lora(model, lora_config)
-    print(f"{cfg.model}: {sum(p.numel() for p in params):,} trainable weights", flush=True)
+    print(f"{cfg.variant}: {sum(p.numel() for p in params):,} trainable weights", flush=True)
 
     # 10 s -> 441_000 samples -> 107 whole frames of 4096 samples.
     window_frames = (

@@ -35,6 +35,8 @@ def config(tmp_path, *overrides):
                 f"train_dir={tmp_path / 'train'}",
                 f"valid_dir={tmp_path / 'valid'}",
                 f"save_dir={tmp_path / 'run'}",
+                # Overridden like a user would, which a name clash with a config group breaks.
+                "variant=small-music-base",
                 "device=cpu",
                 "window_seconds=0.5",
                 "batch_size=4",
