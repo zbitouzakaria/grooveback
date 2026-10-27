@@ -486,11 +486,20 @@ def validation_loss(
 
 
 @torch.no_grad()
-def restore(model, mp3: torch.Tensor, *, steps: int, inpaint_mask_value: float) -> np.ndarray:
+def restore(
+    model,
+    mp3: torch.Tensor,
+    *,
+    steps: int,
+    inpaint_mask_value: float,
+    sampler_type: str = "euler",
+) -> np.ndarray:
     """Generate the clean version of one window of MP3 latents, as audio.
 
     mp3 (256, 107) -> audio (2, 438_272): 107 frames of 4096 samples, starting
-    from seeded noise and denoising in `steps` steps with SA3's own sampler.
+    from seeded noise and denoising in `steps` steps with one of SA3's samplers
+    for rectified flow. "euler" (SA3's default) and "dpmpp" call the model once
+    per step, "rk4" four times; all three are deterministic given the noise.
     """
     from stable_audio_3.inference.sampling import sample_diffusion
 
@@ -509,6 +518,7 @@ def restore(model, mp3: torch.Tensor, *, steps: int, inpaint_mask_value: float) 
         pretransform=model.pretransform,
         padding_mask=torch.ones(1, frames, dtype=torch.bool, device=device),
         dist_shift=model.sampling_dist_shift,
+        sampler_type=sampler_type,
         disable_tqdm=True,
     )
     return audio[0].float().cpu().numpy()

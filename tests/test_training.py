@@ -138,6 +138,22 @@ def test_training_step_changes_no_base_weight(monkeypatch, tiny_checkpoint):
     assert base == set()
 
 
+@pytest.mark.parametrize(("sampler_type", "evaluations"), [("euler", 2), ("dpmpp", 2), ("rk4", 8)])
+def test_restore_calls_the_model_as_often_as_its_sampler_needs(
+    monkeypatch, tiny_checkpoint, sampler_type, evaluations
+):
+    """2 steps: euler and dpmpp call the model once a step, rk4 four times."""
+    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
+    model = gt.load_model("small-music-base", device=CPU)
+    calls = []
+    model.model.register_forward_hook(lambda module, inputs, output: calls.append(1))
+    mp3 = torch.randn(8, 40, generator=torch.Generator().manual_seed(1))
+
+    gt.restore(model, mp3, steps=2, inpaint_mask_value=0.0, sampler_type=sampler_type)
+
+    assert len(calls) == evaluations
+
+
 def test_saved_weights_reload_to_the_same_validation_loss(tmp_path, monkeypatch, tiny_checkpoint):
     """A disk round trip of the trained weights: the reloaded model scores the
     same validation loss to the last bit, on the same seeded noise."""

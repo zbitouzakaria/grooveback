@@ -165,9 +165,18 @@ def sdedit(
     return _match_input_loudness(out, audio, sample_rate)
 
 
-def lora(model, audio: np.ndarray, sample_rate: int, *, steps: int, inpaint_mask_value: float):
+def lora(
+    model,
+    audio: np.ndarray,
+    sample_rate: int,
+    *,
+    steps: int,
+    inpaint_mask_value: float,
+    sampler_type: str = "euler",
+):
     """Restore a whole file with the LoRA fine-tune: its MP3 latents condition
-    one sampling run from noise (`grooveback.training.restore`).
+    one sampling run from noise (`grooveback.training.restore`), with one of
+    SA3's samplers.
 
     The model works in whole latent frames, so the encoder pads the file to
     one: a 6 s file, 264_600 samples, is 64 frames of 4096 and 2_456 samples,
@@ -185,6 +194,12 @@ def lora(model, audio: np.ndarray, sample_rate: int, *, steps: int, inpaint_mask
             f"{SDEDIT_MAX_SECONDS:.0f} s. Cut the file first."
         )
     latents = gt.encode(model, audio)
-    out = gt.restore(model, latents, steps=steps, inpaint_mask_value=inpaint_mask_value)
+    out = gt.restore(
+        model,
+        latents,
+        steps=steps,
+        inpaint_mask_value=inpaint_mask_value,
+        sampler_type=sampler_type,
+    )
     out = _fit_to_input(out, audio.shape[-1])
     return _match_input_loudness(out, audio, sample_rate)

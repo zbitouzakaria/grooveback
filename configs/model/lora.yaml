@@ -7,4 +7,5 @@ name: lora
 variant: small-music-base   # the base checkpoint the LoRA was trained on
 checkpoint: ???             # a train_lora checkpoint-{step} directory
 steps: 50                   # sampling steps; base checkpoints use 50
+sampler_type: euler         # SA3's rectified-flow samplers: euler, dpmpp (1 call a step), rk4 (4)
 inpaint_mask_value: 0.0     # the value the LoRA was trained with

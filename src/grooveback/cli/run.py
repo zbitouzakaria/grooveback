@@ -120,7 +120,8 @@ def _lora_setup(cfg: DictConfig):
 
     def restore(model, signal, sample_rate):
         return lora(model, signal, sample_rate, steps=cfg.model.steps,
-                    inpaint_mask_value=cfg.model.inpaint_mask_value)
+                    inpaint_mask_value=cfg.model.inpaint_mask_value,
+                    sampler_type=cfg.model.sampler_type)
 
     return suffix, load, restore
 

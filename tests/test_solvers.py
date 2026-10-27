@@ -396,6 +396,17 @@ def test_lora_restores_the_last_partial_frame(tmp_path, monkeypatch, tiny_checkp
     assert np.abs(out[:, 44_096:]).min() > 0.0
 
 
+def test_lora_hands_the_sampler_to_sa3(tmp_path, monkeypatch, tiny_checkpoint):
+    """SA3 refuses a sampler it does not know, so the name reached it."""
+    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
+    model = gt.load_model("small-music-base", device=torch.device("cpu"))
+    gt.add_lora(model, gt.lora_config(rank=4, lora_alpha=4))
+    audio = np.random.default_rng(0).uniform(-0.5, 0.5, size=(2, 44_100)).astype(np.float32)
+
+    with pytest.raises(ValueError, match="Unknown sampler_type"):
+        lora(model, audio, SR, steps=2, inpaint_mask_value=0.0, sampler_type="heun")
+
+
 def test_lora_rejects_input_longer_than_the_cap_before_encoding():
     model = Mock()
     model.sample_rate = SR
