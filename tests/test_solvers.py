@@ -377,8 +377,23 @@ def test_lora_returns_the_input_length_at_the_input_loudness(
     out = lora(model, audio, SR, steps=2, inpaint_mask_value=0.0)
 
     assert out.shape == (2, 44_100)
-    np.testing.assert_array_equal(out[:, 44_096:], 0.0)
     assert loudness(out, SR) == pytest.approx(loudness(audio, SR), abs=0.01)
+
+
+def test_lora_restores_the_last_partial_frame(tmp_path, monkeypatch, tiny_checkpoint):
+    """1 s is 689 frames of 64 and 4 samples. Those 4 used to come back as zeros:
+    on a 6 s MUSDB test clip, 56 ms of silence that every metric counts."""
+    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
+    trained = gt.load_model("small-music-base", device=torch.device("cpu"))
+    optimizer = torch.optim.AdamW(gt.add_lora(trained, gt.lora_config(rank=4, lora_alpha=4)))
+    gt.save_checkpoint(tmp_path, trained, optimizer, config=gt.lora_config(rank=4, lora_alpha=4),
+                       step=1, epoch=1)
+    model = gt.load_trained_model("small-music-base", tmp_path, device=torch.device("cpu"))
+    audio = np.random.default_rng(0).uniform(-0.5, 0.5, size=(2, 44_100)).astype(np.float32)
+
+    out = lora(model, audio, SR, steps=2, inpaint_mask_value=0.0)
+
+    assert np.abs(out[:, 44_096:]).min() > 0.0
 
 
 def test_lora_rejects_input_longer_than_the_cap_before_encoding():
