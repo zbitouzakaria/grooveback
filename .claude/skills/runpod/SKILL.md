@@ -29,6 +29,17 @@ so the value has one home rather than being re-pasted from shell history.
 
 SSH uses `~/.ssh/id_ed25519`, whose public half is registered in the RunPod UI.
 
+A pod that needs a Hugging Face token gets only that line, piped over SSH into a file on the pod
+(`grep '^HF_TOKEN=' .env | ssh ... 'cat > /root/hf.env'`); the RunPod key never leaves the Mac. A job script
+that runs with `set -x` must switch it off while it reads that file: xtrace prints every assignment `source`
+makes, and the token once ended up in plain text in two run logs that way.
+
+```bash
+{ set +x; } 2>/dev/null
+set -a; source /root/hf.env; set +a
+set -x
+```
+
 ## Commands
 
 ```bash
