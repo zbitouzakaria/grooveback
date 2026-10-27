@@ -6,7 +6,16 @@
     uv run python -m grooveback.cli.train_lora ... num_train_epochs=2 lr=5e-5 \\
         resume_from_checkpoint=artifacts/lora/run1/checkpoint-{step}
 
-`train_dir` and `valid_dir` are `scripts/prepare_dataset.py` outputs. After
+`train_dir` and `valid_dir` are `scripts/prepare_dataset.py` outputs. In place
+of `train_dir`, `remix_dir` trains on fresh remixes of MUSDB18-HQ songs, coded
+at a random bitrate per window (`RemixDataset`, Apollo's recipe). It takes the
+train split's song folders without musdb's 14 validation songs; a song in both
+the training and the validation data is refused.
+
+    uv run python -m grooveback.cli.train_lora remix_dir=data/lora/musdb-train \\
+        valid_dir=data/lora/valid save_dir=artifacts/lora/remix1
+
+After
 every epoch the run writes `save_dir/checkpoint-{step}/`: the trained weights
 (`lora.safetensors`) and the optimizer state (`state.pt`). The last checkpoint
 also gets a level-matched listening pack (`listen/`): one restored validation
@@ -70,6 +79,19 @@ def write_listening_window(
 
 
 def train(cfg: DictConfig) -> None:
+    if (cfg.train_dir is None) == (cfg.remix_dir is None):
+        raise ValueError(
+            "Set exactly one of train_dir (prepared pairs) and remix_dir "
+            "(MUSDB18-HQ songs to remix)."
+        )
+    # MUSDB18-HQ's own train/ folder still holds musdb's 14 validation songs.
+    songs = {path.name for path in Path(cfg.train_dir or cfg.remix_dir).iterdir() if path.is_dir()}
+    shared = sorted(songs & {path.name for path in Path(cfg.valid_dir).iterdir() if path.is_dir()})
+    if shared:
+        raise ValueError(
+            f"{len(shared)} songs are in both the training and the validation data, "
+            f"{shared[0]!r} among them."
+        )
     # MLflow keeps one run per call, in a local SQLite file: its parameters are
     # this config; epoch metrics are indexed by epoch (0 = before training), batch
     # metrics by step. A resumed run is a new MLflow run whose epochs continue the
@@ -83,7 +105,8 @@ def train(cfg: DictConfig) -> None:
         pynvml.nvmlInit()
 
     torch.manual_seed(cfg.seed)
-    model = gt.load_model(cfg.variant, device=select_device(cfg.device))
+    device = select_device(cfg.device)
+    model = gt.load_model(cfg.variant, device=device)
     lora_config = gt.lora_config(rank=cfg.rank, lora_alpha=cfg.lora_alpha)
     params = gt.add_lora(model, lora_config)
     print(f"{cfg.variant}: {sum(p.numel() for p in params):,} trainable weights", flush=True)
@@ -93,9 +116,17 @@ def train(cfg: DictConfig) -> None:
         int(cfg.window_seconds * model.sample_rate) // model.pretransform.downsampling_ratio
     )
     bitrates = list(cfg.bitrates)
-    train_set = gt.LatentPairDataset(
-        cfg.train_dir, model, bitrates=bitrates, window_frames=window_frames
-    )
+    if cfg.remix_dir is None:
+        train_set = gt.LatentPairDataset(
+            cfg.train_dir, model, bitrates=bitrates, window_frames=window_frames
+        )
+    else:
+        train_set = gt.RemixDataset(
+            cfg.remix_dir,
+            bitrates=bitrates,
+            window_samples=window_frames * model.pretransform.downsampling_ratio,
+            windows=cfg.epoch_windows,
+        )
     valid_set = gt.LatentPairDataset(
         cfg.valid_dir,
         model,
@@ -152,10 +183,19 @@ def train(cfg: DictConfig) -> None:
                 shuffle=True,
                 drop_last=True,
                 generator=torch.Generator().manual_seed(cfg.seed + epoch),
+                # Remixes are built on the CPU in worker processes; prepared latents
+                # already sit on the GPU, out of the workers' reach.
+                num_workers=0 if cfg.remix_dir is None else cfg.num_workers,
             )
             losses = []
             since, since_step = time.perf_counter(), step
             for clean, mp3 in loader:
+                if cfg.remix_dir is not None:
+                    # Fresh audio from the workers, (8, 2, 438_272) on medium-base, to
+                    # (8, 256, 107) latents. Whole frames already, so nothing to pad.
+                    with torch.no_grad():
+                        clean = model.pretransform.encode(clean.to(device))
+                        mp3 = model.pretransform.encode(mp3.to(device))
                 loss = gt.training_step(
                     model, clean, mp3=mp3, inpaint_mask_value=cfg.inpaint_mask_value
                 )

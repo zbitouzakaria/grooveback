@@ -3,7 +3,11 @@
 
 variant: small-music-base   # SA3 base checkpoint: small-music-base (SAME-S) or medium-base (SAME-L)
 device: auto
-train_dir: ???            # scripts/prepare_dataset.py output: {song}/original.wav, {song}/{kbps}k.wav
+# Training data, exactly one of:
+train_dir: null           # scripts/prepare_dataset.py output: {song}/original.wav, {song}/{kbps}k.wav
+remix_dir: null           # MUSDB18-HQ songs, {song}/{mixture,bass,drums,other,vocals}.wav, remixed fresh
+epoch_windows: 1884       # remix_dir: items per epoch, the 86 songs' prepared windows: 235 steps of 8
+num_workers: 8            # remix_dir: CPU processes building remixes while the GPU trains
 valid_dir: ???
 save_dir: ???             # checkpoint-{step}/ lands here after every epoch
 mlflow_db: artifacts/mlflow.db   # local MLflow store: losses per epoch and per step

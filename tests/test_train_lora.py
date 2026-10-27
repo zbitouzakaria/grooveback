@@ -2,14 +2,17 @@
 (tests/conftest.py) through the real config file."""
 
 from pathlib import Path
+from unittest import mock
 
 import mlflow
 import numpy as np
+import pytest
 import torch
 from hydra import compose, initialize_config_dir
 
 from grooveback import audio as ga
 from grooveback import training as gt
+from grooveback.cli import musdb_eval
 from grooveback.cli.train_lora import train
 
 SR = 44_100
@@ -23,6 +26,17 @@ def write_song(root, name, *, seconds, bitrates, seed):
     ga.save(root / name / "original.wav", original, SR)
     for kbps in bitrates:
         ga.save(root / name / f"{kbps}k.wav", 0.5 * original, SR)
+
+
+def write_musdb_song(root, name, *, seconds, seed):
+    """One song in MUSDB18-HQ's layout, 16-bit: white noise per stem, the mixture their sum."""
+    rng = np.random.default_rng(seed)
+    stems = {
+        kind: rng.uniform(-0.2, 0.2, size=(2, int(seconds * SR))).astype(np.float32)
+        for kind in ("bass", "drums", "other", "vocals")
+    }
+    for kind, audio in {**stems, "mixture": sum(stems.values())}.items():
+        ga.save(root / name / f"{kind}.wav", audio, SR, subtype="PCM_16")
 
 
 def config(tmp_path, *overrides):
@@ -71,6 +85,89 @@ def test_one_epoch_writes_weights_optimizer_state_and_a_listening_pack(
         "original.flac",
         "restored.flac",
     ]
+
+
+def test_remix_training_runs_epochs_of_epoch_windows_items(tmp_path, monkeypatch, tiny_checkpoint):
+    """4 items at batch 2 make 2 steps an epoch, so 2 epochs end at checkpoint-4.
+    In-process loading: workers spawned on macOS would not see the codec stand-in."""
+    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
+    monkeypatch.setattr(musdb_eval, "codec_simu", lambda clip, kbps: 0.5 * clip)
+    write_musdb_song(tmp_path / "musdb", "a", seconds=2.0, seed=0)
+    write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
+
+    train(
+        config(
+            tmp_path,
+            "train_dir=null",
+            f"remix_dir={tmp_path / 'musdb'}",
+            "epoch_windows=4",
+            "num_workers=0",
+            "num_train_epochs=2",
+        )
+    )
+
+    assert sorted(path.name for path in (tmp_path / "run").iterdir()) == [
+        "checkpoint-2",
+        "checkpoint-4",
+    ]
+
+
+def test_remix_training_steps_on_windows_of_window_seconds(tmp_path, monkeypatch, tiny_checkpoint):
+    """0.5 s is 344 frames of 64 samples on the tiny model: the remixes must be
+    encoded to as many latent frames as the validation windows."""
+    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
+    monkeypatch.setattr(musdb_eval, "codec_simu", lambda clip, kbps: 0.5 * clip)
+    frames = []
+    training_step = gt.training_step
+
+    def recording_step(model, clean, *, mp3, inpaint_mask_value):
+        frames.append((clean.shape[-1], mp3.shape[-1]))
+        return training_step(model, clean, mp3=mp3, inpaint_mask_value=inpaint_mask_value)
+
+    monkeypatch.setattr(gt, "training_step", recording_step)
+    write_musdb_song(tmp_path / "musdb", "a", seconds=2.0, seed=0)
+    write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
+
+    train(
+        config(
+            tmp_path,
+            "train_dir=null",
+            f"remix_dir={tmp_path / 'musdb'}",
+            "epoch_windows=4",
+            "num_workers=0",
+        )
+    )
+
+    assert set(frames) == {(344, 344)}
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        pytest.param(["remix_dir=musdb"], id="both"),
+        pytest.param(["train_dir=null"], id="neither"),
+    ],
+)
+def test_refuses_anything_but_exactly_one_training_set_before_loading_the_model(
+    tmp_path, overrides
+):
+    with mock.patch.object(gt, "load_model", autospec=True) as load_model:
+        with pytest.raises(ValueError, match="exactly one"):
+            train(config(tmp_path, *overrides))
+
+    load_model.assert_not_called()
+
+
+def test_refuses_a_song_in_both_training_and_validation_before_loading_the_model(tmp_path):
+    """MUSDB18-HQ's own train/ folder holds musdb's validation songs too."""
+    write_musdb_song(tmp_path / "musdb", "b", seconds=2.0, seed=0)
+    write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
+
+    with mock.patch.object(gt, "load_model", autospec=True) as load_model:
+        with pytest.raises(ValueError, match="in both the training and the validation"):
+            train(config(tmp_path, "train_dir=null", f"remix_dir={tmp_path / 'musdb'}"))
+
+    load_model.assert_not_called()
 
 
 def test_mlflow_metrics_are_indexed_by_epoch_with_the_untrained_model_at_0(
