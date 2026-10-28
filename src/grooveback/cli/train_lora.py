@@ -40,6 +40,7 @@ import torch
 from omegaconf import DictConfig, OmegaConf
 
 from grooveback import audio as ga
+from grooveback import dataset as gd
 from grooveback import training as gt
 from grooveback.baselines import select_device
 from grooveback.evaluation import write_listening_pack
@@ -51,7 +52,7 @@ import mlflow  # noqa: E402
 
 def write_listening_window(
     model,
-    dataset: gt.LatentPairDataset,
+    dataset: gd.LatentPairDataset,
     out_dir: Path,
     *,
     kbps: int,
@@ -117,17 +118,17 @@ def train(cfg: DictConfig) -> None:
     )
     bitrates = list(cfg.bitrates)
     if cfg.remix_dir is None:
-        train_set = gt.LatentPairDataset(
+        train_set = gd.LatentPairDataset(
             cfg.train_dir, model, bitrates=bitrates, window_frames=window_frames
         )
     else:
-        train_set = gt.RemixDataset(
+        train_set = gd.RemixDataset(
             cfg.remix_dir,
             bitrates=bitrates,
             window_samples=window_frames * model.pretransform.downsampling_ratio,
             windows=cfg.epoch_windows,
         )
-    valid_set = gt.LatentPairDataset(
+    valid_set = gd.LatentPairDataset(
         cfg.valid_dir,
         model,
         bitrates=bitrates,
