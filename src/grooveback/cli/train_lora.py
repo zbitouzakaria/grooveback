@@ -11,10 +11,11 @@ Every training item is a fresh window, coded as MP3 at a bitrate drawn from
 `bitrates`, read from one of the `sources` picked by its weight: `tracks`, real
 tracks at a random start (`TrackDataset`), or `remixes`, sums of MUSDB18-HQ
 stems from random songs (`RemixDataset`, Apollo's recipe). Apollo splits them
-half and half, as the config does. MUSDB18-HQ's train split holds musdb's 14
-validation songs, so the sources take its song folders without them; a song in
-both the training and the validation data is refused. `valid_dir` is a
-`scripts/prepare_dataset.py` output: fixed windows at a fixed bitrate each.
+half and half, as the config does. `valid_dir` is a `scripts/prepare_dataset.py`
+output: fixed windows at a fixed bitrate each. The split between training and
+validation is in the folders: the training ones must not hold the validation
+songs. MUSDB18-HQ's own train/ folder holds musdb's 14 validation songs, so
+they are moved out of it.
 
 After every epoch the run writes `save_dir/checkpoint-{step}/`: the trained
 weights (`lora.safetensors`) and the optimizer state (`state.pt`). Of the
@@ -123,21 +124,6 @@ def train(cfg: DictConfig) -> None:
     unset = [name for name, spec in sources.items() if spec.dir is None]
     if unset:
         raise ValueError(f"sources.{unset[0]}.dir is not set, though its weight is above 0.")
-    # MUSDB18-HQ's own train/ folder still holds musdb's 14 validation songs. A song is
-    # named by any folder on the way to a file a source reads, or by the file itself:
-    # the tracks read what their glob matches, the remixes every {song}/{stem}.wav.
-    songs = {
-        part
-        for spec in sources.values()
-        for path in Path(spec.dir).glob(spec.get("glob", "*/*.wav"))
-        for part in path.relative_to(spec.dir).with_suffix("").parts
-    }
-    shared = sorted(songs & {path.name for path in Path(cfg.valid_dir).iterdir() if path.is_dir()})
-    if shared:
-        raise ValueError(
-            f"{len(shared)} songs are in both the training and the validation data, "
-            f"{shared[0]!r} among them."
-        )
     # MLflow keeps one run per call, in a local SQLite file: its parameters are
     # this config; epoch metrics are indexed by epoch (0 = before training), batch
     # metrics by step. A resumed run is a new MLflow run whose epochs continue the

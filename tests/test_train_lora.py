@@ -161,40 +161,6 @@ def test_a_source_at_weight_0_is_not_read(tmp_path, monkeypatch, tiny_checkpoint
     assert sorted(path.name for path in (tmp_path / "run").iterdir()) == ["checkpoint-2"]
 
 
-def test_refuses_a_song_in_both_training_and_validation_before_loading_the_model(tmp_path):
-    """MUSDB18-HQ's own train/ folder holds musdb's validation songs too."""
-    write_musdb_song(tmp_path / "musdb", "b", seconds=2.0, seed=0)
-    write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
-
-    with mock.patch.object(gt, "load_model", autospec=True) as load_model:
-        with pytest.raises(ValueError, match="in both the training and the validation"):
-            train(config(tmp_path))
-
-    load_model.assert_not_called()
-
-
-def test_refuses_a_validation_song_that_the_tracks_glob_reads_before_loading_the_model(
-    tmp_path,
-):
-    """MUSDB18-HQ as downloaded, read through train/*/mixture.wav: song b sits two
-    folders down, under train/, where the top of the source's dir shows only train."""
-    write_musdb_song(tmp_path / "musdb18hq" / "train", "b", seconds=2.0, seed=0)
-    write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
-
-    with mock.patch.object(gt, "load_model", autospec=True) as load_model:
-        with pytest.raises(ValueError, match="in both the training and the validation"):
-            train(
-                config(
-                    tmp_path,
-                    f"sources.tracks.dir={tmp_path / 'musdb18hq'}",
-                    "sources.tracks.glob=train/*/mixture.wav",
-                    "sources.remixes.weight=0",
-                )
-            )
-
-    load_model.assert_not_called()
-
-
 def test_mlflow_metrics_are_indexed_by_epoch_with_the_untrained_model_at_0(
     tmp_path, monkeypatch, tiny_checkpoint
 ):

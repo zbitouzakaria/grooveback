@@ -7,7 +7,7 @@ device: auto
 # `bitrates`, from one source picked by weight. A source at weight 0 is not loaded.
 sources:
   tracks:                 # windows of real tracks, at a random start on every draw
-    dir: null             # e.g. MUSDB18-HQ's train songs
+    dir: null             # e.g. MUSDB18-HQ's train songs, without the validation ones
     glob: "*/mixture.wav" # the files read under dir; "*.wav" for a flat folder of songs
     weight: 0.5
   remixes:                # 1 to 4 stems from random songs, summed (Apollo's recipe)
