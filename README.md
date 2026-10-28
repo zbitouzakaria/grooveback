@@ -2,7 +2,7 @@
 
 **Restoring records that only survive as MP3, AAC or Opus rips.**
 
-[**Listen to the results**](https://zbitouzakaria.github.io/grooveback/lora/) — Stable Audio 3 fine-tuned with a LoRA to restore MP3s, next to Apollo, on the MUSDB18-HQ test songs. It's an initial run, and I'm now iterating on data augmentation and training strategies. The [earlier listening sets](https://zbitouzakaria.github.io/grooveback/listen/) have every open method and the LoRA on two tracks.
+[**Listen to the results**](https://zbitouzakaria.github.io/grooveback/lora/) — Stable Audio 3 fine-tuned with a LoRA to restore MP3s, next to Apollo, on the MUSDB18-HQ test songs. This is the LoRA after 40 epochs, and a longer training run is in progress. The [earlier listening sets](https://zbitouzakaria.github.io/grooveback/listen/) have every open method and the LoRA on two tracks.
 
 As a DJ and record collector, I keep hitting the same wall: a lot of the records I love only exist online as YouTube rips. Somebody played their copy on whatever turntable setup they had, saved it as a 128 or 192 kbps MP3, and uploaded it. Then YouTube re-encoded it to AAC or Opus. On laptop speakers you'd never notice. On a proper system you do: the drums lose their snap, the cymbals stop shimmering, and the track sounds flat and tired next to everything else in the set.
 
@@ -110,7 +110,7 @@ Neither SDEdit nor the round trips remove the damage, so the next step was to sh
 
 Apollo still wins. On all 3,677 test clips it scores above the LoRA on all four metrics, at every bitrate. The LoRA does fill the band the MP3 lost above the codec's cutoff, so it beats the untouched MP3 on LSD, but on the waveform metrics it stays below the MP3.
 
-The [listening page](https://zbitouzakaria.github.io/grooveback/lora/) compares it with Apollo on all 3,677 test clips: the scores per bitrate, and the clips where each model does best and worst. It's an initial run, and I'm now iterating on data augmentation and training strategies.
+The [listening page](https://zbitouzakaria.github.io/grooveback/lora/) compares it with Apollo on all 3,677 test clips: the scores per bitrate, and the clips where the LoRA does best and worst at 32 and 64 kbps. This is the LoRA after 40 epochs, and a longer training run is in progress.
 
 Each experiment is written up in full, with the evidence, in [`docs/decisions/`](docs/decisions).
 

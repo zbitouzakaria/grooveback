@@ -92,9 +92,10 @@ encoded, the mean shift that MP3 compression causes in εar-VAE's latent space
 (measured on a different track) is subtracted, and the result is decoded. It
 restores spectral balance rather than waveform detail.</li>
 <li><b>LoRA</b> (key 0) — our first attempt at a restorer of our own: Stable Audio 3
-medium-base, fine-tuned with a LoRA for 5 hours on one GPU to turn MP3s back into their
-masters, on the MUSDB18-HQ training songs and on remixes of their stems. It is sampled
-with Euler at 32 steps. It trained on 10 s windows, and here restores each file in one
+medium-base, fine-tuned with a LoRA to turn MP3s back into their masters, on the
+MUSDB18-HQ training songs and on remixes of their stems. This is the LoRA after 40 epochs,
+5 hours on one GPU; a longer training run is in progress. It is sampled with Euler at 32
+steps. It trained on 10 s windows, and here restores each file in one
 pass, the 3-minute excerpt included. The
 <a href="../lora/">LoRA listening page</a> compares it with Apollo on the MUSDB18-HQ
 test songs.</li>
@@ -188,7 +189,7 @@ def main(page_only: bool = False) -> None:
         " (AudioLabs Erlangen)</p>"
     )
     page = PAGE.replace('src="../trackswitch.js"', 'src="trackswitch.js"').replace(
-        "keys 1–9", "keys 1–9 and 0"
+        "Keys 1–9", "Keys 1–9 and 0"
     )
     (OUT / "index.html").write_text(
         page.format(name="published packs", sections="\n".join(sections), script=SCRIPT)
