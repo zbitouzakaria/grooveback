@@ -18,6 +18,7 @@ import torch
 
 from grooveback import audio as ga
 from grooveback import training as gt
+from grooveback.evaluation import best_lag
 
 
 class LatentPairDataset(torch.utils.data.Dataset):
@@ -194,6 +195,11 @@ def coded_pair(padded: np.ndarray, *, bitrates: list[int]) -> tuple[torch.Tensor
     after: `codec_simu` cuts the MP3 to the clip's length before it removes
     sox's 1,105-sample delay (ADR-0015), so a clip coded alone ends in 25 ms of
     decoder lead-in where the clean audio has music.
+
+    `codec_simu`'s own alignment can miss by a sample at low bitrates: once in
+    48 windows of 10 s at 24 kbps, it left the MP3 one sample early. So the MP3
+    window is searched for in the clean audio, within the pads, and the clean
+    window is cut where the two line up.
     """
     from grooveback.cli import musdb_eval
 
@@ -201,9 +207,13 @@ def coded_pair(padded: np.ndarray, *, bitrates: list[int]) -> tuple[torch.Tensor
     if peak > 1.0:
         padded = padded / peak
     kbps = bitrates[int(torch.randint(len(bitrates), ()))]
-    mp3 = musdb_eval.codec_simu(padded, kbps)
-    window = slice(CODEC_PAD, padded.shape[-1] - CODEC_PAD)
-    return torch.from_numpy(padded[:, window].copy()), torch.from_numpy(mp3[:, window].copy())
+    coded = musdb_eval.codec_simu(padded, kbps)
+    samples = padded.shape[-1] - 2 * CODEC_PAD
+    # The probe is exactly the MP3 window kept, coded[:, 4_096 : 4_096 + 438_272].
+    lag = best_lag(padded, coded, max_lag=CODEC_PAD, probe_samples=samples)
+    clean = padded[:, CODEC_PAD - lag : CODEC_PAD - lag + samples]
+    mp3 = coded[:, CODEC_PAD : CODEC_PAD + samples]
+    return torch.from_numpy(clean.copy()), torch.from_numpy(mp3.copy())
 
 
 class TrackDataset(torch.utils.data.Dataset):

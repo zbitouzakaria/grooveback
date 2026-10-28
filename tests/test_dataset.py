@@ -209,6 +209,28 @@ def test_a_remix_mp3_ends_with_the_window_not_the_codec_lead_in(tmp_path, monkey
     torch.testing.assert_close(mp3, clean, rtol=0, atol=0)
 
 
+@pytest.mark.parametrize(
+    "shift", [pytest.param(-1, id="one-sample-early"), pytest.param(1, id="one-sample-late")]
+)
+def test_an_mp3_a_sample_off_is_paired_with_the_clean_audio_it_holds(tmp_path, monkeypatch, shift):
+    """codec_simu's alignment can miss by one sample: on 48 windows of 10 s from
+    four tracks at 24 kbps, it once rolled the MP3 by 1_106 samples, not LAME's
+    1_105, leaving it one sample early. A pair one sample apart would teach the
+    model a delay. White noise, since a test tone would also line up with itself
+    one period away."""
+    torch.manual_seed(0)
+    monkeypatch.setattr(
+        musdb_eval, "codec_simu", lambda clip, kbps: np.roll(0.5 * clip, shift, axis=-1)
+    )
+    noise = np.random.default_rng(0).uniform(-0.5, 0.5, size=(2, 10 * SR)).astype(np.float32)
+    ga.save(tmp_path / "a" / "mixture.wav", noise, SR, subtype="PCM_16")
+    dataset = gd.TrackDataset(tmp_path, glob="*/mixture.wav", bitrates=[24], window_samples=2048)
+
+    clean, mp3 = dataset[0]
+
+    torch.testing.assert_close(mp3, 0.5 * clean, rtol=0, atol=0)
+
+
 def test_a_remix_holds_stems_and_never_the_mixture(tmp_path, monkeypatch):
     """Windows of the real mixtures are TrackDataset's. 1e-3 sits far above the
     16-bit noise in a bin (about 3e-7) and far below the sines (0.1 and 0.5)."""
