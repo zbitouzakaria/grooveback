@@ -33,7 +33,7 @@ seed: 0
 
 inpaint_mask_value: 0.0   # 0 = nothing given, generate every frame (upstream's convention)
 validation_timesteps: [0.1, 0.3, 0.5, 0.7, 0.9]
-sample_steps: 50          # sampling steps for the best and last checkpoints' listening windows
+sample_steps: 50          # sampling steps for the best checkpoint's listening window
 log_every: 10             # steps between batch_loss / seconds_per_step points
 
 # Continue from .../checkpoint-{step}: weights, Adam's averages, step and epoch.

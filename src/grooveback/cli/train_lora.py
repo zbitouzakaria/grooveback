@@ -21,16 +21,15 @@ checkpoints it writes, it keeps two, the one with the lowest validation loss
 and the last, and deletes the others: on medium-base each is about 1 GB.
 Checkpoints of earlier runs, such as the one a run resumes from, are never
 deleted, and a save_dir that holds a checkpoint past the step a run starts
-from is refused, since the run would write over it. At the end, the best and
-the last checkpoint each get a level-matched listening pack (`listen/`): one
-restored validation window next to its original, its MP3, and the original's
-own round trip through the autoencoder.
+from is refused, since the run would write over it. Each new best also gets a
+level-matched listening pack (`listen/`): one restored validation window next
+to its original, its MP3, and the original's own round trip through the
+autoencoder. It costs about 30 s on medium-base, paid only when the validation
+loss improves.
 
-To stop a run early, press Ctrl-C or `kill <pid>` it (SIGINT or SIGTERM): it
-finishes the current step, validates and saves it as a checkpoint, writes the
-listening packs and exits. Another signal, a second or more after the first,
-quits at once. A checkpoint saved in the middle of an epoch resumes at the
-start of that epoch.
+Ctrl-C or `kill <pid>` (SIGINT or SIGTERM) ends a run at once while it trains;
+a run resumed from its last checkpoint repeats the interrupted epoch. While an
+epoch is validated and saved, the signal waits until that is done.
 
 MLflow (`mlflow_db`) gets the losses per epoch (epoch 0 = before training),
 the batch loss and seconds per step every `log_every` steps, peak GPU memory
@@ -64,51 +63,26 @@ import mlflow  # noqa: E402
 
 
 @contextlib.contextmanager
-def stop_on_signal():
-    """Turn the first SIGINT (Ctrl-C) or SIGTERM (`kill`) into a request to stop,
-    which the training loop reads after every step. A signal a second or more
-    after the first quits at once.
+def signals_deferred():
+    """Hold SIGINT (Ctrl-C) and SIGTERM (`kill`) until the block ends, then act on
+    the first one with the handlers that were there before: Ctrl-C raises
+    KeyboardInterrupt, a `kill` ends the process. The handler only records the
+    signal, so a second one arriving while it runs is safe."""
+    held = []
 
-    Yields a function that tells whether a stop was requested. A repeat within
-    the second is the same request: a `kill` that reaches both `uv run` and the
-    trainer arrives twice, a few milliseconds apart, as uv forwards its copy.
-    The handler takes no lock and writes its notice straight to file
-    descriptor 2, so a signal that lands inside the handler, or while Python is
-    printing, cannot hang the trainer or break the print. The previous handlers
-    come back on exit.
-    """
-    first_at = None  # time.monotonic() of the first signal
+    def hold(signum, frame):
+        held.append(signum)
 
-    def request(signum, frame):
-        nonlocal first_at
-        if first_at is None:
-            first_at = time.monotonic()
-            os.write(
-                2,
-                f"{signal.Signals(signum).name}: stopping after this step, once it is "
-                "validated and saved. Send it again to quit at once.\n".encode(),
-            )
-        elif time.monotonic() - first_at >= 1.0:
-            raise KeyboardInterrupt
-
-    sigint = signal.signal(signal.SIGINT, request)
-    sigterm = signal.signal(signal.SIGTERM, request)
+    sigint = signal.signal(signal.SIGINT, hold)
+    sigterm = signal.signal(signal.SIGTERM, hold)
     try:
-        yield lambda: first_at is not None
+        yield
     finally:
         signal.signal(signal.SIGINT, sigint)
         signal.signal(signal.SIGTERM, sigterm)
-
-
-def ignore_stop_signals(worker_id: int) -> None:
-    """DataLoader `worker_init_fn`. Ctrl-C, `kill %1` and `pkill -f train_lora`
-    reach the workers too: forked workers share the trainer's process group and
-    its command line. Only the trainer acts on them. A worker that died would
-    make torch raise in the trainer, wherever it is, before it could save.
-    Workers still end with the trainer: torch stops them through its queues,
-    and each exits when it finds the trainer gone."""
-    signal.signal(signal.SIGINT, signal.SIG_IGN)
-    signal.signal(signal.SIGTERM, signal.SIG_IGN)
+        if held:
+            print(f"{signal.Signals(held[0]).name} held until the checkpoint was saved", flush=True)
+            signal.raise_signal(held[0])
 
 
 def write_listening_window(
@@ -237,11 +211,8 @@ def train(cfg: DictConfig) -> None:
     # their own time axis (psutil and nvidia-ml-py).
     mlflow.set_system_metrics_sampling_interval(10)
     mlflow.set_system_metrics_samples_before_logging(6)
-    with (
-        mlflow.start_run(
-            run_name=Path(cfg.save_dir).name, log_system_metrics=cfg.log_system_metrics
-        ),
-        stop_on_signal() as stop_requested,
+    with mlflow.start_run(
+        run_name=Path(cfg.save_dir).name, log_system_metrics=cfg.log_system_metrics
     ):
         mlflow.log_params(OmegaConf.to_container(cfg, resolve=True))
         if step == 0:
@@ -250,12 +221,20 @@ def train(cfg: DictConfig) -> None:
             print(f"step 0 validation loss {baseline:.4f}", flush=True)
             mlflow.log_metric("validation_loss", baseline, step=0)
 
+        def listen(directory: Path) -> None:
+            write_listening_window(
+                model,
+                valid_set,
+                directory / "listen",
+                kbps=min(bitrates),
+                steps=cfg.sample_steps,
+                inpaint_mask_value=cfg.inpaint_mask_value,
+            )
+
         started = time.perf_counter()
         # This run's checkpoint with the lowest validation loss, and its last one.
         best, best_loss, last = None, float("inf"), None
         for epoch in range(start_epoch, cfg.num_train_epochs):
-            if stop_requested():
-                break
             # A fixed seed per epoch, so a resumed run shuffles like an uninterrupted one.
             loader = torch.utils.data.DataLoader(
                 train_set,
@@ -266,7 +245,6 @@ def train(cfg: DictConfig) -> None:
                 # Remixes are built on the CPU in worker processes; prepared latents
                 # already sit on the GPU, out of the workers' reach.
                 num_workers=0 if cfg.remix_dir is None else cfg.num_workers,
-                worker_init_fn=ignore_stop_signals,
             )
             losses = []
             since, since_step = time.perf_counter(), step
@@ -300,40 +278,40 @@ def train(cfg: DictConfig) -> None:
                     mlflow.log_metrics(
                         {"batch_loss": loss.item(), "seconds_per_step": seconds}, step=step
                     )
-                if stop_requested():
-                    break
 
-            # An epoch cut short by a stop is saved as unfinished, so a run resumed from
-            # its checkpoint starts that epoch over.
-            epochs_done = epoch + 1 if len(losses) == len(loader) else epoch
-            valid = validate()
-            print(f"epoch {epoch + 1} step {step} validation loss {valid:.4f}", flush=True)
-            training = sum(losses) / len(losses)
-            mlflow.log_metrics(
-                {"training_loss": training, "validation_loss": valid}, step=epoch + 1
-            )
-            if torch.cuda.is_available():
-                # Peaks since the process started, so they include the encoding. Allocated
-                # is what the tensors needed; reserved adds PyTorch's cache, and is the
-                # number a smaller card must hold.
-                peaks = {
-                    "peak_gpu_allocated_gb": torch.cuda.max_memory_allocated() / 1e9,
-                    "peak_gpu_reserved_gb": torch.cuda.max_memory_reserved() / 1e9,
-                }
-                mlflow.log_metrics(peaks, step=epoch + 1)
-            directory = Path(cfg.save_dir) / f"checkpoint-{step}"
-            gt.save_checkpoint(
-                directory, model, optimizer, config=lora_config, step=step, epoch=epochs_done
-            )
-            print(f"wrote {directory}", flush=True)
-            # Only the best and the last of this run's checkpoints are kept, and a checkpoint
-            # is deleted only once a newer one has been written in full.
-            stale = {best, last}
-            if valid < best_loss:
-                best, best_loss = directory, valid
-            last = directory
-            for old in stale - {best, last, None}:
-                shutil.rmtree(old)
+            # A Ctrl-C or kill during the steps above ends the run at once. From here to
+            # the next epoch it waits, so the checkpoints on disk are always whole.
+            with signals_deferred():
+                valid = validate()
+                print(f"epoch {epoch + 1} step {step} validation loss {valid:.4f}", flush=True)
+                training = sum(losses) / len(losses)
+                mlflow.log_metrics(
+                    {"training_loss": training, "validation_loss": valid}, step=epoch + 1
+                )
+                if torch.cuda.is_available():
+                    # Peaks since the process started, so they include the encoding.
+                    # Allocated is what the tensors needed; reserved adds PyTorch's
+                    # cache, and is the number a smaller card must hold.
+                    peaks = {
+                        "peak_gpu_allocated_gb": torch.cuda.max_memory_allocated() / 1e9,
+                        "peak_gpu_reserved_gb": torch.cuda.max_memory_reserved() / 1e9,
+                    }
+                    mlflow.log_metrics(peaks, step=epoch + 1)
+                directory = Path(cfg.save_dir) / f"checkpoint-{step}"
+                gt.save_checkpoint(
+                    directory, model, optimizer, config=lora_config, step=step, epoch=epoch + 1
+                )
+                print(f"wrote {directory}", flush=True)
+                # Only the best and the last of this run's checkpoints are kept, and a
+                # checkpoint is deleted only once a newer one has been written in full.
+                stale = {best, last}
+                if valid < best_loss:
+                    best, best_loss = directory, valid
+                    # The model holds the best weights right now.
+                    listen(directory)
+                last = directory
+                for old in stale - {best, last, None}:
+                    shutil.rmtree(old)
             if cfg.max_train_minutes is not None and (
                 time.perf_counter() - started >= 60 * cfg.max_train_minutes
             ):
@@ -343,24 +321,8 @@ def train(cfg: DictConfig) -> None:
                 )
                 break
 
-        # Listening windows for the last and the best checkpoint, once at the end: on
-        # medium-base each render costs about 30 s, too much to repeat after every epoch.
-        def listen(directory: Path) -> None:
-            write_listening_window(
-                model,
-                valid_set,
-                directory / "listen",
-                kbps=min(bitrates),
-                steps=cfg.sample_steps,
-                inpaint_mask_value=cfg.inpaint_mask_value,
-            )
-
         if last is not None:
-            listen(last)
-            # No best when no validation loss was finite: a NaN is never below another loss.
-            if best is not None and best != last:
-                gt.load_lora_weights(model, best / "lora.safetensors", config=lora_config)
-                listen(best)
+            # best stays None when no validation loss was finite: a NaN is never below another.
             print(f"best {best} (validation loss {best_loss:.4f}), last {last}", flush=True)
 
 

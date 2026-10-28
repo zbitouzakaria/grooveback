@@ -2,9 +2,7 @@
 (tests/conftest.py) through the real config file."""
 
 import hashlib
-import os
 import signal
-import time
 from pathlib import Path
 from unittest import mock
 
@@ -13,25 +11,14 @@ import numpy as np
 import pytest
 import torch
 from hydra import compose, initialize_config_dir
-from safetensors.torch import load_file
 
 from grooveback import audio as ga
 from grooveback import training as gt
-from grooveback.cli import musdb_eval, train_lora
-from grooveback.cli.train_lora import ignore_stop_signals, train
+from grooveback.cli import musdb_eval
+from grooveback.cli.train_lora import train
 
 SR = 44_100
 CONFIGS = Path(__file__).resolve().parents[1] / "configs"
-
-
-class WorkerPids(torch.utils.data.Dataset):
-    """Eight items, each the pid of the DataLoader worker process that built it."""
-
-    def __len__(self):
-        return 8
-
-    def __getitem__(self, index):
-        return os.getpid()
 
 
 def write_song(root, name, *, seconds, bitrates, seed):
@@ -247,44 +234,25 @@ def test_keeps_only_the_checkpoint_with_the_lowest_validation_loss_and_the_last(
     ]
 
 
-def test_the_last_and_the_best_listening_packs_are_restored_with_their_own_weights(
-    tmp_path, monkeypatch, tiny_checkpoint
-):
-    """checkpoint-6 is the last and checkpoint-4 the best. The tiny model's random
-    decoder returns the same audio for any latents, so the packs cannot tell the
-    two models apart; the weights the model holds as each pack is written can."""
+def test_only_the_best_checkpoint_gets_a_listening_pack(tmp_path, monkeypatch, tiny_checkpoint):
+    """Validation losses of 1.0 untrained, then 0.5, 0.3 and 0.4: checkpoint-4 is
+    the best, checkpoint-6 the last."""
     monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
-    weights_by_pack = {}
-    write_listening_window = train_lora.write_listening_window
-
-    def recording_window(model, dataset, out_dir, **settings):
-        weights = {name: tensor.clone() for name, tensor in gt._trainable_state(model).items()}
-        weights_by_pack[out_dir.parent.name] = weights
-        write_listening_window(model, dataset, out_dir, **settings)
-
-    monkeypatch.setattr(train_lora, "write_listening_window", recording_window)
     write_song(tmp_path / "train", "a", seconds=2.0, bitrates=[24, 32], seed=0)
     write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
 
     with mock.patch.object(gt, "validation_loss", autospec=True, side_effect=[1.0, 0.5, 0.3, 0.4]):
         train(config(tmp_path, "num_train_epochs=3"))
 
-    torch.testing.assert_close(
-        weights_by_pack,
-        {
-            "checkpoint-6": load_file(tmp_path / "run" / "checkpoint-6" / "lora.safetensors"),
-            "checkpoint-4": load_file(tmp_path / "run" / "checkpoint-4" / "lora.safetensors"),
-        },
-        rtol=0,
-        atol=0,
-    )
+    assert (tmp_path / "run" / "checkpoint-4" / "listen" / "restored.flac").is_file()
+    assert not (tmp_path / "run" / "checkpoint-6" / "listen").exists()
 
 
 def test_a_run_whose_validation_losses_are_all_nan_keeps_its_last_checkpoint(
     tmp_path, monkeypatch, tiny_checkpoint
 ):
     """A NaN is never below another loss, so a diverged run has no best checkpoint.
-    It must still end with its last one and that one's listening pack."""
+    It must still end normally, with its last one."""
     monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
     write_song(tmp_path / "train", "a", seconds=2.0, bitrates=[24, 32], seed=0)
     write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
@@ -294,7 +262,6 @@ def test_a_run_whose_validation_losses_are_all_nan_keeps_its_last_checkpoint(
         train(config(tmp_path, "num_train_epochs=2"))
 
     assert sorted(path.name for path in (tmp_path / "run").iterdir()) == ["checkpoint-4"]
-    assert (tmp_path / "run" / "checkpoint-4" / "listen" / "restored.flac").is_file()
 
 
 def test_resume_never_deletes_the_checkpoints_of_earlier_runs(
@@ -365,97 +332,12 @@ def test_a_fresh_run_refuses_a_save_dir_that_holds_checkpoints(
     assert hashlib.sha256(earlier.read_bytes()).hexdigest() == before
 
 
-@pytest.mark.parametrize("signum", [signal.SIGINT, signal.SIGTERM], ids=["SIGINT", "SIGTERM"])
-def test_a_stop_signal_mid_epoch_saves_a_checkpoint_after_the_current_step(
-    tmp_path, monkeypatch, tiny_checkpoint, signum
-):
-    """An epoch is 2 steps here, and the signal arrives during the first."""
+def test_a_ctrl_c_during_the_steps_quits_at_once(tmp_path, monkeypatch, tiny_checkpoint):
+    """A run resumed from its last checkpoint repeats the interrupted epoch."""
     monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
     training_step = gt.training_step
 
     def signalling_step(model, clean, *, mp3, inpaint_mask_value):
-        signal.raise_signal(signum)
-        return training_step(model, clean, mp3=mp3, inpaint_mask_value=inpaint_mask_value)
-
-    monkeypatch.setattr(gt, "training_step", signalling_step)
-    write_song(tmp_path / "train", "a", seconds=2.0, bitrates=[24, 32], seed=0)
-    write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
-
-    train(config(tmp_path))
-
-    assert sorted(path.name for path in (tmp_path / "run").iterdir()) == ["checkpoint-1"]
-
-
-def test_a_checkpoint_saved_mid_epoch_counts_that_epoch_as_unfinished(
-    tmp_path, monkeypatch, tiny_checkpoint
-):
-    """Step 1 of a 2-step epoch, with 0 epochs done, so a run resumed from it
-    starts the epoch over."""
-    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
-    training_step = gt.training_step
-
-    def signalling_step(model, clean, *, mp3, inpaint_mask_value):
-        signal.raise_signal(signal.SIGINT)
-        return training_step(model, clean, mp3=mp3, inpaint_mask_value=inpaint_mask_value)
-
-    monkeypatch.setattr(gt, "training_step", signalling_step)
-    write_song(tmp_path / "train", "a", seconds=2.0, bitrates=[24, 32], seed=0)
-    write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
-
-    train(config(tmp_path))
-
-    state = torch.load(tmp_path / "run" / "checkpoint-1" / "state.pt", weights_only=True)
-    assert (state["step"], state["epoch"]) == (1, 0)
-
-
-def test_a_stopped_run_still_writes_its_listening_pack(tmp_path, monkeypatch, tiny_checkpoint):
-    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
-    training_step = gt.training_step
-
-    def signalling_step(model, clean, *, mp3, inpaint_mask_value):
-        signal.raise_signal(signal.SIGINT)
-        return training_step(model, clean, mp3=mp3, inpaint_mask_value=inpaint_mask_value)
-
-    monkeypatch.setattr(gt, "training_step", signalling_step)
-    write_song(tmp_path / "train", "a", seconds=2.0, bitrates=[24, 32], seed=0)
-    write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
-
-    train(config(tmp_path))
-
-    assert (tmp_path / "run" / "checkpoint-1" / "listen" / "restored.flac").is_file()
-
-
-def test_a_repeated_stop_signal_within_a_second_is_the_same_request(
-    tmp_path, monkeypatch, tiny_checkpoint
-):
-    """A `kill` that reaches both `uv run` and the trainer arrives twice, as uv
-    forwards its copy milliseconds later; the run must still save and exit."""
-    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
-    training_step = gt.training_step
-
-    def signalling_step(model, clean, *, mp3, inpaint_mask_value):
-        signal.raise_signal(signal.SIGTERM)
-        signal.raise_signal(signal.SIGTERM)
-        return training_step(model, clean, mp3=mp3, inpaint_mask_value=inpaint_mask_value)
-
-    monkeypatch.setattr(gt, "training_step", signalling_step)
-    write_song(tmp_path / "train", "a", seconds=2.0, bitrates=[24, 32], seed=0)
-    write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
-
-    train(config(tmp_path))
-
-    assert sorted(path.name for path in (tmp_path / "run").iterdir()) == ["checkpoint-1"]
-
-
-def test_a_second_stop_signal_quits_at_once_without_saving(tmp_path, monkeypatch, tiny_checkpoint):
-    """1.05 s apart: the trainer takes a repeat within a second of the first
-    signal as the same request."""
-    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
-    training_step = gt.training_step
-
-    def signalling_step(model, clean, *, mp3, inpaint_mask_value):
-        signal.raise_signal(signal.SIGINT)
-        time.sleep(1.05)
         signal.raise_signal(signal.SIGINT)
         return training_step(model, clean, mp3=mp3, inpaint_mask_value=inpaint_mask_value)
 
@@ -469,6 +351,30 @@ def test_a_second_stop_signal_quits_at_once_without_saving(tmp_path, monkeypatch
     assert not (tmp_path / "run").exists()
 
 
+def test_a_ctrl_c_while_a_checkpoint_is_written_waits_for_it(
+    tmp_path, monkeypatch, tiny_checkpoint
+):
+    """The signal arrives as epoch 1's checkpoint starts to be written. The run
+    finishes it, with the listening pack of this first best, then quits before
+    epoch 2."""
+    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
+    save_checkpoint = gt.save_checkpoint
+
+    def signalled_save(*args, **kwargs):
+        signal.raise_signal(signal.SIGINT)
+        save_checkpoint(*args, **kwargs)
+
+    monkeypatch.setattr(gt, "save_checkpoint", signalled_save)
+    write_song(tmp_path / "train", "a", seconds=2.0, bitrates=[24, 32], seed=0)
+    write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
+
+    with pytest.raises(KeyboardInterrupt):
+        train(config(tmp_path, "num_train_epochs=2"))
+
+    assert sorted(path.name for path in (tmp_path / "run").iterdir()) == ["checkpoint-2"]
+    assert (tmp_path / "run" / "checkpoint-2" / "listen" / "restored.flac").is_file()
+
+
 def test_training_puts_back_the_signal_handlers_it_found(tmp_path, monkeypatch, tiny_checkpoint):
     """pytest's own Ctrl-C handling, for one, must outlive a run."""
     monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
@@ -479,23 +385,6 @@ def test_training_puts_back_the_signal_handlers_it_found(tmp_path, monkeypatch, 
     train(config(tmp_path))
 
     assert (signal.getsignal(signal.SIGINT), signal.getsignal(signal.SIGTERM)) == before
-
-
-@pytest.mark.parametrize("signum", [signal.SIGINT, signal.SIGTERM], ids=["SIGINT", "SIGTERM"])
-def test_dataloader_workers_keep_serving_batches_after_a_stop_signal(signum):
-    """Ctrl-C, `kill %1` and `pkill -f` reach the remix workers as well as the
-    trainer. A worker that died would make torch raise in the trainer before it
-    could save. Unbatched items stay plain ints: a batched tensor would start
-    macOS's torch_shm_manager, which keeps the test process from exiting."""
-    loader = torch.utils.data.DataLoader(
-        WorkerPids(), batch_size=None, num_workers=1, worker_init_fn=ignore_stop_signals
-    )
-    items = iter(loader)
-    worker = next(items)
-
-    os.kill(worker, signum)
-
-    assert len(list(items)) == 7
 
 
 def test_resume_continues_from_the_checkpoint_with_the_new_learning_rate(
