@@ -15,15 +15,16 @@ the training and the validation data is refused.
     uv run python -m grooveback.cli.train_lora remix_dir=data/lora/musdb-train \\
         valid_dir=data/lora/valid save_dir=artifacts/lora/remix1
 
-After
-every epoch the run writes `save_dir/checkpoint-{step}/`: the trained weights
-(`lora.safetensors`) and the optimizer state (`state.pt`). Of the checkpoints
-it writes, it keeps two, the one with the lowest validation loss and the last,
-and deletes the others: on medium-base each is about 1 GB. Checkpoints of
-earlier runs, such as the one a run resumes from, are never deleted. At the
-end, the best and the last checkpoint each get a level-matched listening pack
-(`listen/`): one restored validation window next to its original, its MP3,
-and the original's own round trip through the autoencoder.
+After every epoch the run writes `save_dir/checkpoint-{step}/`: the trained
+weights (`lora.safetensors`) and the optimizer state (`state.pt`). Of the
+checkpoints it writes, it keeps two, the one with the lowest validation loss
+and the last, and deletes the others: on medium-base each is about 1 GB.
+Checkpoints of earlier runs, such as the one a run resumes from, are never
+deleted, and a save_dir that holds a checkpoint past the step a run starts
+from is refused, since the run would write over it. At the end, the best and
+the last checkpoint each get a level-matched listening pack (`listen/`): one
+restored validation window next to its original, its MP3, and the original's
+own round trip through the autoencoder.
 
 To stop a run early, press Ctrl-C or `kill <pid>` it (SIGINT or SIGTERM): it
 finishes the current step, validates and saves it as a checkpoint, writes the
@@ -172,6 +173,27 @@ def train(cfg: DictConfig) -> None:
     params = gt.add_lora(model, lora_config)
     print(f"{cfg.variant}: {sum(p.numel() for p in params):,} trainable weights", flush=True)
 
+    optimizer = torch.optim.AdamW(
+        params, lr=cfg.lr, betas=tuple(cfg.betas), weight_decay=cfg.weight_decay
+    )
+    step, start_epoch = 0, 0
+    if cfg.resume_from_checkpoint:
+        directory = Path(cfg.resume_from_checkpoint)
+        gt.load_lora_weights(model, directory / "lora.safetensors", config=lora_config)
+        step, start_epoch = gt.load_training_state(directory, optimizer)
+    # This run writes checkpoint-{n} for steps n past the one it starts from. One already
+    # in save_dir is an earlier run's: this run would write over it, then could delete it.
+    later = sorted(
+        path.name
+        for path in Path(cfg.save_dir).glob("checkpoint-*")
+        if int(path.name.removeprefix("checkpoint-")) > step
+    )
+    if later:
+        raise ValueError(
+            f"{cfg.save_dir} already holds {later[0]}, past step {step}, from an earlier "
+            "run; this run would write over it. Choose another save_dir."
+        )
+
     # 10 s -> 441_000 samples -> 107 whole frames of 4096 samples.
     window_frames = (
         int(cfg.window_seconds * model.sample_rate) // model.pretransform.downsampling_ratio
@@ -200,15 +222,6 @@ def train(cfg: DictConfig) -> None:
         raise ValueError(
             f"{len(train_set)} training windows, fewer than one batch of {cfg.batch_size}."
         )
-
-    optimizer = torch.optim.AdamW(
-        params, lr=cfg.lr, betas=tuple(cfg.betas), weight_decay=cfg.weight_decay
-    )
-    step, start_epoch = 0, 0
-    if cfg.resume_from_checkpoint:
-        directory = Path(cfg.resume_from_checkpoint)
-        gt.load_lora_weights(model, directory / "lora.safetensors", config=lora_config)
-        step, start_epoch = gt.load_training_state(directory, optimizer)
 
     def validate() -> float:
         return gt.validation_loss(
@@ -344,7 +357,8 @@ def train(cfg: DictConfig) -> None:
 
         if last is not None:
             listen(last)
-            if best != last:
+            # No best when no validation loss was finite: a NaN is never below another loss.
+            if best is not None and best != last:
                 gt.load_lora_weights(model, best / "lora.safetensors", config=lora_config)
                 listen(best)
             print(f"best {best} (validation loss {best_loss:.4f}), last {last}", flush=True)

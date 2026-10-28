@@ -1,6 +1,7 @@
 """The fine-tune entry point, run end to end on a tiny Stable Audio 3
 (tests/conftest.py) through the real config file."""
 
+import hashlib
 import os
 import signal
 import time
@@ -16,7 +17,7 @@ from safetensors.torch import load_file
 
 from grooveback import audio as ga
 from grooveback import training as gt
-from grooveback.cli import musdb_eval
+from grooveback.cli import musdb_eval, train_lora
 from grooveback.cli.train_lora import ignore_stop_signals, train
 
 SR = 44_100
@@ -251,16 +252,17 @@ def test_the_last_and_the_best_listening_packs_are_restored_with_their_own_weigh
 ):
     """checkpoint-6 is the last and checkpoint-4 the best. The tiny model's random
     decoder returns the same audio for any latents, so the packs cannot tell the
-    two models apart; the weights each restore runs with can."""
+    two models apart; the weights the model holds as each pack is written can."""
     monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
-    restored_with = []
-    restore = gt.restore
+    weights_by_pack = {}
+    write_listening_window = train_lora.write_listening_window
 
-    def recording_restore(model, mp3, **settings):
-        restored_with.append({name: t.clone() for name, t in gt._trainable_state(model).items()})
-        return restore(model, mp3, **settings)
+    def recording_window(model, dataset, out_dir, **settings):
+        weights = {name: tensor.clone() for name, tensor in gt._trainable_state(model).items()}
+        weights_by_pack[out_dir.parent.name] = weights
+        write_listening_window(model, dataset, out_dir, **settings)
 
-    monkeypatch.setattr(gt, "restore", recording_restore)
+    monkeypatch.setattr(train_lora, "write_listening_window", recording_window)
     write_song(tmp_path / "train", "a", seconds=2.0, bitrates=[24, 32], seed=0)
     write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
 
@@ -268,14 +270,30 @@ def test_the_last_and_the_best_listening_packs_are_restored_with_their_own_weigh
         train(config(tmp_path, "num_train_epochs=3"))
 
     torch.testing.assert_close(
-        restored_with,
-        [
-            load_file(tmp_path / "run" / "checkpoint-6" / "lora.safetensors"),
-            load_file(tmp_path / "run" / "checkpoint-4" / "lora.safetensors"),
-        ],
+        weights_by_pack,
+        {
+            "checkpoint-6": load_file(tmp_path / "run" / "checkpoint-6" / "lora.safetensors"),
+            "checkpoint-4": load_file(tmp_path / "run" / "checkpoint-4" / "lora.safetensors"),
+        },
         rtol=0,
         atol=0,
     )
+
+
+def test_a_run_whose_validation_losses_are_all_nan_keeps_its_last_checkpoint(
+    tmp_path, monkeypatch, tiny_checkpoint
+):
+    """A NaN is never below another loss, so a diverged run has no best checkpoint.
+    It must still end with its last one and that one's listening pack."""
+    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
+    write_song(tmp_path / "train", "a", seconds=2.0, bitrates=[24, 32], seed=0)
+    write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
+
+    nan = float("nan")
+    with mock.patch.object(gt, "validation_loss", autospec=True, side_effect=[1.0, nan, nan]):
+        train(config(tmp_path, "num_train_epochs=2"))
+
+    assert sorted(path.name for path in (tmp_path / "run").iterdir()) == ["checkpoint-4"]
     assert (tmp_path / "run" / "checkpoint-4" / "listen" / "restored.flac").is_file()
 
 
@@ -303,6 +321,48 @@ def test_resume_never_deletes_the_checkpoints_of_earlier_runs(
         "checkpoint-2",
         "checkpoint-6",
     ]
+
+
+def test_resume_from_the_best_refuses_a_save_dir_holding_a_later_checkpoint(
+    tmp_path, monkeypatch, tiny_checkpoint
+):
+    """The first run keeps checkpoint-4, its best, and checkpoint-6, its last.
+    Resumed from checkpoint-4 in the same save_dir, a run would write its own
+    checkpoint-6 over the first run's, then could delete it."""
+    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
+    write_song(tmp_path / "train", "a", seconds=2.0, bitrates=[24, 32], seed=0)
+    write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
+    with mock.patch.object(gt, "validation_loss", autospec=True, side_effect=[1.0, 0.5, 0.3, 0.4]):
+        train(config(tmp_path, "num_train_epochs=3"))
+    last = tmp_path / "run" / "checkpoint-6" / "lora.safetensors"
+    before = hashlib.sha256(last.read_bytes()).hexdigest()
+
+    with pytest.raises(ValueError, match="already holds checkpoint-6"):
+        train(
+            config(
+                tmp_path,
+                "num_train_epochs=5",
+                f"resume_from_checkpoint={tmp_path / 'run' / 'checkpoint-4'}",
+            )
+        )
+
+    assert hashlib.sha256(last.read_bytes()).hexdigest() == before
+
+
+def test_a_fresh_run_refuses_a_save_dir_that_holds_checkpoints(
+    tmp_path, monkeypatch, tiny_checkpoint
+):
+    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
+    write_song(tmp_path / "train", "a", seconds=2.0, bitrates=[24, 32], seed=0)
+    write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
+    train(config(tmp_path))
+    earlier = tmp_path / "run" / "checkpoint-2" / "lora.safetensors"
+    before = hashlib.sha256(earlier.read_bytes()).hexdigest()
+
+    with pytest.raises(ValueError, match="already holds checkpoint-2"):
+        train(config(tmp_path))
+
+    assert hashlib.sha256(earlier.read_bytes()).hexdigest() == before
 
 
 @pytest.mark.parametrize("signum", [signal.SIGINT, signal.SIGTERM], ids=["SIGINT", "SIGTERM"])
