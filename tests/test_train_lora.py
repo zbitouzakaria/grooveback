@@ -9,6 +9,7 @@ import numpy as np
 import pytest
 import torch
 from hydra import compose, initialize_config_dir
+from safetensors.torch import load_file
 
 from grooveback import audio as ga
 from grooveback import training as gt
@@ -88,7 +89,8 @@ def test_one_epoch_writes_weights_optimizer_state_and_a_listening_pack(
 
 
 def test_remix_training_runs_epochs_of_epoch_windows_items(tmp_path, monkeypatch, tiny_checkpoint):
-    """4 items at batch 2 make 2 steps an epoch, so 2 epochs end at checkpoint-4.
+    """4 items at batch 2 make 2 steps an epoch, so 2 epochs end at checkpoint-4,
+    which is kept as the last; checkpoint-2 stays only if it is the best.
     In-process loading: workers spawned on macOS would not see the codec stand-in."""
     monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
     monkeypatch.setattr(musdb_eval, "codec_simu", lambda clip, kbps: 0.5 * clip)
@@ -106,10 +108,9 @@ def test_remix_training_runs_epochs_of_epoch_windows_items(tmp_path, monkeypatch
         )
     )
 
-    assert sorted(path.name for path in (tmp_path / "run").iterdir()) == [
-        "checkpoint-2",
-        "checkpoint-4",
-    ]
+    names = {path.name for path in (tmp_path / "run").iterdir()}
+    assert "checkpoint-4" in names
+    assert names <= {"checkpoint-2", "checkpoint-4"}
 
 
 def test_remix_training_steps_on_windows_of_window_seconds(tmp_path, monkeypatch, tiny_checkpoint):
@@ -212,6 +213,83 @@ def test_time_budget_stops_after_the_epoch_that_crosses_it(tmp_path, monkeypatch
 
     assert sorted(path.name for path in (tmp_path / "run").iterdir()) == ["checkpoint-2"]
     assert (tmp_path / "run" / "checkpoint-2" / "listen" / "restored.flac").is_file()
+
+
+def test_keeps_only_the_checkpoint_with_the_lowest_validation_loss_and_the_last(
+    tmp_path, monkeypatch, tiny_checkpoint
+):
+    """Validation losses of 1.0 untrained, then 0.5, 0.3 and 0.4 after three
+    epochs of 2 steps: checkpoint-4 is the best, checkpoint-6 the last."""
+    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
+    write_song(tmp_path / "train", "a", seconds=2.0, bitrates=[24, 32], seed=0)
+    write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
+
+    with mock.patch.object(gt, "validation_loss", autospec=True, side_effect=[1.0, 0.5, 0.3, 0.4]):
+        train(config(tmp_path, "num_train_epochs=3"))
+
+    assert sorted(path.name for path in (tmp_path / "run").iterdir()) == [
+        "checkpoint-4",
+        "checkpoint-6",
+    ]
+
+
+def test_the_last_and_the_best_listening_packs_are_restored_with_their_own_weights(
+    tmp_path, monkeypatch, tiny_checkpoint
+):
+    """checkpoint-6 is the last and checkpoint-4 the best. The tiny model's random
+    decoder returns the same audio for any latents, so the packs cannot tell the
+    two models apart; the weights each restore runs with can."""
+    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
+    restored_with = []
+    restore = gt.restore
+
+    def recording_restore(model, mp3, **settings):
+        restored_with.append({name: t.clone() for name, t in gt._trainable_state(model).items()})
+        return restore(model, mp3, **settings)
+
+    monkeypatch.setattr(gt, "restore", recording_restore)
+    write_song(tmp_path / "train", "a", seconds=2.0, bitrates=[24, 32], seed=0)
+    write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
+
+    with mock.patch.object(gt, "validation_loss", autospec=True, side_effect=[1.0, 0.5, 0.3, 0.4]):
+        train(config(tmp_path, "num_train_epochs=3"))
+
+    torch.testing.assert_close(
+        restored_with,
+        [
+            load_file(tmp_path / "run" / "checkpoint-6" / "lora.safetensors"),
+            load_file(tmp_path / "run" / "checkpoint-4" / "lora.safetensors"),
+        ],
+        rtol=0,
+        atol=0,
+    )
+    assert (tmp_path / "run" / "checkpoint-4" / "listen" / "restored.flac").is_file()
+
+
+def test_resume_never_deletes_the_checkpoints_of_earlier_runs(
+    tmp_path, monkeypatch, tiny_checkpoint
+):
+    """The resumed run's losses, 0.6 then 0.4, make its checkpoint-6 both its best
+    and its last, so its checkpoint-4 is deleted. checkpoint-2, written by the
+    first run, is neither for the resumed run and stays."""
+    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
+    write_song(tmp_path / "train", "a", seconds=2.0, bitrates=[24, 32], seed=0)
+    write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
+    train(config(tmp_path))
+
+    with mock.patch.object(gt, "validation_loss", autospec=True, side_effect=[0.6, 0.4]):
+        train(
+            config(
+                tmp_path,
+                "num_train_epochs=3",
+                f"resume_from_checkpoint={tmp_path / 'run' / 'checkpoint-2'}",
+            )
+        )
+
+    assert sorted(path.name for path in (tmp_path / "run").iterdir()) == [
+        "checkpoint-2",
+        "checkpoint-6",
+    ]
 
 
 def test_resume_continues_from_the_checkpoint_with_the_new_learning_rate(

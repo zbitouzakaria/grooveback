@@ -9,7 +9,7 @@ remix_dir: null           # MUSDB18-HQ songs, {song}/{mixture,bass,drums,other,v
 epoch_windows: 1884       # remix_dir: items per epoch, the 86 songs' prepared windows: 235 steps of 8
 num_workers: 8            # remix_dir: CPU processes building remixes while the GPU trains
 valid_dir: ???
-save_dir: ???             # checkpoint-{step}/ lands here after every epoch
+save_dir: ???             # checkpoint-{step}/ after every epoch; the best and the last are kept
 mlflow_db: artifacts/mlflow.db   # local MLflow store: losses per epoch and per step
 log_system_metrics: true  # GPU/CPU utilisation, memory and power in MLflow, one mean per minute
 # Each training window is drawn at one of these, uniformly, every epoch; each validation
@@ -33,7 +33,7 @@ seed: 0
 
 inpaint_mask_value: 0.0   # 0 = nothing given, generate every frame (upstream's convention)
 validation_timesteps: [0.1, 0.3, 0.5, 0.7, 0.9]
-sample_steps: 50          # sampling steps for the last checkpoint's listening window
+sample_steps: 50          # sampling steps for the best and last checkpoints' listening windows
 log_every: 10             # steps between batch_loss / seconds_per_step points
 
 # Continue from .../checkpoint-{step}: weights, Adam's averages, step and epoch.

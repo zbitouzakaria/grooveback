@@ -17,10 +17,13 @@ the training and the validation data is refused.
 
 After
 every epoch the run writes `save_dir/checkpoint-{step}/`: the trained weights
-(`lora.safetensors`) and the optimizer state (`state.pt`). The last checkpoint
-also gets a level-matched listening pack (`listen/`): one restored validation
-window next to its original, its MP3, and the original's own round trip
-through the autoencoder.
+(`lora.safetensors`) and the optimizer state (`state.pt`). Of the checkpoints
+it writes, it keeps two, the one with the lowest validation loss and the last,
+and deletes the others: on medium-base each is about 1 GB. Checkpoints of
+earlier runs, such as the one a run resumes from, are never deleted. At the
+end, the best and the last checkpoint each get a level-matched listening pack
+(`listen/`): one restored validation window next to its original, its MP3,
+and the original's own round trip through the autoencoder.
 
 MLflow (`mlflow_db`) gets the losses per epoch (epoch 0 = before training),
 the batch loss and seconds per step every `log_every` steps, peak GPU memory
@@ -32,6 +35,7 @@ per epoch, and GPU/CPU system metrics once a minute. Browse them with
 from __future__ import annotations
 
 import os
+import shutil
 import time
 from pathlib import Path
 
@@ -175,7 +179,8 @@ def train(cfg: DictConfig) -> None:
             mlflow.log_metric("validation_loss", baseline, step=0)
 
         started = time.perf_counter()
-        directory = None
+        # This run's checkpoint with the lowest validation loss, and its last one.
+        best, best_loss, last = None, float("inf"), None
         for epoch in range(start_epoch, cfg.num_train_epochs):
             # A fixed seed per epoch, so a resumed run shuffles like an uninterrupted one.
             loader = torch.utils.data.DataLoader(
@@ -241,6 +246,14 @@ def train(cfg: DictConfig) -> None:
                 directory, model, optimizer, config=lora_config, step=step, epoch=epoch + 1
             )
             print(f"wrote {directory}", flush=True)
+            # Only the best and the last of this run's checkpoints are kept, and a checkpoint
+            # is deleted only once a newer one has been written in full.
+            stale = {best, last}
+            if valid < best_loss:
+                best, best_loss = directory, valid
+            last = directory
+            for old in stale - {best, last, None}:
+                shutil.rmtree(old)
             if cfg.max_train_minutes is not None and (
                 time.perf_counter() - started >= 60 * cfg.max_train_minutes
             ):
@@ -250,9 +263,9 @@ def train(cfg: DictConfig) -> None:
                 )
                 break
 
-        # One listening window for the last checkpoint: on medium-base each render
-        # costs about 30 s, too much to repeat after every short epoch.
-        if directory is not None:
+        # Listening windows for the last and the best checkpoint, once at the end: on
+        # medium-base each render costs about 30 s, too much to repeat after every epoch.
+        def listen(directory: Path) -> None:
             write_listening_window(
                 model,
                 valid_set,
@@ -261,6 +274,13 @@ def train(cfg: DictConfig) -> None:
                 steps=cfg.sample_steps,
                 inpaint_mask_value=cfg.inpaint_mask_value,
             )
+
+        if last is not None:
+            listen(last)
+            if best != last:
+                gt.load_lora_weights(model, best / "lora.safetensors", config=lora_config)
+                listen(best)
+            print(f"best {best} (validation loss {best_loss:.4f}), last {last}", flush=True)
 
 
 @hydra.main(config_path="../../../configs", config_name="train_lora", version_base=None)
