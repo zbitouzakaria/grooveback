@@ -4,13 +4,16 @@ The real models need gated checkpoints and a GPU, so recording fakes stand
 in; the contract under test is ours, not the model authors'.
 """
 
+from unittest.mock import Mock
+
 import numpy as np
 import pytest
 import torch
 
 from grooveback import latents as gl
+from grooveback import training as gt
 from grooveback.audio import loudness
-from grooveback.solvers import SDEDIT_MAX_SECONDS, latent_sub, roundtrip, sdedit
+from grooveback.solvers import SDEDIT_MAX_SECONDS, latent_sub, lora, roundtrip, sdedit
 
 SR = 44_100
 
@@ -355,3 +358,34 @@ def test_latent_sub_refuses_damage_from_another_autoencoder(monkeypatch):
     with pytest.raises(ValueError, match="different autoencoder"):
         latent_sub(object(), audio, SR, ae=ae, damage=np.zeros(128, dtype=np.float32))
     assert codec.decodes == []
+
+
+def test_lora_returns_the_input_length_at_the_input_loudness(
+    tmp_path, monkeypatch, tiny_checkpoint
+):
+    """A saved checkpoint of the tiny SA3 (tests/conftest.py), reloaded and run
+    on 1 s of noise: 44_100 samples are 689 frames of 64, so the solver pads
+    the last 4 samples. The tolerance covers float32 rounding of the gain."""
+    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
+    trained = gt.load_model("small-music-base", device=torch.device("cpu"))
+    optimizer = torch.optim.AdamW(gt.add_lora(trained, gt.lora_config(rank=4, lora_alpha=4)))
+    gt.save_checkpoint(tmp_path, trained, optimizer, config=gt.lora_config(rank=4, lora_alpha=4),
+                       step=1, epoch=1)
+    model = gt.load_trained_model("small-music-base", tmp_path, device=torch.device("cpu"))
+    audio = np.random.default_rng(0).uniform(-0.5, 0.5, size=(2, 44_100)).astype(np.float32)
+
+    out = lora(model, audio, SR, steps=2, inpaint_mask_value=0.0)
+
+    assert out.shape == (2, 44_100)
+    np.testing.assert_array_equal(out[:, 44_096:], 0.0)
+    assert loudness(out, SR) == pytest.approx(loudness(audio, SR), abs=0.01)
+
+
+def test_lora_rejects_input_longer_than_the_cap_before_encoding():
+    model = Mock()
+    model.sample_rate = SR
+    n = int(SDEDIT_MAX_SECONDS * SR) + SR  # one second past the cap
+
+    with pytest.raises(ValueError, match="whole files up to"):
+        lora(model, np.zeros((2, n), dtype=np.float32), SR, steps=8, inpaint_mask_value=0.0)
+    model.pretransform.encode.assert_not_called()
