@@ -28,7 +28,7 @@ Not exactly. The information is gone, so any restorer has to make up the missing
 
 So the plan is to take [Stable Audio 3](#ref-sa3), an open music generator, and fine-tune it on my own library (about 215 hours). That fine-tuned model we call the *prior*. It only ever hears clean music, never an MP3. A separate *solver* then uses the prior to find a clean track that's consistent with the rip.
 
-I haven't trained the prior yet. Before doing that I wanted to know what's already out there, and how well the open methods actually do. Then, as a first step, I fine-tuned Stable Audio 3 directly on MP3/clean pairs ([below](#a-lora-fine-tune-of-stable-audio-3)).
+Before training anything, I wanted to know what's already out there, and how well the open methods actually do. Then I ran a first fine-tune of Stable Audio 3, with a LoRA ([below](#a-lora-fine-tune-of-stable-audio-3)). It isn't that prior: it trains on MP3/clean pairs from MUSDB18-HQ, so it learns the damage directly, the way Apollo does.
 
 ## Related work
 
