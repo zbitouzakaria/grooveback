@@ -222,7 +222,7 @@ PAGE = """<!doctype html>
 <body>
 <h1>grooveback listening — {name}</h1>
 <p class="note">Every track is level-matched to −14 LUFS with one common headroom gain per
-player, master included. Solo is exclusive: keys 1–9 or a click switch tracks in place.
+player, master included. Keys 1–9 or a click switch tracks in place.
 Space plays, R toggles repeat, loop a section with the loop controls or A/B/L.</p>
 {sections}
 <script>
