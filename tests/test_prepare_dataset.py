@@ -35,15 +35,17 @@ def test_writes_the_original_unchanged(tmp_path, monkeypatch):
     np.testing.assert_array_equal(ga.load(tmp_path / "out" / "song" / "original.wav")[0], track)
 
 
-@pytest.mark.parametrize("kbps", [24, 128])
-def test_writes_the_codec_output_at_each_bitrate(tmp_path, monkeypatch, kbps):
-    monkeypatch.setattr(prepare_dataset, "codec_simu", lambda clip, kbps: 0.5 * clip)
+def test_writes_each_bitrate_from_the_codec_at_that_bitrate(tmp_path, monkeypatch):
+    """The stand-in scales by kbps / 256, so each file shows the bitrate it was coded at."""
+    monkeypatch.setattr(prepare_dataset, "codec_simu", lambda clip, kbps: clip * (kbps / 256))
     track = write_track(tmp_path / "wav" / "song.wav", seconds=3.0, seed=0)
 
     prepare_dataset.main([str(tmp_path / "wav"), str(tmp_path / "out"), "--kbps", "24", "128"])
 
-    mp3, _ = ga.load(tmp_path / "out" / "song" / f"{kbps}k.wav")
-    np.testing.assert_array_equal(mp3, 0.5 * track)
+    low, _ = ga.load(tmp_path / "out" / "song" / "24k.wav")
+    high, _ = ga.load(tmp_path / "out" / "song" / "128k.wav")
+    np.testing.assert_array_equal(low, 0.09375 * track)  # 24 / 256
+    np.testing.assert_array_equal(high, 0.5 * track)  # 128 / 256
 
 
 def test_refuses_an_mp3_that_is_one_sample_late(tmp_path, monkeypatch):
