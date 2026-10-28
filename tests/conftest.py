@@ -39,7 +39,9 @@ def _same(decoder: bool) -> dict:
 # Stable Audio 3's base config with every size shrunk: SAME's patch of 16
 # samples times its stride of 4 makes 64 samples per latent frame, 8 latent
 # channels, a 2-block transformer, and a number conditioner in place of the
-# gated T5Gemma text encoder.
+# gated T5Gemma text encoder. The stable-audio-3 repo ships no config of its
+# own; the original is small-music-base's, on Hugging Face:
+# https://huggingface.co/stabilityai/stable-audio-3-small-music-base/blob/main/model_config.json
 TINY_SA3 = {
     "model_type": "diffusion_cond_inpaint",
     "sample_size": 4 * 44_100,

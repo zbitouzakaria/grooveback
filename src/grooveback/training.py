@@ -31,8 +31,6 @@ import torch
 import torch.nn.functional as F
 from safetensors.torch import load_file, save_file
 
-from grooveback import audio as ga
-
 MP3_INPUT = "mp3_latents"
 """Conditioning id of the new per-frame input that carries the MP3."""
 
@@ -156,101 +154,6 @@ def encode(model, audio: np.ndarray) -> torch.Tensor:
     return model.pretransform.encode(batch)[0]
 
 
-# --- The data ----------------------------------------------------------------
-
-
-class LatentPairDataset(torch.utils.data.Dataset):
-    """Aligned windows of clean and MP3 latents, one item per window.
-
-    Reads the layout `scripts/prepare_dataset.py` writes, `{song}/original.wav`
-    and `{song}/{kbps}k.wav`, encodes every file once and keeps the latents on
-    the model's device. Windows do not overlap: a 4-minute song holds 24
-    windows of 107 frames.
-
-    An item's MP3 bitrate is drawn at random, uniformly over `bitrates`, every
-    time it is read, so each epoch sees every window once at a fresh bitrate.
-    With `bitrates_file` (validation) each window keeps one bitrate instead,
-    drawn once and stored there (see `fixed_bitrates`).
-    """
-
-    def __init__(
-        self,
-        data_dir: str | Path,
-        model,
-        *,
-        bitrates: list[int],
-        window_frames: int,
-        bitrates_file: Path | None = None,
-    ):
-        self.window_frames = window_frames
-        self.bitrates = bitrates
-        self.songs = sorted(path for path in Path(data_dir).iterdir() if path.is_dir())
-        if not self.songs:
-            raise FileNotFoundError(f"No song folders in {data_dir}.")
-        self.clean: dict[str, torch.Tensor] = {}
-        self.mp3: dict[tuple[str, int], torch.Tensor] = {}
-        self.windows: list[tuple[str, int]] = []
-        for song in self.songs:
-            original, sample_rate = ga.load(song / "original.wav")
-            if sample_rate != model.sample_rate:
-                raise ValueError(
-                    f"{song.name}: {sample_rate} Hz, the model needs {model.sample_rate}."
-                )
-            self.clean[song.name] = encode(model, original)
-            for kbps in bitrates:
-                mp3, _ = ga.load(song / f"{kbps}k.wav")
-                if mp3.shape != original.shape:
-                    raise ValueError(f"{song.name}: {kbps}k.wav is not the original's length.")
-                self.mp3[(song.name, kbps)] = encode(model, mp3)
-            # Whole frames of real audio, not the encoder's padding past the end.
-            frames = original.shape[-1] // model.pretransform.downsampling_ratio
-            starts = range(0, frames - window_frames + 1, window_frames)
-            self.windows += [(song.name, start) for start in starts]
-        self.fixed = (
-            None
-            if bitrates_file is None
-            else fixed_bitrates(bitrates_file, self.windows, bitrates=bitrates)
-        )
-
-    def __len__(self) -> int:
-        return len(self.windows)
-
-    def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
-        """Clean and MP3 latents of one window, both (256, 107)."""
-        song, start = self.windows[index]
-        if self.fixed is None:
-            kbps = self.bitrates[int(torch.randint(len(self.bitrates), ()))]
-        else:
-            kbps = self.fixed[index]
-        window = slice(start, start + self.window_frames)
-        return self.clean[song][:, window], self.mp3[(song, kbps)][:, window]
-
-
-def fixed_bitrates(path: Path, windows: list[tuple[str, int]], *, bitrates: list[int]) -> list[int]:
-    """One MP3 bitrate per window, drawn once and stored in `path`.
-
-    Validation scores the same (window, bitrate) pairs on every run, so the
-    draw is written on first use and read back after. A stored draw for other
-    windows (a new window length, say) or from another bitrate list is refused
-    rather than redrawn: a draw from [24, 32] would otherwise quietly limit a
-    six-bitrate run's validation to its two hardest bitrates.
-    """
-    if path.exists():
-        stored = json.loads(path.read_text())
-        if [tuple(window) for window in stored["windows"]] != windows:
-            raise ValueError(f"{path} was drawn for other windows; delete it to draw again.")
-        if stored["drawn_from"] != bitrates:
-            raise ValueError(
-                f"{path} was drawn from {stored['drawn_from']}, not {bitrates}; "
-                "delete it to draw again."
-            )
-        return stored["bitrates"]
-    rng = np.random.default_rng(0)
-    drawn = [int(kbps) for kbps in rng.choice(bitrates, size=len(windows))]
-    path.write_text(json.dumps({"drawn_from": bitrates, "windows": windows, "bitrates": drawn}))
-    return drawn
-
-
 # --- One step ----------------------------------------------------------------
 
 
@@ -312,7 +215,7 @@ def training_step(
 @torch.no_grad()
 def validation_loss(
     model,
-    dataset: LatentPairDataset,
+    dataset: torch.utils.data.Dataset,
     *,
     timesteps: list[float],
     batch_size: int,
@@ -340,11 +243,20 @@ def validation_loss(
 
 
 @torch.no_grad()
-def restore(model, mp3: torch.Tensor, *, steps: int, inpaint_mask_value: float) -> np.ndarray:
+def restore(
+    model,
+    mp3: torch.Tensor,
+    *,
+    steps: int,
+    inpaint_mask_value: float,
+    sampler_type: str = "euler",
+) -> np.ndarray:
     """Generate the clean version of one window of MP3 latents, as audio.
 
     mp3 (256, 107) -> audio (2, 438_272): 107 frames of 4096 samples, starting
-    from seeded noise and denoising in `steps` steps with SA3's own sampler.
+    from seeded noise and denoising in `steps` steps with one of SA3's samplers
+    for rectified flow. "euler" (SA3's default) and "dpmpp" call the model once
+    per step, "rk4" four times; all three are deterministic given the noise.
     """
     from stable_audio_3.inference.sampling import sample_diffusion
 
@@ -363,6 +275,7 @@ def restore(model, mp3: torch.Tensor, *, steps: int, inpaint_mask_value: float) 
         pretransform=model.pretransform,
         padding_mask=torch.ones(1, frames, dtype=torch.bool, device=device),
         dist_shift=model.sampling_dist_shift,
+        sampler_type=sampler_type,
         disable_tqdm=True,
     )
     return audio[0].float().cpu().numpy()

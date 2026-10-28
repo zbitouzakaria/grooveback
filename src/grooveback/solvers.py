@@ -165,15 +165,25 @@ def sdedit(
     return _match_input_loudness(out, audio, sample_rate)
 
 
-def lora(model, audio: np.ndarray, sample_rate: int, *, steps: int, inpaint_mask_value: float):
+def lora(
+    model,
+    audio: np.ndarray,
+    sample_rate: int,
+    *,
+    steps: int,
+    inpaint_mask_value: float,
+    sampler_type: str = "euler",
+):
     """Restore a whole file with the LoRA fine-tune: its MP3 latents condition
-    one sampling run from noise (`grooveback.training.restore`).
+    one sampling run from noise (`grooveback.training.restore`), with one of
+    SA3's samplers.
 
-    The model works in whole latent frames, so the last partial frame comes
-    back as silence: a 6 s file, 264_600 samples, is 64 frames of 4096, and
-    its last 2_456 samples (56 ms) are zeros. Whole files go in one call, up
-    to SDEdit's six-minute ceiling, for the same `seconds_total` reason. The
-    LoRA itself only trained on 10 s windows.
+    The model works in whole latent frames, so the encoder pads the file to
+    one: a 6 s file, 264_600 samples, is 64 frames of 4096 and 2_456 samples,
+    which the 65th frame holds next to 1_640 samples of padding. The padding is
+    cut from the output. Whole files go in one call, up to SDEdit's six-minute
+    ceiling, for the same `seconds_total` reason. The LoRA itself only trained
+    on 10 s windows.
     """
     if sample_rate != model.sample_rate:
         raise ValueError(f"The LoRA model expects {model.sample_rate} Hz, got {sample_rate} Hz.")
@@ -183,8 +193,13 @@ def lora(model, audio: np.ndarray, sample_rate: int, *, steps: int, inpaint_mask
             f"Input is {seconds:.1f} s; this solver takes whole files up to "
             f"{SDEDIT_MAX_SECONDS:.0f} s. Cut the file first."
         )
-    frames = audio.shape[-1] // model.pretransform.downsampling_ratio
-    latents = gt.encode(model, audio)[:, :frames]
-    out = gt.restore(model, latents, steps=steps, inpaint_mask_value=inpaint_mask_value)
+    latents = gt.encode(model, audio)
+    out = gt.restore(
+        model,
+        latents,
+        steps=steps,
+        inpaint_mask_value=inpaint_mask_value,
+        sampler_type=sampler_type,
+    )
     out = _fit_to_input(out, audio.shape[-1])
     return _match_input_loudness(out, audio, sample_rate)

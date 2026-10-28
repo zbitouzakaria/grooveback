@@ -2,7 +2,7 @@
 
 **Restoring records that only survive as MP3, AAC or Opus rips.**
 
-[**Listen to the results**](https://zbitouzakaria.github.io/grooveback/listen/) — clean tracks, their MP3 copies, and the restorations discussed below.
+[**Listen to the results**](https://zbitouzakaria.github.io/grooveback/lora/) — Stable Audio 3 fine-tuned with a LoRA to restore MP3s, next to Apollo, on the MUSDB18-HQ test songs. It's an initial run, and I'm now iterating on data augmentation and training strategies. The [earlier listening sets](https://zbitouzakaria.github.io/grooveback/listen/) have every open method on two tracks.
 
 As a DJ and record collector, I keep hitting the same wall: a lot of the records I love only exist online as YouTube rips. Somebody played their copy on whatever turntable setup they had, saved it as a 128 or 192 kbps MP3, and uploaded it. Then YouTube re-encoded it to AAC or Opus. On laptop speakers you'd never notice. On a proper system you do: the drums lose their snap, the cymbals stop shimmering, and the track sounds flat and tired next to everything else in the set.
 
@@ -28,7 +28,7 @@ Not exactly. The information is gone, so any restorer has to make up the missing
 
 So the plan is to take [Stable Audio 3](#ref-sa3), an open music generator, and fine-tune it on my own library (about 215 hours). That fine-tuned model we call the *prior*. It only ever hears clean music, never an MP3. A separate *solver* then uses the prior to find a clean track that's consistent with the rip.
 
-I haven't trained the prior yet. Before doing that I wanted to know what's already out there, and how well the open methods actually do.
+Before training anything, I wanted to know what's already out there, and how well the open methods actually do. Then I made a first attempt at the prior: a LoRA fine-tune of Stable Audio 3 ([below](#a-lora-fine-tune-of-stable-audio-3)). I'm now working on other training strategies and on augmenting the dataset.
 
 ## Related work
 
@@ -90,7 +90,7 @@ Out of curiosity I also scored the untouched MP3 against the master (the grey li
 
 ## My experiments so far
 
-Everything above either learns MP3 damage from paired data or only fills in the top band. My experiments test the route the plan depends on: restoring with models that have only ever heard clean music.
+Everything above either learns MP3 damage from paired data or only fills in the top band. My first experiments test the route the plan depends on: restoring with models that have only ever heard clean music. The last one teaches Stable Audio 3 the damage directly.
 
 ### SDEdit with Stable Audio 3
 
@@ -103,6 +103,14 @@ It doesn't. To the model, music without a top band is still perfectly plausible 
 An autoencoder compresses audio into a much smaller latent and rebuilds it from there. If it has only seen clean music, maybe it rebuilds a damaged input as clean music and loses some of the damage on the way. I tried four open music autoencoders, both on the raw MP3 and on Apollo's output.
 
 On the MP3 alone, εar-VAE and εar-VAE2 land at about 10.5 dB and 8.2 dB SDR regardless of bitrate. On top of Apollo, εar-VAE only helped at 32 kbps, where it smooths things out. At 64 and 128 kbps it made Apollo sound worse, and all four metrics put the chain below Apollo alone at every bitrate. One caveat: my listening isn't blind yet, so I knew which version I was hearing.
+
+### A LoRA fine-tune of Stable Audio 3
+
+Neither SDEdit nor the round trips remove the damage, so the next step was to show Stable Audio 3 what the damage is. I fine-tuned its medium checkpoint with a LoRA on MP3/clean pairs. The MP3's latents enter through a new input in every transformer block, and the model learns to generate the clean latents from them. Like Apollo, it trains on fresh windows of the 86 MUSDB18-HQ training songs and on remixes of their stems, each coded as MP3 at a random bitrate. This first run trained for 5 hours on one GPU.
+
+Apollo still wins. On all 3,677 test clips it scores above the LoRA on all four metrics, at every bitrate. The LoRA does fill the band the MP3 lost above the codec's cutoff, so it beats the untouched MP3 on LSD, but on the waveform metrics it stays below the MP3.
+
+The [listening page](https://zbitouzakaria.github.io/grooveback/lora/) compares it with Apollo on all 3,677 test clips: the scores per bitrate, and the clips where each model does best and worst. It's an initial run, and I'm now iterating on data augmentation and training strategies.
 
 Each experiment is written up in full, with the evidence, in [`docs/decisions/`](docs/decisions).
 
@@ -128,7 +136,7 @@ There's also a smaller benchmark that restores one excerpt per track at 32, 64 a
 uv run python scripts/run_xp.py device=cuda
 ```
 
-The library lives in `src/grooveback`, the scripts that run the models and build the listening page are in `scripts/`, and the page itself is in `docs/listen/`. A2SB and AudioSR pin dependency versions that clash with this project's, so each one gets its own environment. [`.claude/rules/environment.md`](.claude/rules/environment.md) explains how to set them up and which jobs need a rented GPU.
+The library lives in `src/grooveback`, the scripts that run the models and build the listening pages are in `scripts/`, and the pages themselves are in `docs/lora/` and `docs/listen/`. A2SB and AudioSR pin dependency versions that clash with this project's, so each one gets its own environment. [`.claude/rules/environment.md`](.claude/rules/environment.md) explains how to set them up and which jobs need a rented GPU.
 
 ## References
 
