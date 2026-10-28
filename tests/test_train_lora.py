@@ -1,6 +1,8 @@
 """The fine-tune entry point, run end to end on a tiny Stable Audio 3
 (tests/conftest.py) through the real config file."""
 
+import os
+import signal
 from pathlib import Path
 from unittest import mock
 
@@ -14,10 +16,20 @@ from safetensors.torch import load_file
 from grooveback import audio as ga
 from grooveback import training as gt
 from grooveback.cli import musdb_eval
-from grooveback.cli.train_lora import train
+from grooveback.cli.train_lora import ignore_sigint, train
 
 SR = 44_100
 CONFIGS = Path(__file__).resolve().parents[1] / "configs"
+
+
+class WorkerPids(torch.utils.data.Dataset):
+    """Eight items, each the pid of the DataLoader worker process that built it."""
+
+    def __len__(self):
+        return 8
+
+    def __getitem__(self, index):
+        return os.getpid()
 
 
 def write_song(root, name, *, seconds, bitrates, seed):
@@ -290,6 +302,113 @@ def test_resume_never_deletes_the_checkpoints_of_earlier_runs(
         "checkpoint-2",
         "checkpoint-6",
     ]
+
+
+@pytest.mark.parametrize("signum", [signal.SIGINT, signal.SIGTERM], ids=["SIGINT", "SIGTERM"])
+def test_a_stop_signal_mid_epoch_saves_a_checkpoint_after_the_current_step(
+    tmp_path, monkeypatch, tiny_checkpoint, signum
+):
+    """An epoch is 2 steps here, and the signal arrives during the first."""
+    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
+    training_step = gt.training_step
+
+    def signalling_step(model, clean, *, mp3, inpaint_mask_value):
+        signal.raise_signal(signum)
+        return training_step(model, clean, mp3=mp3, inpaint_mask_value=inpaint_mask_value)
+
+    monkeypatch.setattr(gt, "training_step", signalling_step)
+    write_song(tmp_path / "train", "a", seconds=2.0, bitrates=[24, 32], seed=0)
+    write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
+
+    train(config(tmp_path))
+
+    assert sorted(path.name for path in (tmp_path / "run").iterdir()) == ["checkpoint-1"]
+
+
+def test_a_checkpoint_saved_mid_epoch_counts_that_epoch_as_unfinished(
+    tmp_path, monkeypatch, tiny_checkpoint
+):
+    """Step 1 of a 2-step epoch, with 0 epochs done, so a run resumed from it
+    starts the epoch over."""
+    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
+    training_step = gt.training_step
+
+    def signalling_step(model, clean, *, mp3, inpaint_mask_value):
+        signal.raise_signal(signal.SIGINT)
+        return training_step(model, clean, mp3=mp3, inpaint_mask_value=inpaint_mask_value)
+
+    monkeypatch.setattr(gt, "training_step", signalling_step)
+    write_song(tmp_path / "train", "a", seconds=2.0, bitrates=[24, 32], seed=0)
+    write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
+
+    train(config(tmp_path))
+
+    state = torch.load(tmp_path / "run" / "checkpoint-1" / "state.pt", weights_only=True)
+    assert (state["step"], state["epoch"]) == (1, 0)
+
+
+def test_a_stopped_run_still_writes_its_listening_pack(tmp_path, monkeypatch, tiny_checkpoint):
+    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
+    training_step = gt.training_step
+
+    def signalling_step(model, clean, *, mp3, inpaint_mask_value):
+        signal.raise_signal(signal.SIGINT)
+        return training_step(model, clean, mp3=mp3, inpaint_mask_value=inpaint_mask_value)
+
+    monkeypatch.setattr(gt, "training_step", signalling_step)
+    write_song(tmp_path / "train", "a", seconds=2.0, bitrates=[24, 32], seed=0)
+    write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
+
+    train(config(tmp_path))
+
+    assert (tmp_path / "run" / "checkpoint-1" / "listen" / "restored.flac").is_file()
+
+
+def test_a_second_stop_signal_quits_at_once_without_saving(tmp_path, monkeypatch, tiny_checkpoint):
+    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
+    training_step = gt.training_step
+
+    def signalling_step(model, clean, *, mp3, inpaint_mask_value):
+        signal.raise_signal(signal.SIGINT)
+        signal.raise_signal(signal.SIGINT)
+        return training_step(model, clean, mp3=mp3, inpaint_mask_value=inpaint_mask_value)
+
+    monkeypatch.setattr(gt, "training_step", signalling_step)
+    write_song(tmp_path / "train", "a", seconds=2.0, bitrates=[24, 32], seed=0)
+    write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
+
+    with pytest.raises(KeyboardInterrupt):
+        train(config(tmp_path))
+
+    assert not (tmp_path / "run").exists()
+
+
+def test_training_puts_back_the_signal_handlers_it_found(tmp_path, monkeypatch, tiny_checkpoint):
+    """pytest's own Ctrl-C handling, for one, must outlive a run."""
+    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
+    write_song(tmp_path / "train", "a", seconds=2.0, bitrates=[24, 32], seed=0)
+    write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
+    before = (signal.getsignal(signal.SIGINT), signal.getsignal(signal.SIGTERM))
+
+    train(config(tmp_path))
+
+    assert (signal.getsignal(signal.SIGINT), signal.getsignal(signal.SIGTERM)) == before
+
+
+def test_dataloader_workers_keep_serving_batches_after_a_ctrl_c():
+    """Ctrl-C reaches the remix workers as well as the trainer. A worker that quit
+    on it would fail the trainer's next batch, so the trainer could not save.
+    Unbatched items stay plain ints: a batched tensor would start macOS's
+    torch_shm_manager, which keeps the test process from exiting."""
+    loader = torch.utils.data.DataLoader(
+        WorkerPids(), batch_size=None, num_workers=1, worker_init_fn=ignore_sigint
+    )
+    items = iter(loader)
+    worker = next(items)
+
+    os.kill(worker, signal.SIGINT)
+
+    assert len(list(items)) == 7
 
 
 def test_resume_continues_from_the_checkpoint_with_the_new_learning_rate(

@@ -25,6 +25,11 @@ end, the best and the last checkpoint each get a level-matched listening pack
 (`listen/`): one restored validation window next to its original, its MP3,
 and the original's own round trip through the autoencoder.
 
+To stop a run early, press Ctrl-C or `kill <pid>` it (SIGINT or SIGTERM): it
+finishes the current step, validates and saves it as a checkpoint, writes the
+listening packs and exits. A second signal quits at once. A checkpoint saved
+in the middle of an epoch resumes at the start of that epoch.
+
 MLflow (`mlflow_db`) gets the losses per epoch (epoch 0 = before training),
 the batch loss and seconds per step every `log_every` steps, peak GPU memory
 per epoch, and GPU/CPU system metrics once a minute. Browse them with
@@ -34,8 +39,11 @@ per epoch, and GPU/CPU system metrics once a minute. Browse them with
 
 from __future__ import annotations
 
+import contextlib
 import os
 import shutil
+import signal
+import threading
 import time
 from pathlib import Path
 
@@ -52,6 +60,42 @@ from grooveback.evaluation import write_listening_pack
 # MLflow sends usage telemetry unless this is set when it is first imported.
 os.environ.setdefault("MLFLOW_DISABLE_TELEMETRY", "true")
 import mlflow  # noqa: E402
+
+
+@contextlib.contextmanager
+def stop_on_signal():
+    """Turn the first SIGINT (Ctrl-C) or SIGTERM (`kill`) into a request to stop,
+    which the training loop reads after every step; a second signal quits at once.
+
+    Yields a `threading.Event` that is set by the first signal. The previous
+    handlers come back on exit.
+    """
+    requested = threading.Event()
+
+    def request(signum, frame):
+        if requested.is_set():
+            raise KeyboardInterrupt
+        print(
+            f"{signal.Signals(signum).name}: stopping after this step, once it is validated "
+            "and saved. Send it again to quit at once.",
+            flush=True,
+        )
+        requested.set()
+
+    sigint = signal.signal(signal.SIGINT, request)
+    sigterm = signal.signal(signal.SIGTERM, request)
+    try:
+        yield requested
+    finally:
+        signal.signal(signal.SIGINT, sigint)
+        signal.signal(signal.SIGTERM, sigterm)
+
+
+def ignore_sigint(worker_id: int) -> None:
+    """DataLoader `worker_init_fn`. Ctrl-C reaches every process the terminal runs,
+    workers included; only the trainer acts on it. A worker that quit on it would
+    fail the trainer's next batch. Workers exit with the trainer."""
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
 
 
 def write_listening_window(
@@ -168,8 +212,11 @@ def train(cfg: DictConfig) -> None:
     # their own time axis (psutil and nvidia-ml-py).
     mlflow.set_system_metrics_sampling_interval(10)
     mlflow.set_system_metrics_samples_before_logging(6)
-    with mlflow.start_run(
-        run_name=Path(cfg.save_dir).name, log_system_metrics=cfg.log_system_metrics
+    with (
+        mlflow.start_run(
+            run_name=Path(cfg.save_dir).name, log_system_metrics=cfg.log_system_metrics
+        ),
+        stop_on_signal() as stop,
     ):
         mlflow.log_params(OmegaConf.to_container(cfg, resolve=True))
         if step == 0:
@@ -182,6 +229,8 @@ def train(cfg: DictConfig) -> None:
         # This run's checkpoint with the lowest validation loss, and its last one.
         best, best_loss, last = None, float("inf"), None
         for epoch in range(start_epoch, cfg.num_train_epochs):
+            if stop.is_set():
+                break
             # A fixed seed per epoch, so a resumed run shuffles like an uninterrupted one.
             loader = torch.utils.data.DataLoader(
                 train_set,
@@ -192,6 +241,7 @@ def train(cfg: DictConfig) -> None:
                 # Remixes are built on the CPU in worker processes; prepared latents
                 # already sit on the GPU, out of the workers' reach.
                 num_workers=0 if cfg.remix_dir is None else cfg.num_workers,
+                worker_init_fn=ignore_sigint,
             )
             losses = []
             since, since_step = time.perf_counter(), step
@@ -225,7 +275,12 @@ def train(cfg: DictConfig) -> None:
                     mlflow.log_metrics(
                         {"batch_loss": loss.item(), "seconds_per_step": seconds}, step=step
                     )
+                if stop.is_set():
+                    break
 
+            # An epoch cut short by a stop is saved as unfinished, so a run resumed from
+            # its checkpoint starts that epoch over.
+            epochs_done = epoch + 1 if len(losses) == len(loader) else epoch
             valid = validate()
             print(f"epoch {epoch + 1} step {step} validation loss {valid:.4f}", flush=True)
             training = sum(losses) / len(losses)
@@ -243,7 +298,7 @@ def train(cfg: DictConfig) -> None:
                 mlflow.log_metrics(peaks, step=epoch + 1)
             directory = Path(cfg.save_dir) / f"checkpoint-{step}"
             gt.save_checkpoint(
-                directory, model, optimizer, config=lora_config, step=step, epoch=epoch + 1
+                directory, model, optimizer, config=lora_config, step=step, epoch=epochs_done
             )
             print(f"wrote {directory}", flush=True)
             # Only the best and the last of this run's checkpoints are kept, and a checkpoint
