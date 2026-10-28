@@ -143,12 +143,12 @@ CODEC_PAD = 4_096
 def load_active_tracks(
     paths: list[Path], *, window_samples: int
 ) -> list[tuple[np.ndarray, np.ndarray]]:
-    """Every 16-bit track at `paths` that has a window passing Apollo's activity
+    """Every stereo track at `paths` that has a window passing Apollo's activity
     check, with the starts of those windows that leave room for the codec pads.
 
-    One (track, starts) pair per kept file: the (2, samples) int16 audio, and the
-    starts. A track with no such window is left out: a silent stem, as in an
-    instrumental, keeps nothing.
+    One (track, starts) pair per kept file: the (2, samples) audio, kept as int16
+    whatever the file's format, and the starts. A track with no such window is
+    left out: a silent stem, as in an instrumental, keeps nothing.
     """
     import soundfile as sf
 
@@ -156,12 +156,17 @@ def load_active_tracks(
 
     tracks = []
     for path in paths:
-        audio, sample_rate = sf.read(str(path), dtype="int16", always_2d=True)
+        # Read as float, which soundfile scales from any format, then kept as 16 bits:
+        # read as int16, a float WAV's samples would all round to 0. A 16-bit file
+        # comes back exactly; a float one past full scale is clipped to it.
+        audio, sample_rate = sf.read(str(path), dtype="float32", always_2d=True)
         if sample_rate != SR:
             raise ValueError(f"{path}: {sample_rate} Hz, the codec needs {SR}.")
+        if audio.shape[1] != 2:
+            raise ValueError(f"{path} is not stereo: {audio.shape[1]} channels.")
         if audio.shape[0] < window_samples + 2 * CODEC_PAD:
             raise ValueError(f"{path} is shorter than one window and its codec pads.")
-        track = np.ascontiguousarray(audio.T)
+        track = np.round(np.clip(audio.T, -1.0, 32_767 / 32_768) * 32_768).astype(np.int16)
         starts = active_starts(track, window_samples)
         last = track.shape[-1] - window_samples - CODEC_PAD
         starts = starts[(starts >= CODEC_PAD) & (starts <= last)]

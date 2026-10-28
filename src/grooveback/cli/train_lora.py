@@ -123,12 +123,14 @@ def train(cfg: DictConfig) -> None:
     unset = [name for name, spec in sources.items() if spec.dir is None]
     if unset:
         raise ValueError(f"sources.{unset[0]}.dir is not set, though its weight is above 0.")
-    # MUSDB18-HQ's own train/ folder still holds musdb's 14 validation songs. A source's
-    # songs are the folders, or the .wav files, at the top of its dir.
+    # MUSDB18-HQ's own train/ folder still holds musdb's 14 validation songs. A song is
+    # named by any folder on the way to a file a source reads, or by the file itself:
+    # the tracks read what their glob matches, the remixes every {song}/{stem}.wav.
     songs = {
-        path.name.removesuffix(".wav")
+        part
         for spec in sources.values()
-        for path in Path(spec.dir).iterdir()
+        for path in Path(spec.dir).glob(spec.get("glob", "*/*.wav"))
+        for part in path.relative_to(spec.dir).with_suffix("").parts
     }
     shared = sorted(songs & {path.name for path in Path(cfg.valid_dir).iterdir() if path.is_dir()})
     if shared:

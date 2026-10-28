@@ -400,3 +400,26 @@ def test_track_dataset_refuses_a_glob_that_matches_no_file(tmp_path):
 
     with pytest.raises(ValueError, match="none of the 0 files"):
         gd.TrackDataset(tmp_path, glob="*/mixture.wav", bitrates=[24], window_samples=2048)
+
+
+def test_a_float_wav_track_keeps_its_level(tmp_path, monkeypatch):
+    """Read as int16, a float WAV's samples in (-1, 1) would all round to 0, and the
+    track would be dropped as silent. abs=1e-4 covers the 16-bit rounding of the
+    0.1 sine and its sampled peak."""
+    torch.manual_seed(0)
+    monkeypatch.setattr(musdb_eval, "codec_simu", HalvingCodec())
+    tone = 0.1 * np.sin(2 * np.pi * 7 * np.arange(SR) / 2048)
+    ga.save(tmp_path / "a" / "mixture.wav", np.stack([tone, tone]).astype(np.float32), SR)
+    dataset = gd.TrackDataset(tmp_path, glob="*/mixture.wav", bitrates=[24], window_samples=2048)
+
+    peaks = [float(dataset[index][0].abs().max()) for index in range(20)]
+
+    assert peaks == pytest.approx([0.1] * 20, abs=1e-4)
+
+
+def test_track_dataset_refuses_a_mono_file(tmp_path):
+    """Batched with stereo windows, a mono one would crash the DataLoader mid-epoch."""
+    ga.save(tmp_path / "a" / "mixture.wav", np.zeros((1, 10 * SR), dtype=np.float32), SR)
+
+    with pytest.raises(ValueError, match="not stereo"):
+        gd.TrackDataset(tmp_path, glob="*/mixture.wav", bitrates=[24], window_samples=2048)
