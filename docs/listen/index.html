@@ -18,7 +18,7 @@
 <body>
 <h1>grooveback listening — published packs</h1>
 <p class="note">Every track is level-matched to −14 LUFS with one common headroom gain per
-player, master included. Solo is exclusive: keys 1–9 or a click switch tracks in place.
+player, master included. Solo is exclusive: keys 1–9 and 0 or a click switch tracks in place.
 Space plays, R toggles repeat, loop a section with the loop controls or A/B/L.</p>
 <p>These are the listening sets of
 <a href="https://github.com/zbitouzakaria/grooveback">grooveback</a>, a project
@@ -26,7 +26,7 @@ restoring records that survive only as MP3/AAC/Opus rips. Each set below is one
 experiment: a track with a clean master is compressed to MP3 at a known bitrate,
 and each method restores that MP3. All tracks of a set hold the same excerpt, so
 switching between them compares the methods directly.</p>
-<p>The nine tracks:</p>
+<p>The ten tracks:</p>
 <ol class="note">
 <li><b>Ground Truth</b> — the clean master the MP3 was made from; the reference.</li>
 <li><b>Degraded Input</b> — the MP3 each method receives. Above the codec's cutoff
@@ -55,6 +55,13 @@ round trip smooths the artifacts Apollo introduces on heavily degraded input.</l
 encoded, the mean shift that MP3 compression causes in εar-VAE's latent space
 (measured on a different track) is subtracted, and the result is decoded. It
 restores spectral balance rather than waveform detail.</li>
+<li><b>LoRA</b> (key 0) — our first attempt at a restorer of our own: Stable Audio 3
+medium-base, fine-tuned with a LoRA for 5 hours on one GPU to turn MP3s back into their
+masters, on the MUSDB18-HQ training songs and on remixes of their stems. It is sampled
+with Euler at 32 steps. It trained on 10 s windows, and here restores each file in one
+pass, the 3-minute excerpt included. The
+<a href="../lora/">LoRA listening page</a> compares it with Apollo on the MUSDB18-HQ
+test songs.</li>
 </ol>
 <p class="note">The spectrogram belongs to the selected track, and clicking it
 seeks. Differences are clearest on monitoring headphones or speakers.</p>
@@ -153,6 +160,16 @@ seeks. Differences are clearest on monitoring headphones or speakers.</p>
   "t8Plot": {
    "type": "image",
    "src": "media/codec_32k/earvae-sub.png?v=1792842363"
+  },
+  "t9": {
+   "type": "audio",
+   "title": "0 - LoRA",
+   "src": "audio/codec_32k/lora-remix.flac?v=1793227237",
+   "imageID": "t9Plot"
+  },
+  "t9Plot": {
+   "type": "image",
+   "src": "media/codec_32k/lora-remix.png?v=1793227237"
   }
  },
  "views": [
@@ -184,7 +201,8 @@ seeks. Differences are clearest on monitoring headphones or speakers.</p>
     "t5",
     "t6",
     "t7",
-    "t8"
+    "t8",
+    "t9"
    ],
    "soloGroup": 0
   }
@@ -286,6 +304,16 @@ seeks. Differences are clearest on monitoring headphones or speakers.</p>
   "t8Plot": {
    "type": "image",
    "src": "media/codec_64k/earvae-sub.png?v=1792842364"
+  },
+  "t9": {
+   "type": "audio",
+   "title": "0 - LoRA",
+   "src": "audio/codec_64k/lora-remix.flac?v=1793227238",
+   "imageID": "t9Plot"
+  },
+  "t9Plot": {
+   "type": "image",
+   "src": "media/codec_64k/lora-remix.png?v=1793227238"
   }
  },
  "views": [
@@ -317,7 +345,8 @@ seeks. Differences are clearest on monitoring headphones or speakers.</p>
     "t5",
     "t6",
     "t7",
-    "t8"
+    "t8",
+    "t9"
    ],
    "soloGroup": 0
   }
@@ -419,6 +448,16 @@ seeks. Differences are clearest on monitoring headphones or speakers.</p>
   "t8Plot": {
    "type": "image",
    "src": "media/codec_128k/earvae-sub.png?v=1792842365"
+  },
+  "t9": {
+   "type": "audio",
+   "title": "0 - LoRA",
+   "src": "audio/codec_128k/lora-remix.flac?v=1793227239",
+   "imageID": "t9Plot"
+  },
+  "t9Plot": {
+   "type": "image",
+   "src": "media/codec_128k/lora-remix.png?v=1793227239"
   }
  },
  "views": [
@@ -450,7 +489,8 @@ seeks. Differences are clearest on monitoring headphones or speakers.</p>
     "t5",
     "t6",
     "t7",
-    "t8"
+    "t8",
+    "t9"
    ],
    "soloGroup": 0
   }
@@ -552,6 +592,16 @@ seeks. Differences are clearest on monitoring headphones or speakers.</p>
   "t8Plot": {
    "type": "image",
    "src": "media/aerofunk_32k/earvae-sub.png?v=1792842372"
+  },
+  "t9": {
+   "type": "audio",
+   "title": "0 - LoRA",
+   "src": "audio/aerofunk_32k/lora-remix.flac?v=1793227247",
+   "imageID": "t9Plot"
+  },
+  "t9Plot": {
+   "type": "image",
+   "src": "media/aerofunk_32k/lora-remix.png?v=1793227247"
   }
  },
  "views": [
@@ -583,7 +633,8 @@ seeks. Differences are clearest on monitoring headphones or speakers.</p>
     "t5",
     "t6",
     "t7",
-    "t8"
+    "t8",
+    "t9"
    ],
    "soloGroup": 0
   }
@@ -685,6 +736,16 @@ seeks. Differences are clearest on monitoring headphones or speakers.</p>
   "t8Plot": {
    "type": "image",
    "src": "media/aerofunk_64k/earvae-sub.png?v=1792842379"
+  },
+  "t9": {
+   "type": "audio",
+   "title": "0 - LoRA",
+   "src": "audio/aerofunk_64k/lora-remix.flac?v=1793227257",
+   "imageID": "t9Plot"
+  },
+  "t9Plot": {
+   "type": "image",
+   "src": "media/aerofunk_64k/lora-remix.png?v=1793227257"
   }
  },
  "views": [
@@ -716,7 +777,8 @@ seeks. Differences are clearest on monitoring headphones or speakers.</p>
     "t5",
     "t6",
     "t7",
-    "t8"
+    "t8",
+    "t9"
    ],
    "soloGroup": 0
   }
@@ -818,6 +880,16 @@ seeks. Differences are clearest on monitoring headphones or speakers.</p>
   "t8Plot": {
    "type": "image",
    "src": "media/aerofunk_128k/earvae-sub.png?v=1792842386"
+  },
+  "t9": {
+   "type": "audio",
+   "title": "0 - LoRA",
+   "src": "audio/aerofunk_128k/lora-remix.flac?v=1793227265",
+   "imageID": "t9Plot"
+  },
+  "t9Plot": {
+   "type": "image",
+   "src": "media/aerofunk_128k/lora-remix.png?v=1793227265"
   }
  },
  "views": [
@@ -849,7 +921,8 @@ seeks. Differences are clearest on monitoring headphones or speakers.</p>
     "t5",
     "t6",
     "t7",
-    "t8"
+    "t8",
+    "t9"
    ],
    "soloGroup": 0
   }
