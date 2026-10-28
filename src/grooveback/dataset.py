@@ -18,7 +18,6 @@ import torch
 
 from grooveback import audio as ga
 from grooveback import training as gt
-from grooveback.evaluation import best_lag
 
 
 class LatentPairDataset(torch.utils.data.Dataset):
@@ -196,10 +195,10 @@ def coded_pair(padded: np.ndarray, *, bitrates: list[int]) -> tuple[torch.Tensor
     sox's 1,105-sample delay (ADR-0015), so a clip coded alone ends in 25 ms of
     decoder lead-in where the clean audio has music.
 
-    `codec_simu`'s own alignment can miss by a sample at low bitrates: once in
-    48 windows of 10 s at 24 kbps, it left the MP3 one sample early. So the MP3
-    window is searched for in the clean audio, within the pads, and the clean
-    window is cut where the two line up.
+    `codec_simu`'s own alignment can miss by a sample at 24 kbps: in one run,
+    on 5 of 48 windows of 10 s, the pair matched better one sample apart. So
+    the clean window is cut where it best matches the MP3 window, up to 4
+    samples either side of the pad.
     """
     from grooveback.cli import musdb_eval
 
@@ -207,12 +206,23 @@ def coded_pair(padded: np.ndarray, *, bitrates: list[int]) -> tuple[torch.Tensor
     if peak > 1.0:
         padded = padded / peak
     kbps = bitrates[int(torch.randint(len(bitrates), ()))]
-    coded = musdb_eval.codec_simu(padded, kbps)
     samples = padded.shape[-1] - 2 * CODEC_PAD
-    # The probe is exactly the MP3 window kept, coded[:, 4_096 : 4_096 + 438_272].
-    lag = best_lag(padded, coded, max_lag=CODEC_PAD, probe_samples=samples)
-    clean = padded[:, CODEC_PAD - lag : CODEC_PAD - lag + samples]
-    mp3 = coded[:, CODEC_PAD : CODEC_PAD + samples]
+    mp3 = musdb_eval.codec_simu(padded, kbps)[:, CODEC_PAD : CODEC_PAD + samples]
+    # The clean window cut 0, ±1, ..., ±4 samples from the pad, nearest first, so a tie
+    # keeps the smaller shift, scored by its correlation with the MP3 window over both
+    # channels, divided by its norm so a cut with more energy does not score higher. A
+    # wider search goes wrong on a held note: a louder period further away matches too.
+    cuts = [
+        padded[:, CODEC_PAD + offset : CODEC_PAD + offset + samples]
+        for offset in sorted(range(-4, 5), key=abs)
+    ]
+    target = mp3.astype(np.float64).ravel()
+
+    def match(cut: np.ndarray) -> float:
+        cut = cut.astype(np.float64).ravel()
+        return cut @ target / np.sqrt(cut @ cut)
+
+    clean = max(cuts, key=match)
     return torch.from_numpy(clean.copy()), torch.from_numpy(mp3.copy())
 
 

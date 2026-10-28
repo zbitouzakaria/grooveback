@@ -213,11 +213,10 @@ def test_a_remix_mp3_ends_with_the_window_not_the_codec_lead_in(tmp_path, monkey
     "shift", [pytest.param(-1, id="one-sample-early"), pytest.param(1, id="one-sample-late")]
 )
 def test_an_mp3_a_sample_off_is_paired_with_the_clean_audio_it_holds(tmp_path, monkeypatch, shift):
-    """codec_simu's alignment can miss by one sample: on 48 windows of 10 s from
-    four tracks at 24 kbps, it once rolled the MP3 by 1_106 samples, not LAME's
-    1_105, leaving it one sample early. A pair one sample apart would teach the
-    model a delay. White noise, since a test tone would also line up with itself
-    one period away."""
+    """codec_simu's alignment can miss by one sample at 24 kbps: on one window of
+    10 s it rolled the MP3 by 1_106 samples, not LAME's 1_105, leaving it one
+    sample early. A pair one sample apart would teach the model a delay. White
+    noise, since a test tone would also line up with itself one period away."""
     torch.manual_seed(0)
     monkeypatch.setattr(
         musdb_eval, "codec_simu", lambda clip, kbps: np.roll(0.5 * clip, shift, axis=-1)
@@ -229,6 +228,31 @@ def test_an_mp3_a_sample_off_is_paired_with_the_clean_audio_it_holds(tmp_path, m
     clean, mp3 = dataset[0]
 
     torch.testing.assert_close(mp3, 0.5 * clean, rtol=0, atol=0)
+
+
+def test_a_note_that_gets_louder_keeps_every_pair_aligned(tmp_path, monkeypatch):
+    """The stand-in codec does not shift, so every pair must hold the same audio.
+    A held 1 kHz note that steps up 10 dB: searched up to 4_096 samples either
+    side with best_lag, whose correlation is not normalised, windows matched a
+    louder period of the note about 4_000 samples away. The step sits in the
+    middle of a 0.5 s track, so the louder half is within that reach of most
+    windows."""
+    torch.manual_seed(0)
+    monkeypatch.setattr(musdb_eval, "codec_simu", lambda clip, kbps: 0.5 * clip)
+    t = np.arange(SR // 2)
+    tone = np.where(t < SR // 4, 0.1, 0.316) * np.sin(2 * np.pi * 1_000 * t / SR)
+    audio = np.stack([tone, tone]).astype(np.float32)
+    ga.save(tmp_path / "a" / "mixture.wav", audio, SR, subtype="PCM_16")
+    dataset = gd.TrackDataset(tmp_path, glob="*/mixture.wav", bitrates=[24], window_samples=2048)
+
+    pairs = [dataset[index] for index in range(20)]
+
+    torch.testing.assert_close(
+        torch.stack([mp3 for _, mp3 in pairs]),
+        0.5 * torch.stack([clean for clean, _ in pairs]),
+        rtol=0,
+        atol=0,
+    )
 
 
 def test_a_remix_holds_stems_and_never_the_mixture(tmp_path, monkeypatch):
