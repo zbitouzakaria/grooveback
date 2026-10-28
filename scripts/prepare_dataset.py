@@ -1,13 +1,15 @@
-"""Make the MP3 inputs for LoRA training from a folder of clean tracks.
+"""Make the LoRA's validation pairs, MP3 and clean, from a folder of clean tracks.
 
-    uv run python scripts/prepare_dataset.py data/lora/wav/train data/lora/train
+    uv run python scripts/prepare_dataset.py data/lora/wav/valid data/lora/valid
 
 For every `{song}.wav` in the folder it writes `{song}/original.wav` and one
 MP3 version per bitrate, `{song}/{kbps}k.wav`, decoded back to float WAV and
 sample-aligned with the original. Float WAV keeps MP3 overshoot past full
 scale intact. The MP3s come from `codec_simu`, the same codec simulation
-`musdb_eval` scores with, so training damage matches evaluation damage. It
-needs sox (`apt-get install -y sox libsox-dev` on a pod).
+`musdb_eval` scores with, and the one training codes its windows with, so
+validation damage matches training and evaluation damage. Training itself
+reads clean tracks and codes them as it goes (`grooveback.dataset`). It needs
+sox (`apt-get install -y sox libsox-dev` on a pod).
 
 A file that already exists is kept, so an interrupted run can be restarted.
 """

@@ -1,9 +1,11 @@
 """The training data of the LoRA fine-tune in `grooveback.training`.
 
-`LatentPairDataset` serves windows of the pairs `scripts/prepare_dataset.py`
-writes, as latents. `RemixDataset` builds fresh pairs from MUSDB18-HQ stems,
-as audio, the way Apollo trains. The comments follow training.py's worked
-example: small-music-base, 10 s windows of 107 latent frames.
+Training draws fresh pairs, as audio: `TrackDataset` cuts windows of real
+tracks, `RemixDataset` sums MUSDB18-HQ stems the way Apollo trains, and
+`InterleavedDataset` picks between them by weight. Validation reads fixed
+windows of the pairs `scripts/prepare_dataset.py` writes, as latents
+(`LatentPairDataset`). The comments follow training.py's worked example:
+small-music-base, 10 s windows of 107 latent frames.
 """
 
 from __future__ import annotations
@@ -134,24 +136,122 @@ def active_starts(track: np.ndarray, window_samples: int) -> np.ndarray:
     return np.flatnonzero(loud_per_window > frames / 2) * frame
 
 
-class RemixDataset(torch.utils.data.Dataset):
-    """Fresh clean and MP3 audio windows from MUSDB18-HQ songs: Apollo's training recipe.
+CODEC_PAD = 4_096
+"""Samples coded on each side of a window and cut off after: more than sox's 1,105 of delay."""
 
-    Reads `{song}/{mixture,bass,drums,other,vocals}.wav` into memory once, as
-    16-bit integers: the 86 training songs take about 17 GB. Every item is drawn
-    anew, so `windows` only sets how many items make an epoch. Half the items
-    are a window of a real mixture. The other half are remixes: 1 to 4 stems,
-    drawn with repeats from the four kinds, each from its own random song and
-    start, each scaled by a random gain of -10 to +10 dB, then summed. Windows
-    come only from stretches that pass Apollo's activity check (`active_starts`):
+
+def load_active_tracks(
+    paths: list[Path], *, window_samples: int
+) -> list[tuple[np.ndarray, np.ndarray]]:
+    """Every 16-bit track at `paths` that has a window passing Apollo's activity
+    check, with the starts of those windows that leave room for the codec pads.
+
+    One (track, starts) pair per kept file: the (2, samples) int16 audio, and the
+    starts. A track with no such window is left out: a silent stem, as in an
+    instrumental, keeps nothing.
+    """
+    import soundfile as sf
+
+    from grooveback.cli.musdb_eval import SR
+
+    tracks = []
+    for path in paths:
+        audio, sample_rate = sf.read(str(path), dtype="int16", always_2d=True)
+        if sample_rate != SR:
+            raise ValueError(f"{path}: {sample_rate} Hz, the codec needs {SR}.")
+        if audio.shape[0] < window_samples + 2 * CODEC_PAD:
+            raise ValueError(f"{path} is shorter than one window and its codec pads.")
+        track = np.ascontiguousarray(audio.T)
+        starts = active_starts(track, window_samples)
+        last = track.shape[-1] - window_samples - CODEC_PAD
+        starts = starts[(starts >= CODEC_PAD) & (starts <= last)]
+        if starts.size:
+            tracks.append((track, starts))
+    return tracks
+
+
+def draw_window(tracks: list[tuple[np.ndarray, np.ndarray]], *, window_samples: int) -> np.ndarray:
+    """A window of a random track, at a random one of its active starts, with its
+    codec pads: float32 (2, 4_096 + 438_272 + 4_096). Drawn anew on every call, so
+    the same track gives a different window each time."""
+    track, starts = tracks[int(torch.randint(len(tracks), ()))]
+    start = int(starts[int(torch.randint(len(starts), ()))])
+    padded = track[:, start - CODEC_PAD : start + window_samples + CODEC_PAD]
+    # Scaled as soundfile reads 16-bit audio as float.
+    return padded.astype(np.float32) / 32768
+
+
+def coded_pair(padded: np.ndarray, *, bitrates: list[int]) -> tuple[torch.Tensor, torch.Tensor]:
+    """Clean and MP3 audio of one padded window, both (2, 438_272) float32.
+
+    A window past full scale is scaled down to it first. It is coded with its
+    pads at a bitrate drawn uniformly from `bitrates`, and the pads are cut off
+    after: `codec_simu` cuts the MP3 to the clip's length before it removes
+    sox's 1,105-sample delay (ADR-0015), so a clip coded alone ends in 25 ms of
+    decoder lead-in where the clean audio has music.
+    """
+    from grooveback.cli import musdb_eval
+
+    peak = float(np.abs(padded).max())
+    if peak > 1.0:
+        padded = padded / peak
+    kbps = bitrates[int(torch.randint(len(bitrates), ()))]
+    mp3 = musdb_eval.codec_simu(padded, kbps)
+    window = slice(CODEC_PAD, padded.shape[-1] - CODEC_PAD)
+    return torch.from_numpy(padded[:, window].copy()), torch.from_numpy(mp3[:, window].copy())
+
+
+class TrackDataset(torch.utils.data.Dataset):
+    """Fresh windows of real tracks, each coded as MP3 at a random bitrate.
+
+    Reads every file `glob` matches under `tracks_dir` into memory once, as
+    16-bit integers: MUSDB18-HQ's `*/mixture.wav` by default, or `*.wav` for a
+    flat folder of songs. Every item is a window of a random track, at a random
+    start on a 10 ms grid among those that pass Apollo's activity check
+    (`active_starts`), drawn anew on every read: the dataset has no fixed
+    windows, so it has no length of its own (`InterleavedDataset` sets one).
+
+    Items are audio, not latents: the DataLoader's worker processes build them
+    on the CPU, and the training loop encodes them on the GPU. Draws use torch's
+    random generator, which the DataLoader seeds differently in every worker.
+    """
+
+    def __init__(
+        self, tracks_dir: str | Path, *, glob: str, bitrates: list[int], window_samples: int
+    ):
+        self.bitrates = bitrates
+        self.window_samples = window_samples
+        paths = sorted(Path(tracks_dir).glob(glob))
+        self.tracks = load_active_tracks(paths, window_samples=window_samples)
+        if not self.tracks:
+            raise ValueError(
+                f"{tracks_dir}: none of the {len(paths)} files {glob!r} matches has a window "
+                "that passes the activity check."
+            )
+
+    def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
+        """Clean and MP3 audio of one fresh window, both (2, 438_272) float32."""
+        padded = draw_window(self.tracks, window_samples=self.window_samples)
+        return coded_pair(padded, bitrates=self.bitrates)
+
+
+class RemixDataset(torch.utils.data.Dataset):
+    """Fresh remixes of MUSDB18-HQ stems, each coded as MP3 at a random bitrate.
+
+    Reads `{song}/{bass,drums,other,vocals}.wav` into memory once, as 16-bit
+    integers: the 86 training songs' stems take about 14 GB. Every item sums 1
+    to 4 stems, drawn with repeats from the four kinds, each from its own random
+    song and start, each scaled by a random gain of -10 to +10 dB. Windows come
+    only from stretches that pass Apollo's activity check (`active_starts`):
     measured on 67 of the songs, 30% of random 10 s vocal windows fail it, and
-    15% are below -60 dBFS. The clean window is then coded as MP3 at a bitrate
-    drawn uniformly from `bitrates`.
+    15% are below -60 dBFS. Like `TrackDataset`, it draws anew on every read.
 
     Source: `MusdbMoisesdbDataset` in Apollo's
     look2hear/datas/musdb_moisesdb_datamodule.py, with its codec,
     `musdb_eval.codec_simu`. The changes:
 
+    - Remixes only. Apollo's other half, windows of the real mixtures, is a
+      `TrackDataset`, and the trainer's `sources` weights set the split.
     - MUSDB's four stem kinds in place of its eleven, so at most 4 stems where
       its config draws up to 8.
     - Apollo codes first and then divides both windows by their common peak, so
@@ -159,98 +259,60 @@ class RemixDataset(torch.utils.data.Dataset):
       up peaking at 1. Here a window past full scale is scaled down before
       coding, and quieter windows keep their level, as validation and inference
       windows do.
-    - The window is coded with `codec_pad` extra samples on each side, cut off
-      after. `codec_simu` cuts the MP3 to the clip's length before it removes
-      sox's 1,105-sample delay (ADR-0015), so a clip coded alone ends in 25 ms
-      of decoder lead-in where the clean audio has music. Validation codes whole
-      songs, which pay this only in their last 25 ms.
-
-    Items are audio, not latents: the DataLoader's worker processes build them on
-    the CPU, and the training loop encodes them on the GPU. Draws use torch's
-    random generator, which the DataLoader seeds differently in every worker.
+    - The window is coded with `CODEC_PAD` extra samples on each side, cut off
+      after (`coded_pair`). Validation codes whole songs, which pay sox's lead-in
+      only in their last 25 ms.
     """
 
     STEMS = ("bass", "drums", "other", "vocals")
-    codec_pad = 4_096
-    """Samples coded on each side of a window and cut off after: more than sox's 1,105 of delay."""
 
-    def __init__(
-        self, musdb_dir: str | Path, *, bitrates: list[int], window_samples: int, windows: int
-    ):
-        import soundfile as sf
-
-        from grooveback.cli.musdb_eval import SR
-
+    def __init__(self, musdb_dir: str | Path, *, bitrates: list[int], window_samples: int):
         self.bitrates = bitrates
         self.window_samples = window_samples
-        self.windows = windows
-        self.songs = sorted(path for path in Path(musdb_dir).iterdir() if path.is_dir())
-        if not self.songs:
+        songs = sorted(path for path in Path(musdb_dir).iterdir() if path.is_dir())
+        if not songs:
             raise FileNotFoundError(f"No song folders in {musdb_dir}.")
-        # Per track kind, one (track, starts) pair per song that has an active window:
-        # the (2, samples) int16 audio, and the window starts that leave room for the pads.
-        self.tracks: dict[str, list[tuple[np.ndarray, np.ndarray]]] = {
-            kind: [] for kind in ("mixture", *self.STEMS)
+        self.stems = {
+            kind: load_active_tracks(
+                [song / f"{kind}.wav" for song in songs], window_samples=window_samples
+            )
+            for kind in self.STEMS
         }
-        for song in self.songs:
-            for kind, tracks in self.tracks.items():
-                audio, sample_rate = sf.read(
-                    str(song / f"{kind}.wav"), dtype="int16", always_2d=True
-                )
-                if sample_rate != SR:
-                    raise ValueError(
-                        f"{song.name}/{kind}.wav: {sample_rate} Hz, the codec needs {SR}."
-                    )
-                if audio.shape[0] < window_samples + 2 * self.codec_pad:
-                    raise ValueError(
-                        f"{song.name}/{kind}.wav is shorter than one window and its codec pads."
-                    )
-                track = np.ascontiguousarray(audio.T)
-                starts = active_starts(track, window_samples)
-                last = track.shape[-1] - window_samples - self.codec_pad
-                starts = starts[(starts >= self.codec_pad) & (starts <= last)]
-                if starts.size:
-                    tracks.append((track, starts))
         # Remixes draw from the stem kinds some song has active: one vocal-less song
         # among others leaves vocals in, a set of instrumentals takes them out.
-        self.kinds = [kind for kind in self.STEMS if self.tracks[kind]]
-        if not self.tracks["mixture"] or not self.kinds:
-            raise ValueError(
-                f"{musdb_dir}: no mixture or no stem has a window that passes the activity check."
-            )
+        self.kinds = [kind for kind in self.STEMS if self.stems[kind]]
+        if not self.kinds:
+            raise ValueError(f"{musdb_dir}: no stem has a window that passes the activity check.")
+
+    def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
+        """Clean and MP3 audio of one fresh remix, both (2, 438_272) float32."""
+        count = int(torch.randint(1, len(self.STEMS) + 1, ()))
+        kinds = [self.kinds[int(i)] for i in torch.randint(len(self.kinds), (count,))]
+        # Whole dB, as Apollo draws them: -10, -9, ..., +10.
+        gains_db = torch.randint(-10, 11, (count,)).tolist()
+        padded = sum(
+            draw_window(self.stems[kind], window_samples=self.window_samples) * 10 ** (db / 20)
+            for kind, db in zip(kinds, gains_db, strict=True)
+        )
+        return coded_pair(padded, bitrates=self.bitrates)
+
+
+class InterleavedDataset(torch.utils.data.Dataset):
+    """Items from several datasets, each read from one of them picked at random
+    with `probabilities`, as Hugging Face's `interleave_datasets` does with its
+    `probabilities`. `windows` items make an epoch.
+
+    The sources draw a fresh window on every read, so the index only counts.
+    """
+
+    def __init__(self, sources: list, *, probabilities: list[float], windows: int):
+        self.sources = sources
+        self.probabilities = torch.tensor(probabilities, dtype=torch.float64)
+        self.windows = windows
 
     def __len__(self) -> int:
         return self.windows
 
-    def _window(self, kind: str) -> np.ndarray:
-        """An active window of one random song's `kind` track with its codec pads,
-        float32 (2, 4_096 + 438_272 + 4_096)."""
-        tracks = self.tracks[kind]
-        track, starts = tracks[int(torch.randint(len(tracks), ()))]
-        start = int(starts[int(torch.randint(len(starts), ()))])
-        padded = track[:, start - self.codec_pad : start + self.window_samples + self.codec_pad]
-        # Scaled as soundfile reads 16-bit audio as float.
-        return padded.astype(np.float32) / 32768
-
-    def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
-        """Clean and MP3 audio of one fresh window, both (2, 438_272) float32."""
-        from grooveback.cli import musdb_eval
-
-        if torch.rand(()) < 0.5:
-            clean = self._window("mixture")
-        else:
-            count = int(torch.randint(1, len(self.STEMS) + 1, ()))
-            kinds = [self.kinds[int(i)] for i in torch.randint(len(self.kinds), (count,))]
-            # Whole dB, as Apollo draws them: -10, -9, ..., +10.
-            gains_db = torch.randint(-10, 11, (count,)).tolist()
-            clean = sum(
-                self._window(kind) * 10 ** (db / 20)
-                for kind, db in zip(kinds, gains_db, strict=True)
-            )
-        peak = float(np.abs(clean).max())
-        if peak > 1.0:
-            clean = clean / peak
-        kbps = self.bitrates[int(torch.randint(len(self.bitrates), ()))]
-        mp3 = musdb_eval.codec_simu(clean, kbps)
-        window = slice(self.codec_pad, self.codec_pad + self.window_samples)
-        return torch.from_numpy(clean[:, window].copy()), torch.from_numpy(mp3[:, window].copy())
+    def __getitem__(self, index: int):
+        source = int(torch.multinomial(self.probabilities, 1))
+        return self.sources[source][index]

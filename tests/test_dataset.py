@@ -155,7 +155,7 @@ def test_every_remix_item_pairs_its_clean_window_with_the_codec_output(tmp_path,
     write_musdb_song(
         tmp_path, "a", seconds=1.0, amplitudes=amplitudes, silent_seconds=0.0, sample_rate=SR
     )
-    dataset = gd.RemixDataset(tmp_path, bitrates=[24], window_samples=2048, windows=50)
+    dataset = gd.RemixDataset(tmp_path, bitrates=[24], window_samples=2048)
 
     items = [dataset[index] for index in range(50)]
 
@@ -178,7 +178,7 @@ def test_each_remix_item_draws_its_own_bitrate(tmp_path, monkeypatch):
     write_musdb_song(
         tmp_path, "a", seconds=1.0, amplitudes=amplitudes, silent_seconds=0.0, sample_rate=SR
     )
-    dataset = gd.RemixDataset(tmp_path, bitrates=[24, 128], window_samples=2048, windows=50)
+    dataset = gd.RemixDataset(tmp_path, bitrates=[24, 128], window_samples=2048)
 
     [dataset[index] for index in range(50)]
 
@@ -202,47 +202,54 @@ def test_a_remix_mp3_ends_with_the_window_not_the_codec_lead_in(tmp_path, monkey
     write_musdb_song(
         tmp_path, "a", seconds=1.0, amplitudes=amplitudes, silent_seconds=0.0, sample_rate=SR
     )
-    dataset = gd.RemixDataset(tmp_path, bitrates=[24], window_samples=2048, windows=10)
+    dataset = gd.RemixDataset(tmp_path, bitrates=[24], window_samples=2048)
 
     clean, mp3 = dataset[0]
 
     torch.testing.assert_close(mp3, clean, rtol=0, atol=0)
 
 
-def test_every_remix_item_is_a_mixture_window_or_a_sum_of_stems(tmp_path, monkeypatch):
-    """A mixture window holds the mixture's sine and no stem's; a remix holds no
-    trace of the mixture. 1e-3 sits far above the 16-bit noise in a bin (about
-    3e-7) and far below the sines (0.1 and 0.5)."""
+def test_a_remix_holds_stems_and_never_the_mixture(tmp_path, monkeypatch):
+    """Windows of the real mixtures are TrackDataset's. 1e-3 sits far above the
+    16-bit noise in a bin (about 3e-7) and far below the sines (0.1 and 0.5)."""
     torch.manual_seed(0)
     monkeypatch.setattr(musdb_eval, "codec_simu", HalvingCodec())
     amplitudes = {"mixture": 0.5, "bass": 0.1, "drums": 0.1, "other": 0.1, "vocals": 0.1}
     write_musdb_song(
         tmp_path, "a", seconds=1.0, amplitudes=amplitudes, silent_seconds=0.0, sample_rate=SR
     )
-    dataset = gd.RemixDataset(tmp_path, bitrates=[24], window_samples=2048, windows=200)
+    dataset = gd.RemixDataset(tmp_path, bitrates=[24], window_samples=2048)
 
     spectra = [np.abs(np.fft.rfft(dataset[index][0][0].numpy())) * 2 / 2048 for index in range(200)]
 
-    mixtures = [s for s in spectra if s[CYCLES["mixture"]] > 0.25]
-    remixes = [s for s in spectra if s[CYCLES["mixture"]] <= 0.25]
-    assert max(s[CYCLES[stem]] for s in mixtures for stem in STEMS) < 1e-3
-    assert max(s[CYCLES["mixture"]] for s in remixes) < 1e-3
+    assert max(s[CYCLES["mixture"]] for s in spectra) < 1e-3
 
 
-def test_half_the_remix_items_are_real_mixture_windows(tmp_path, monkeypatch):
-    """Apollo's split. Of 400 fair draws, 160 to 240 land on mixtures: four
-    standard deviations (10 draws each) around 200."""
+def test_interleaved_items_come_from_each_source_at_its_weight(tmp_path, monkeypatch):
+    """Tracks at weight 0.25, remixes at 0.75: of 400 draws, 66 to 134 are mixture
+    windows, four standard deviations (8.7 draws each) around 100. Equal odds
+    would give about 200."""
     torch.manual_seed(0)
     monkeypatch.setattr(musdb_eval, "codec_simu", HalvingCodec())
     amplitudes = {"mixture": 0.5, "bass": 0.1, "drums": 0.1, "other": 0.1, "vocals": 0.1}
     write_musdb_song(
         tmp_path, "a", seconds=1.0, amplitudes=amplitudes, silent_seconds=0.0, sample_rate=SR
     )
-    dataset = gd.RemixDataset(tmp_path, bitrates=[24], window_samples=2048, windows=400)
+    dataset = gd.InterleavedDataset(
+        [
+            gd.TrackDataset(tmp_path, glob="*/mixture.wav", bitrates=[24], window_samples=2048),
+            gd.RemixDataset(tmp_path, bitrates=[24], window_samples=2048),
+        ],
+        probabilities=[0.25, 0.75],
+        windows=400,
+    )
 
-    spectra = [np.abs(np.fft.rfft(dataset[index][0][0].numpy())) * 2 / 2048 for index in range(400)]
+    spectra = [
+        np.abs(np.fft.rfft(dataset[index][0][0].numpy())) * 2 / 2048
+        for index in range(len(dataset))
+    ]
 
-    assert 160 <= sum(s[CYCLES["mixture"]] > 0.25 for s in spectra) <= 240
+    assert 66 <= sum(s[CYCLES["mixture"]] > 0.25 for s in spectra) <= 134
 
 
 def test_a_remix_past_full_scale_is_scaled_to_it_not_clipped(tmp_path, monkeypatch):
@@ -257,7 +264,7 @@ def test_a_remix_past_full_scale_is_scaled_to_it_not_clipped(tmp_path, monkeypat
     write_musdb_song(
         tmp_path, "a", seconds=1.0, amplitudes=amplitudes, silent_seconds=0.0, sample_rate=SR
     )
-    dataset = gd.RemixDataset(tmp_path, bitrates=[24], window_samples=2048, windows=100)
+    dataset = gd.RemixDataset(tmp_path, bitrates=[24], window_samples=2048)
 
     power = np.stack(
         [np.abs(np.fft.rfft(dataset[index][0][0].numpy())) ** 2 for index in range(100)]
@@ -268,7 +275,7 @@ def test_a_remix_past_full_scale_is_scaled_to_it_not_clipped(tmp_path, monkeypat
     assert (outside / power.sum(axis=1)).max() < 1e-6
 
 
-def test_a_mixture_window_below_full_scale_keeps_its_level(tmp_path, monkeypatch):
+def test_a_track_window_below_full_scale_keeps_its_level(tmp_path, monkeypatch):
     """Where Apollo would scale every window to peak at 1. The 0.1 sine reads back
     as 3_276 / 32_768 from 16 bits; abs=1e-3 covers that and the sampled peak."""
     torch.manual_seed(0)
@@ -277,28 +284,24 @@ def test_a_mixture_window_below_full_scale_keeps_its_level(tmp_path, monkeypatch
     write_musdb_song(
         tmp_path, "a", seconds=1.0, amplitudes=amplitudes, silent_seconds=0.0, sample_rate=SR
     )
-    dataset = gd.RemixDataset(tmp_path, bitrates=[24], window_samples=2048, windows=50)
+    dataset = gd.TrackDataset(tmp_path, glob="*/mixture.wav", bitrates=[24], window_samples=2048)
 
-    cleans = [dataset[index][0][0].numpy() for index in range(50)]
+    peaks = [float(dataset[index][0].abs().max()) for index in range(20)]
 
-    mixtures = [c for c in cleans if np.abs(np.fft.rfft(c))[CYCLES["mixture"]] * 2 / 2048 > 0.05]
-    assert mixtures
-    assert [float(np.abs(c).max()) for c in mixtures] == pytest.approx(
-        [0.1] * len(mixtures), abs=1e-3
-    )
+    assert peaks == pytest.approx([0.1] * 20, abs=1e-3)
 
 
 def test_remix_windows_come_from_the_active_stretch_of_each_track(tmp_path, monkeypatch):
-    """Every track is silent for its first 0.5 s, so without the activity check
-    about half the mixture windows alone would be silence. The quietest item a
-    window from the sines can make is one stem at -10 dB: an RMS near 0.022."""
+    """Every stem is silent for its first 0.5 s, so without the activity check a
+    remix of one stem would be silence about half the time. The quietest remix
+    the sines can make is one stem at -10 dB: an RMS near 0.022."""
     torch.manual_seed(0)
     monkeypatch.setattr(musdb_eval, "codec_simu", HalvingCodec())
     amplitudes = {"mixture": 0.5, "bass": 0.1, "drums": 0.1, "other": 0.1, "vocals": 0.1}
     write_musdb_song(
         tmp_path, "a", seconds=1.0, amplitudes=amplitudes, silent_seconds=0.5, sample_rate=SR
     )
-    dataset = gd.RemixDataset(tmp_path, bitrates=[24], window_samples=2048, windows=100)
+    dataset = gd.RemixDataset(tmp_path, bitrates=[24], window_samples=2048)
 
     rms = [float(dataset[index][0].square().mean().sqrt()) for index in range(100)]
 
@@ -307,16 +310,16 @@ def test_remix_windows_come_from_the_active_stretch_of_each_track(tmp_path, monk
 
 def test_a_stem_silent_throughout_is_never_drawn(tmp_path, monkeypatch):
     """An instrumental's vocals keep no active window. Drawn anyway, a remix of
-    vocals alone would be silence: half the items are remixes, a quarter of
-    those hold 1 to 4 stems each, all vocals with probability 1/4 to 1/256,
-    so about 4% of items, 8 of these 200."""
+    vocals alone would be silence: a quarter of the remixes hold each of 1 to 4
+    stems, all vocals with probability 1/4 to 1/256, so about 8% of remixes,
+    17 of these 200."""
     torch.manual_seed(0)
     monkeypatch.setattr(musdb_eval, "codec_simu", HalvingCodec())
     amplitudes = {"mixture": 0.5, "bass": 0.1, "drums": 0.1, "other": 0.1, "vocals": 0.0}
     write_musdb_song(
         tmp_path, "a", seconds=1.0, amplitudes=amplitudes, silent_seconds=0.0, sample_rate=SR
     )
-    dataset = gd.RemixDataset(tmp_path, bitrates=[24], window_samples=2048, windows=200)
+    dataset = gd.RemixDataset(tmp_path, bitrates=[24], window_samples=2048)
 
     rms = [float(dataset[index][0].square().mean().sqrt()) for index in range(200)]
 
@@ -344,7 +347,7 @@ def test_remix_dataset_refuses_a_track_shorter_than_one_window(tmp_path):
     )
 
     with pytest.raises(ValueError, match="shorter than one window"):
-        gd.RemixDataset(tmp_path, bitrates=[24], window_samples=2048, windows=10)
+        gd.RemixDataset(tmp_path, bitrates=[24], window_samples=2048)
 
 
 def test_remix_dataset_refuses_audio_the_codec_cannot_take(tmp_path):
@@ -355,4 +358,45 @@ def test_remix_dataset_refuses_audio_the_codec_cannot_take(tmp_path):
     )
 
     with pytest.raises(ValueError, match="48000 Hz"):
-        gd.RemixDataset(tmp_path, bitrates=[24], window_samples=2048, windows=10)
+        gd.RemixDataset(tmp_path, bitrates=[24], window_samples=2048)
+
+
+def test_track_windows_start_at_a_fresh_position_every_draw(tmp_path, monkeypatch):
+    """10 s of white noise has about 980 starts that pass the activity check and
+    leave room for the pads, so each window's first samples tell its start. 20
+    fair draws repeat one start with probability about 0.18, and two with about
+    0.02; the same window every time would give one."""
+    torch.manual_seed(0)
+    monkeypatch.setattr(musdb_eval, "codec_simu", HalvingCodec())
+    noise = np.random.default_rng(0).uniform(-0.5, 0.5, size=(2, 10 * SR)).astype(np.float32)
+    ga.save(tmp_path / "a" / "mixture.wav", noise, SR, subtype="PCM_16")
+    dataset = gd.TrackDataset(tmp_path, glob="*/mixture.wav", bitrates=[24], window_samples=2048)
+
+    starts = {tuple(dataset[index][0][0, :8].tolist()) for index in range(20)}
+
+    assert len(starts) >= 18
+
+
+def test_track_windows_come_from_the_active_stretch(tmp_path, monkeypatch):
+    """The mixture is silent for its first 0.5 s, so without the activity check
+    about half its windows would be silence. A window with more than half its
+    frames on the 0.5 sine keeps an RMS above 0.25."""
+    torch.manual_seed(0)
+    monkeypatch.setattr(musdb_eval, "codec_simu", HalvingCodec())
+    amplitudes = {"mixture": 0.5, "bass": 0.1, "drums": 0.1, "other": 0.1, "vocals": 0.1}
+    write_musdb_song(
+        tmp_path, "a", seconds=1.0, amplitudes=amplitudes, silent_seconds=0.5, sample_rate=SR
+    )
+    dataset = gd.TrackDataset(tmp_path, glob="*/mixture.wav", bitrates=[24], window_samples=2048)
+
+    rms = [float(dataset[index][0].square().mean().sqrt()) for index in range(100)]
+
+    assert min(rms) > 0.1
+
+
+def test_track_dataset_refuses_a_glob_that_matches_no_file(tmp_path):
+    """A flat folder of songs read with MUSDB18-HQ's default glob, say."""
+    ga.save(tmp_path / "song.wav", np.zeros((2, SR), dtype=np.float32), SR)
+
+    with pytest.raises(ValueError, match="none of the 0 files"):
+        gd.TrackDataset(tmp_path, glob="*/mixture.wav", bitrates=[24], window_samples=2048)

@@ -1,19 +1,20 @@
 """LoRA fine-tune of Stable Audio 3 to restore MP3s, configured by configs/train_lora.yaml.
 
-    uv run python -m grooveback.cli.train_lora train_dir=data/lora/train \\
-        valid_dir=data/lora/valid save_dir=artifacts/lora/run1
+    uv run python -m grooveback.cli.train_lora sources.tracks.dir=data/lora/musdb-train \\
+        sources.remixes.dir=data/lora/musdb-train valid_dir=data/lora/valid \\
+        save_dir=artifacts/lora/run1
     # continue that run with a new learning rate (the config always wins):
     uv run python -m grooveback.cli.train_lora ... num_train_epochs=2 lr=5e-5 \\
         resume_from_checkpoint=artifacts/lora/run1/checkpoint-{step}
 
-`train_dir` and `valid_dir` are `scripts/prepare_dataset.py` outputs. In place
-of `train_dir`, `remix_dir` trains on fresh remixes of MUSDB18-HQ songs, coded
-at a random bitrate per window (`RemixDataset`, Apollo's recipe). It takes the
-train split's song folders without musdb's 14 validation songs; a song in both
-the training and the validation data is refused.
-
-    uv run python -m grooveback.cli.train_lora remix_dir=data/lora/musdb-train \\
-        valid_dir=data/lora/valid save_dir=artifacts/lora/remix1
+Every training item is a fresh window, coded as MP3 at a bitrate drawn from
+`bitrates`, read from one of the `sources` picked by its weight: `tracks`, real
+tracks at a random start (`TrackDataset`), or `remixes`, sums of MUSDB18-HQ
+stems from random songs (`RemixDataset`, Apollo's recipe). Apollo splits them
+half and half, as the config does. MUSDB18-HQ's train split holds musdb's 14
+validation songs, so the sources take its song folders without them; a song in
+both the training and the validation data is refused. `valid_dir` is a
+`scripts/prepare_dataset.py` output: fixed windows at a fixed bitrate each.
 
 After every epoch the run writes `save_dir/checkpoint-{step}/`: the trained
 weights (`lora.safetensors`) and the optimizer state (`state.pt`). Of the
@@ -115,13 +116,20 @@ def write_listening_window(
 
 
 def train(cfg: DictConfig) -> None:
-    if (cfg.train_dir is None) == (cfg.remix_dir is None):
-        raise ValueError(
-            "Set exactly one of train_dir (prepared pairs) and remix_dir "
-            "(MUSDB18-HQ songs to remix)."
-        )
-    # MUSDB18-HQ's own train/ folder still holds musdb's 14 validation songs.
-    songs = {path.name for path in Path(cfg.train_dir or cfg.remix_dir).iterdir() if path.is_dir()}
+    # A source at weight 0 is not loaded.
+    sources = {name: spec for name, spec in cfg.sources.items() if spec.weight > 0}
+    if not sources:
+        raise ValueError("Give at least one of the training sources a weight above 0.")
+    unset = [name for name, spec in sources.items() if spec.dir is None]
+    if unset:
+        raise ValueError(f"sources.{unset[0]}.dir is not set, though its weight is above 0.")
+    # MUSDB18-HQ's own train/ folder still holds musdb's 14 validation songs. A source's
+    # songs are the folders, or the .wav files, at the top of its dir.
+    songs = {
+        path.name.removesuffix(".wav")
+        for spec in sources.values()
+        for path in Path(spec.dir).iterdir()
+    }
     shared = sorted(songs & {path.name for path in Path(cfg.valid_dir).iterdir() if path.is_dir()})
     if shared:
         raise ValueError(
@@ -173,17 +181,20 @@ def train(cfg: DictConfig) -> None:
         int(cfg.window_seconds * model.sample_rate) // model.pretransform.downsampling_ratio
     )
     bitrates = list(cfg.bitrates)
-    if cfg.remix_dir is None:
-        train_set = gd.LatentPairDataset(
-            cfg.train_dir, model, bitrates=bitrates, window_frames=window_frames
-        )
-    else:
-        train_set = gd.RemixDataset(
-            cfg.remix_dir,
-            bitrates=bitrates,
-            window_samples=window_frames * model.pretransform.downsampling_ratio,
-            windows=cfg.epoch_windows,
-        )
+    window_samples = window_frames * model.pretransform.downsampling_ratio
+    datasets = {
+        "tracks": lambda spec: gd.TrackDataset(
+            spec.dir, glob=spec.glob, bitrates=bitrates, window_samples=window_samples
+        ),
+        "remixes": lambda spec: gd.RemixDataset(
+            spec.dir, bitrates=bitrates, window_samples=window_samples
+        ),
+    }
+    train_set = gd.InterleavedDataset(
+        [datasets[name](spec) for name, spec in sources.items()],
+        probabilities=[spec.weight for spec in sources.values()],
+        windows=cfg.epoch_windows,
+    )
     valid_set = gd.LatentPairDataset(
         cfg.valid_dir,
         model,
@@ -191,10 +202,14 @@ def train(cfg: DictConfig) -> None:
         window_frames=window_frames,
         bitrates_file=Path(cfg.valid_dir) / "validation_bitrates.json",
     )
-    print(f"{len(train_set)} training windows, {len(valid_set)} validation windows", flush=True)
+    print(
+        f"{len(train_set)} training windows an epoch from {', '.join(sources)}, "
+        f"{len(valid_set)} validation windows",
+        flush=True,
+    )
     if len(train_set) < cfg.batch_size:
         raise ValueError(
-            f"{len(train_set)} training windows, fewer than one batch of {cfg.batch_size}."
+            f"epoch_windows={len(train_set)} is fewer than one batch of {cfg.batch_size}."
         )
 
     def validate() -> float:
@@ -235,26 +250,24 @@ def train(cfg: DictConfig) -> None:
         # This run's checkpoint with the lowest validation loss, and its last one.
         best, best_loss, last = None, float("inf"), None
         for epoch in range(start_epoch, cfg.num_train_epochs):
-            # A fixed seed per epoch, so a resumed run shuffles like an uninterrupted one.
+            # Windows are drawn and coded on the CPU in worker processes. The generator
+            # seeds the workers' draws: a fixed seed per epoch, so a resumed run's workers
+            # draw what an uninterrupted run's would.
             loader = torch.utils.data.DataLoader(
                 train_set,
                 batch_size=cfg.batch_size,
-                shuffle=True,
                 drop_last=True,
                 generator=torch.Generator().manual_seed(cfg.seed + epoch),
-                # Remixes are built on the CPU in worker processes; prepared latents
-                # already sit on the GPU, out of the workers' reach.
-                num_workers=0 if cfg.remix_dir is None else cfg.num_workers,
+                num_workers=cfg.num_workers,
             )
             losses = []
             since, since_step = time.perf_counter(), step
             for clean, mp3 in loader:
-                if cfg.remix_dir is not None:
-                    # Fresh audio from the workers, (8, 2, 438_272) on medium-base, to
-                    # (8, 256, 107) latents. Whole frames already, so nothing to pad.
-                    with torch.no_grad():
-                        clean = model.pretransform.encode(clean.to(device))
-                        mp3 = model.pretransform.encode(mp3.to(device))
+                # Fresh audio from the workers, (8, 2, 438_272) on medium-base, to
+                # (8, 256, 107) latents. Whole frames already, so nothing to pad.
+                with torch.no_grad():
+                    clean = model.pretransform.encode(clean.to(device))
+                    mp3 = model.pretransform.encode(mp3.to(device))
                 loss = gt.training_step(
                     model, clean, mp3=mp3, inpaint_mask_value=cfg.inpaint_mask_value
                 )
