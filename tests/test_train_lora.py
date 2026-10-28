@@ -3,6 +3,7 @@
 
 import os
 import signal
+import time
 from pathlib import Path
 from unittest import mock
 
@@ -16,7 +17,7 @@ from safetensors.torch import load_file
 from grooveback import audio as ga
 from grooveback import training as gt
 from grooveback.cli import musdb_eval
-from grooveback.cli.train_lora import ignore_sigint, train
+from grooveback.cli.train_lora import ignore_stop_signals, train
 
 SR = 44_100
 CONFIGS = Path(__file__).resolve().parents[1] / "configs"
@@ -364,12 +365,37 @@ def test_a_stopped_run_still_writes_its_listening_pack(tmp_path, monkeypatch, ti
     assert (tmp_path / "run" / "checkpoint-1" / "listen" / "restored.flac").is_file()
 
 
+def test_a_repeated_stop_signal_within_a_second_is_the_same_request(
+    tmp_path, monkeypatch, tiny_checkpoint
+):
+    """A `kill` that reaches both `uv run` and the trainer arrives twice, as uv
+    forwards its copy milliseconds later; the run must still save and exit."""
+    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
+    training_step = gt.training_step
+
+    def signalling_step(model, clean, *, mp3, inpaint_mask_value):
+        signal.raise_signal(signal.SIGTERM)
+        signal.raise_signal(signal.SIGTERM)
+        return training_step(model, clean, mp3=mp3, inpaint_mask_value=inpaint_mask_value)
+
+    monkeypatch.setattr(gt, "training_step", signalling_step)
+    write_song(tmp_path / "train", "a", seconds=2.0, bitrates=[24, 32], seed=0)
+    write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
+
+    train(config(tmp_path))
+
+    assert sorted(path.name for path in (tmp_path / "run").iterdir()) == ["checkpoint-1"]
+
+
 def test_a_second_stop_signal_quits_at_once_without_saving(tmp_path, monkeypatch, tiny_checkpoint):
+    """1.05 s apart: the trainer takes a repeat within a second of the first
+    signal as the same request."""
     monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
     training_step = gt.training_step
 
     def signalling_step(model, clean, *, mp3, inpaint_mask_value):
         signal.raise_signal(signal.SIGINT)
+        time.sleep(1.05)
         signal.raise_signal(signal.SIGINT)
         return training_step(model, clean, mp3=mp3, inpaint_mask_value=inpaint_mask_value)
 
@@ -395,18 +421,19 @@ def test_training_puts_back_the_signal_handlers_it_found(tmp_path, monkeypatch, 
     assert (signal.getsignal(signal.SIGINT), signal.getsignal(signal.SIGTERM)) == before
 
 
-def test_dataloader_workers_keep_serving_batches_after_a_ctrl_c():
-    """Ctrl-C reaches the remix workers as well as the trainer. A worker that quit
-    on it would fail the trainer's next batch, so the trainer could not save.
-    Unbatched items stay plain ints: a batched tensor would start macOS's
-    torch_shm_manager, which keeps the test process from exiting."""
+@pytest.mark.parametrize("signum", [signal.SIGINT, signal.SIGTERM], ids=["SIGINT", "SIGTERM"])
+def test_dataloader_workers_keep_serving_batches_after_a_stop_signal(signum):
+    """Ctrl-C, `kill %1` and `pkill -f` reach the remix workers as well as the
+    trainer. A worker that died would make torch raise in the trainer before it
+    could save. Unbatched items stay plain ints: a batched tensor would start
+    macOS's torch_shm_manager, which keeps the test process from exiting."""
     loader = torch.utils.data.DataLoader(
-        WorkerPids(), batch_size=None, num_workers=1, worker_init_fn=ignore_sigint
+        WorkerPids(), batch_size=None, num_workers=1, worker_init_fn=ignore_stop_signals
     )
     items = iter(loader)
     worker = next(items)
 
-    os.kill(worker, signal.SIGINT)
+    os.kill(worker, signum)
 
     assert len(list(items)) == 7
 

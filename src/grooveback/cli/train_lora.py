@@ -27,8 +27,9 @@ and the original's own round trip through the autoencoder.
 
 To stop a run early, press Ctrl-C or `kill <pid>` it (SIGINT or SIGTERM): it
 finishes the current step, validates and saves it as a checkpoint, writes the
-listening packs and exits. A second signal quits at once. A checkpoint saved
-in the middle of an epoch resumes at the start of that epoch.
+listening packs and exits. Another signal, a second or more after the first,
+quits at once. A checkpoint saved in the middle of an epoch resumes at the
+start of that epoch.
 
 MLflow (`mlflow_db`) gets the losses per epoch (epoch 0 = before training),
 the batch loss and seconds per step every `log_every` steps, peak GPU memory
@@ -43,7 +44,6 @@ import contextlib
 import os
 import shutil
 import signal
-import threading
 import time
 from pathlib import Path
 
@@ -65,37 +65,49 @@ import mlflow  # noqa: E402
 @contextlib.contextmanager
 def stop_on_signal():
     """Turn the first SIGINT (Ctrl-C) or SIGTERM (`kill`) into a request to stop,
-    which the training loop reads after every step; a second signal quits at once.
+    which the training loop reads after every step. A signal a second or more
+    after the first quits at once.
 
-    Yields a `threading.Event` that is set by the first signal. The previous
-    handlers come back on exit.
+    Yields a function that tells whether a stop was requested. A repeat within
+    the second is the same request: a `kill` that reaches both `uv run` and the
+    trainer arrives twice, a few milliseconds apart, as uv forwards its copy.
+    The handler takes no lock and writes its notice straight to file
+    descriptor 2, so a signal that lands inside the handler, or while Python is
+    printing, cannot hang the trainer or break the print. The previous handlers
+    come back on exit.
     """
-    requested = threading.Event()
+    first_at = None  # time.monotonic() of the first signal
 
     def request(signum, frame):
-        if requested.is_set():
+        nonlocal first_at
+        if first_at is None:
+            first_at = time.monotonic()
+            os.write(
+                2,
+                f"{signal.Signals(signum).name}: stopping after this step, once it is "
+                "validated and saved. Send it again to quit at once.\n".encode(),
+            )
+        elif time.monotonic() - first_at >= 1.0:
             raise KeyboardInterrupt
-        print(
-            f"{signal.Signals(signum).name}: stopping after this step, once it is validated "
-            "and saved. Send it again to quit at once.",
-            flush=True,
-        )
-        requested.set()
 
     sigint = signal.signal(signal.SIGINT, request)
     sigterm = signal.signal(signal.SIGTERM, request)
     try:
-        yield requested
+        yield lambda: first_at is not None
     finally:
         signal.signal(signal.SIGINT, sigint)
         signal.signal(signal.SIGTERM, sigterm)
 
 
-def ignore_sigint(worker_id: int) -> None:
-    """DataLoader `worker_init_fn`. Ctrl-C reaches every process the terminal runs,
-    workers included; only the trainer acts on it. A worker that quit on it would
-    fail the trainer's next batch. Workers exit with the trainer."""
+def ignore_stop_signals(worker_id: int) -> None:
+    """DataLoader `worker_init_fn`. Ctrl-C, `kill %1` and `pkill -f train_lora`
+    reach the workers too: forked workers share the trainer's process group and
+    its command line. Only the trainer acts on them. A worker that died would
+    make torch raise in the trainer, wherever it is, before it could save.
+    Workers still end with the trainer: torch stops them through its queues,
+    and each exits when it finds the trainer gone."""
     signal.signal(signal.SIGINT, signal.SIG_IGN)
+    signal.signal(signal.SIGTERM, signal.SIG_IGN)
 
 
 def write_listening_window(
@@ -216,7 +228,7 @@ def train(cfg: DictConfig) -> None:
         mlflow.start_run(
             run_name=Path(cfg.save_dir).name, log_system_metrics=cfg.log_system_metrics
         ),
-        stop_on_signal() as stop,
+        stop_on_signal() as stop_requested,
     ):
         mlflow.log_params(OmegaConf.to_container(cfg, resolve=True))
         if step == 0:
@@ -229,7 +241,7 @@ def train(cfg: DictConfig) -> None:
         # This run's checkpoint with the lowest validation loss, and its last one.
         best, best_loss, last = None, float("inf"), None
         for epoch in range(start_epoch, cfg.num_train_epochs):
-            if stop.is_set():
+            if stop_requested():
                 break
             # A fixed seed per epoch, so a resumed run shuffles like an uninterrupted one.
             loader = torch.utils.data.DataLoader(
@@ -241,7 +253,7 @@ def train(cfg: DictConfig) -> None:
                 # Remixes are built on the CPU in worker processes; prepared latents
                 # already sit on the GPU, out of the workers' reach.
                 num_workers=0 if cfg.remix_dir is None else cfg.num_workers,
-                worker_init_fn=ignore_sigint,
+                worker_init_fn=ignore_stop_signals,
             )
             losses = []
             since, since_step = time.perf_counter(), step
@@ -275,7 +287,7 @@ def train(cfg: DictConfig) -> None:
                     mlflow.log_metrics(
                         {"batch_loss": loss.item(), "seconds_per_step": seconds}, step=step
                     )
-                if stop.is_set():
+                if stop_requested():
                     break
 
             # An epoch cut short by a stop is saved as unfinished, so a run resumed from
