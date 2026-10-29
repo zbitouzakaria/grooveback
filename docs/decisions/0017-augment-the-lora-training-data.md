@@ -68,9 +68,13 @@ mp3_ffmpeg: 0.5
 "Half of the windows MP3 alone, half MP3 then Opus or AAC" is then `codec_rounds: {1: 0.5, 2: 0.5}` with
 `codec_choices: [[mp3], [opus, aac]]`.
 
-Every round trip has to come back aligned, because a shift of one sample ruins the waveform metrics (ADR-0007).
-ffmpeg trims the encoder delay that Ogg and MP4 files record, and `coded_pair` searches ±4 samples for the rest. The
-tests send a click through each codec and check where it lands.
+The coded copy has to come back aligned, because a shift of one sample ruins the waveform metrics (ADR-0007). Today
+the alignment lives inside `codec_simu`: after the sox round trip, it rolls the MP3 by the lag that a phase-transform
+cross-correlation finds against the clean window (ADR-0015). We move that step out of `codec_simu` and run it once,
+after the last round trip, against the clean window, so the coded copy is aligned whatever chain it went through.
+`coded_pair`'s search of ±4 samples then runs as today. A sox MP3 comes out 1,105 samples late before that step, and
+the 4,096-sample pads hold the lag of two round trips. `codec_simu` still aligns its own output, so the test does not
+change. The tests send a click through each chain and check where it lands.
 
 Validation and the test do not change: one sox MP3 at the six bitrates. Their scores stay comparable with earlier
 runs and with ADR-0015.
