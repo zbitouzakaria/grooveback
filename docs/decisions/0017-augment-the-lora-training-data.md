@@ -81,8 +81,12 @@ after the last round trip, against the clean window, so the coded copy is aligne
 the 4,096-sample pads hold the lag of two round trips. `codec_simu` still aligns its own output, so the test does not
 change.
 
-Validation and the test do not change: one sox MP3 at the six bitrates. Their scores stay comparable with earlier
-runs and with ADR-0015.
+Validation gets the same codecs, so its loss reflects the damage the model will see. A second validation folder,
+written once by `scripts/prepare_dataset.py --chains 6`, holds six coded versions of each validation song in place
+of the six sox bitrates: each is the whole song through its own chain, drawn from the same settings under a fixed
+seed. Validation reads it as it read the bitrates, each window from one of its song's six versions, so it keeps
+its 364 windows. It gets no other augmentation. The first folder stays, to score a checkpoint against earlier runs,
+and the test protocol does not change: one sox MP3 at the six bitrates, comparable with ADR-0015.
 
 ## How we test it
 
