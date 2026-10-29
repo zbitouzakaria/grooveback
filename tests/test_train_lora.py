@@ -13,8 +13,8 @@ import torch
 from hydra import compose, initialize_config_dir
 
 from grooveback import audio as ga
+from grooveback import dataset as gd
 from grooveback import training as gt
-from grooveback.cli import musdb_eval
 from grooveback.cli.train_lora import train
 
 SR = 44_100
@@ -78,7 +78,7 @@ def test_one_epoch_writes_weights_optimizer_state_and_a_listening_pack(
 ):
     """One epoch of 4 items at batch 2 ends at step 2."""
     monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
-    monkeypatch.setattr(musdb_eval, "codec_simu", lambda clip, kbps: 0.5 * clip)
+    monkeypatch.setattr(gd, "round_trip", lambda audio, *, codec, kbps: 0.5 * audio)
     write_musdb_song(tmp_path / "musdb", "a", seconds=2.0, seed=0)
     write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
 
@@ -99,7 +99,7 @@ def test_training_runs_epochs_of_epoch_windows_items(tmp_path, monkeypatch, tiny
     """4 items at batch 2 make 2 steps an epoch, so 2 epochs end at checkpoint-4,
     which is kept as the last; checkpoint-2 stays only if it is the best."""
     monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
-    monkeypatch.setattr(musdb_eval, "codec_simu", lambda clip, kbps: 0.5 * clip)
+    monkeypatch.setattr(gd, "round_trip", lambda audio, *, codec, kbps: 0.5 * audio)
     write_musdb_song(tmp_path / "musdb", "a", seconds=2.0, seed=0)
     write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
 
@@ -114,7 +114,7 @@ def test_training_steps_on_windows_of_window_seconds(tmp_path, monkeypatch, tiny
     """0.5 s is 344 frames of 64 samples on the tiny model: the windows of both
     sources must be encoded to as many latent frames as the validation windows."""
     monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
-    monkeypatch.setattr(musdb_eval, "codec_simu", lambda clip, kbps: 0.5 * clip)
+    monkeypatch.setattr(gd, "round_trip", lambda audio, *, codec, kbps: 0.5 * audio)
     frames = []
     training_step = gt.training_step
 
@@ -150,7 +150,7 @@ def test_refuses_a_weighted_source_without_a_dir_before_loading_the_model(tmp_pa
 def test_a_source_at_weight_0_is_not_read(tmp_path, monkeypatch, tiny_checkpoint):
     """Its dir does not exist, which reading it would fail on."""
     monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
-    monkeypatch.setattr(musdb_eval, "codec_simu", lambda clip, kbps: 0.5 * clip)
+    monkeypatch.setattr(gd, "round_trip", lambda audio, *, codec, kbps: 0.5 * audio)
     write_musdb_song(tmp_path / "musdb", "a", seconds=2.0, seed=0)
     write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
 
@@ -165,7 +165,7 @@ def test_mlflow_metrics_are_indexed_by_epoch_with_the_untrained_model_at_0(
     tmp_path, monkeypatch, tiny_checkpoint
 ):
     monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
-    monkeypatch.setattr(musdb_eval, "codec_simu", lambda clip, kbps: 0.5 * clip)
+    monkeypatch.setattr(gd, "round_trip", lambda audio, *, codec, kbps: 0.5 * audio)
     write_musdb_song(tmp_path / "musdb", "a", seconds=2.0, seed=0)
     write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
 
@@ -182,7 +182,7 @@ def test_mlflow_metrics_are_indexed_by_epoch_with_the_untrained_model_at_0(
 def test_mlflow_batch_loss_is_indexed_by_step(tmp_path, monkeypatch, tiny_checkpoint):
     """One epoch of 2 steps, logged every step."""
     monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
-    monkeypatch.setattr(musdb_eval, "codec_simu", lambda clip, kbps: 0.5 * clip)
+    monkeypatch.setattr(gd, "round_trip", lambda audio, *, codec, kbps: 0.5 * audio)
     write_musdb_song(tmp_path / "musdb", "a", seconds=2.0, seed=0)
     write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
 
@@ -198,7 +198,7 @@ def test_time_budget_stops_after_the_epoch_that_crosses_it(tmp_path, monkeypatch
     """A budget of 0 minutes is crossed by the first epoch, so a 3-epoch run
     ends after it: 2 steps, checkpoint-2, with the listening pack there."""
     monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
-    monkeypatch.setattr(musdb_eval, "codec_simu", lambda clip, kbps: 0.5 * clip)
+    monkeypatch.setattr(gd, "round_trip", lambda audio, *, codec, kbps: 0.5 * audio)
     write_musdb_song(tmp_path / "musdb", "a", seconds=2.0, seed=0)
     write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
 
@@ -214,7 +214,7 @@ def test_keeps_only_the_checkpoint_with_the_lowest_validation_loss_and_the_last(
     """Validation losses of 1.0 untrained, then 0.5, 0.3 and 0.4 after three
     epochs of 2 steps: checkpoint-4 is the best, checkpoint-6 the last."""
     monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
-    monkeypatch.setattr(musdb_eval, "codec_simu", lambda clip, kbps: 0.5 * clip)
+    monkeypatch.setattr(gd, "round_trip", lambda audio, *, codec, kbps: 0.5 * audio)
     write_musdb_song(tmp_path / "musdb", "a", seconds=2.0, seed=0)
     write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
 
@@ -231,7 +231,7 @@ def test_only_the_best_checkpoint_gets_a_listening_pack(tmp_path, monkeypatch, t
     """Validation losses of 1.0 untrained, then 0.5, 0.3 and 0.4: checkpoint-4 is
     the best, checkpoint-6 the last."""
     monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
-    monkeypatch.setattr(musdb_eval, "codec_simu", lambda clip, kbps: 0.5 * clip)
+    monkeypatch.setattr(gd, "round_trip", lambda audio, *, codec, kbps: 0.5 * audio)
     write_musdb_song(tmp_path / "musdb", "a", seconds=2.0, seed=0)
     write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
 
@@ -248,7 +248,7 @@ def test_a_run_whose_validation_losses_are_all_nan_keeps_its_last_checkpoint(
     """A NaN is never below another loss, so a diverged run has no best checkpoint.
     It must still end normally, with its last one."""
     monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
-    monkeypatch.setattr(musdb_eval, "codec_simu", lambda clip, kbps: 0.5 * clip)
+    monkeypatch.setattr(gd, "round_trip", lambda audio, *, codec, kbps: 0.5 * audio)
     write_musdb_song(tmp_path / "musdb", "a", seconds=2.0, seed=0)
     write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
 
@@ -266,7 +266,7 @@ def test_resume_never_deletes_the_checkpoints_of_earlier_runs(
     and its last, so its checkpoint-4 is deleted. checkpoint-2, written by the
     first run, is neither for the resumed run and stays."""
     monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
-    monkeypatch.setattr(musdb_eval, "codec_simu", lambda clip, kbps: 0.5 * clip)
+    monkeypatch.setattr(gd, "round_trip", lambda audio, *, codec, kbps: 0.5 * audio)
     write_musdb_song(tmp_path / "musdb", "a", seconds=2.0, seed=0)
     write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
     train(config(tmp_path))
@@ -293,7 +293,7 @@ def test_resume_from_the_best_refuses_a_save_dir_holding_a_later_checkpoint(
     Resumed from checkpoint-4 in the same save_dir, a run would write its own
     checkpoint-6 over the first run's, then could delete it."""
     monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
-    monkeypatch.setattr(musdb_eval, "codec_simu", lambda clip, kbps: 0.5 * clip)
+    monkeypatch.setattr(gd, "round_trip", lambda audio, *, codec, kbps: 0.5 * audio)
     write_musdb_song(tmp_path / "musdb", "a", seconds=2.0, seed=0)
     write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
     with mock.patch.object(gt, "validation_loss", autospec=True, side_effect=[1.0, 0.5, 0.3, 0.4]):
@@ -317,7 +317,7 @@ def test_a_fresh_run_refuses_a_save_dir_that_holds_checkpoints(
     tmp_path, monkeypatch, tiny_checkpoint
 ):
     monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
-    monkeypatch.setattr(musdb_eval, "codec_simu", lambda clip, kbps: 0.5 * clip)
+    monkeypatch.setattr(gd, "round_trip", lambda audio, *, codec, kbps: 0.5 * audio)
     write_musdb_song(tmp_path / "musdb", "a", seconds=2.0, seed=0)
     write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
     train(config(tmp_path))
@@ -333,7 +333,7 @@ def test_a_fresh_run_refuses_a_save_dir_that_holds_checkpoints(
 def test_a_ctrl_c_during_the_steps_quits_at_once(tmp_path, monkeypatch, tiny_checkpoint):
     """A run resumed from its last checkpoint repeats the interrupted epoch."""
     monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
-    monkeypatch.setattr(musdb_eval, "codec_simu", lambda clip, kbps: 0.5 * clip)
+    monkeypatch.setattr(gd, "round_trip", lambda audio, *, codec, kbps: 0.5 * audio)
     training_step = gt.training_step
 
     def signalling_step(model, clean, *, mp3, inpaint_mask_value):
@@ -357,7 +357,7 @@ def test_a_ctrl_c_while_a_checkpoint_is_written_waits_for_it(
     finishes it, with the listening pack of this first best, then quits before
     epoch 2."""
     monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
-    monkeypatch.setattr(musdb_eval, "codec_simu", lambda clip, kbps: 0.5 * clip)
+    monkeypatch.setattr(gd, "round_trip", lambda audio, *, codec, kbps: 0.5 * audio)
     save_checkpoint = gt.save_checkpoint
 
     def signalled_save(*args, **kwargs):
@@ -378,7 +378,7 @@ def test_a_ctrl_c_while_a_checkpoint_is_written_waits_for_it(
 def test_training_puts_back_the_signal_handlers_it_found(tmp_path, monkeypatch, tiny_checkpoint):
     """pytest's own Ctrl-C handling, for one, must outlive a run."""
     monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
-    monkeypatch.setattr(musdb_eval, "codec_simu", lambda clip, kbps: 0.5 * clip)
+    monkeypatch.setattr(gd, "round_trip", lambda audio, *, codec, kbps: 0.5 * audio)
     write_musdb_song(tmp_path / "musdb", "a", seconds=2.0, seed=0)
     write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
     before = (signal.getsignal(signal.SIGINT), signal.getsignal(signal.SIGTERM))
@@ -394,7 +394,7 @@ def test_resume_continues_from_the_checkpoint_with_the_new_learning_rate(
     """The resumed run starts at step 2, in epoch 2, and its optimizer runs at
     the new lr rather than the 1e-4 saved in checkpoint-2."""
     monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
-    monkeypatch.setattr(musdb_eval, "codec_simu", lambda clip, kbps: 0.5 * clip)
+    monkeypatch.setattr(gd, "round_trip", lambda audio, *, codec, kbps: 0.5 * audio)
     write_musdb_song(tmp_path / "musdb", "a", seconds=2.0, seed=0)
     write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
     train(config(tmp_path, "lr=1e-4"))

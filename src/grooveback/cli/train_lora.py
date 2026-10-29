@@ -7,12 +7,13 @@
     uv run python -m grooveback.cli.train_lora ... num_train_epochs=2 lr=5e-5 \\
         resume_from_checkpoint=artifacts/lora/run1/checkpoint-{step}
 
-Every training item is a fresh window, coded as MP3 at a bitrate drawn from
-`bitrates`, read from one of the `sources` picked by its weight: `tracks`, real
-tracks at a random start (`TrackDataset`), or `remixes`, sums of MUSDB18-HQ
-stems from random songs (`RemixDataset`, Apollo's recipe). Apollo splits them
-half and half, as the config does. `valid_dir` is a `scripts/prepare_dataset.py`
-output: fixed windows at a fixed bitrate each. The split between training and
+Every training item is a fresh window, read from one of the `sources` picked
+by its weight: `tracks`, real tracks at a random start (`TrackDataset`), or
+`remixes`, one MUSDB18-HQ stem of each kind from random songs (`RemixDataset`).
+Apollo splits them half and half, as the config does. `augmentations` sets
+ADR-0017's random EQs, left/right swap and chain of one or two codecs.
+`valid_dir` is a `scripts/prepare_dataset.py` output: fixed windows, each with
+a sox MP3 at a fixed one of `bitrates`. The split between training and
 validation is in the folders: the training ones must not hold the validation
 songs. MUSDB18-HQ's own train/ folder holds musdb's 14 validation songs, so
 they are moved out of it.
@@ -124,6 +125,7 @@ def train(cfg: DictConfig) -> None:
     unset = [name for name, spec in sources.items() if spec.dir is None]
     if unset:
         raise ValueError(f"sources.{unset[0]}.dir is not set, though its weight is above 0.")
+    augmentations = gd.Augmentations(**OmegaConf.to_container(cfg.augmentations))
     # MLflow keeps one run per call, in a local SQLite file: its parameters are
     # this config; epoch metrics are indexed by epoch (0 = before training), batch
     # metrics by step. A resumed run is a new MLflow run whose epochs continue the
@@ -172,10 +174,10 @@ def train(cfg: DictConfig) -> None:
     window_samples = window_frames * model.pretransform.downsampling_ratio
     datasets = {
         "tracks": lambda spec: gd.TrackDataset(
-            spec.dir, glob=spec.glob, bitrates=bitrates, window_samples=window_samples
+            spec.dir, glob=spec.glob, window_samples=window_samples, augmentations=augmentations
         ),
         "remixes": lambda spec: gd.RemixDataset(
-            spec.dir, bitrates=bitrates, window_samples=window_samples
+            spec.dir, window_samples=window_samples, augmentations=augmentations
         ),
     }
     train_set = gd.InterleavedDataset(
