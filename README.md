@@ -124,7 +124,7 @@ uv sync --all-groups
 uv run pytest
 ```
 
-The MUSDB18-HQ benchmark scores Apollo on the 50 test songs at a given MP3 bitrate and writes one row per 6 s clip. The MP3 step needs sox with MP3 support (`apt install sox libsox-fmt-mp3` on Ubuntu). Without it, the tests that depend on it are skipped.
+The MUSDB18-HQ benchmark scores Apollo on the 50 test songs at a given MP3 bitrate and writes one row per 6 s clip. The MP3 step needs sox with MP3 support (`apt install sox libsox-fmt-mp3` on Ubuntu). The LoRA's training data also goes through ffmpeg's MP3, Opus and AAC encoders (`apt install ffmpeg`, ADR-0017). Without them, the tests that depend on them are skipped.
 
 ```
 uv run python -m grooveback.cli.musdb_eval musdb18hq/test scores.csv --kbps 24

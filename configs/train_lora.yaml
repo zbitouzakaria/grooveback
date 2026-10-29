@@ -3,24 +3,39 @@
 
 variant: small-music-base   # SA3 base checkpoint: small-music-base (SAME-S) or medium-base (SAME-L)
 device: auto
-# Training data: every item is a fresh window, coded as MP3 at a bitrate drawn from
-# `bitrates`, from one source picked by weight. A source at weight 0 is not loaded.
+# Training data: every item is a fresh window from one source picked by weight, augmented
+# and coded as `augmentations` draws. A source at weight 0 is not loaded.
 sources:
   tracks:                 # windows of real tracks, at a random start on every draw
     dir: null             # e.g. MUSDB18-HQ's train songs, without the validation ones
     glob: "*/mixture.wav" # the files read under dir; "*.wav" for a flat folder of songs
     weight: 0.5
-  remixes:                # 1 to 4 stems from random songs, summed (Apollo's recipe)
+  remixes:                # one stem of each kind, each from a random song, summed (Demucs's remix)
     dir: null             # MUSDB18-HQ songs: {song}/{bass,drums,other,vocals}.wav
     weight: 0.5
+# ADR-0017. Every probability is per training item.
+augmentations:
+  drop_kind: 0.5          # a remix leaves out one stem kind, picked at random
+  stem_eq: 0.5            # every stem of a remix gets its own random EQ: Q 0.7-5, ±9 dB
+  mix_eq: 0.5             # the whole window gets one random EQ: Q 0.7-3, ±6 dB
+  swap: 0.5               # left and right swapped: a track as a whole, each stem of a remix on its own
+  # How many codec round trips a window goes through, each count with how often it is drawn,
+  # and for each round trip the codecs it draws from with equal odds.
+  codec_rounds: {1: 0.4, 2: 0.6}
+  codec_choices: [[mp3, opus, aac], [mp3, opus, aac]]
+  codec_bitrates:
+    mp3: [24, 32, 48, 64, 96, 128]
+    opus: [64, 96, 128, 160, 192]
+    aac: [64, 96, 128, 160, 192]
+  mp3_ffmpeg: 0.5         # MP3s coded by ffmpeg's libmp3lame; the others by torchaudio's sox
 epoch_windows: 1884       # items per epoch, as many as the 86 songs' prepared windows: 235 steps of 8
 num_workers: 8            # CPU processes drawing and coding windows while the GPU trains
 valid_dir: ???
 save_dir: ???             # checkpoint-{step}/ after every epoch; the best and the last are kept
 mlflow_db: artifacts/mlflow.db   # local MLflow store: losses per epoch and per step
 log_system_metrics: true  # GPU/CPU utilisation, memory and power in MLflow, one mean per minute
-# Each training window is coded at one of these, drawn uniformly for every item; each validation
-# window keeps one, drawn once into valid_dir/validation_bitrates.json. musdb_eval's six.
+# Each validation window keeps one of these sox MP3s, drawn once into
+# valid_dir/validation_bitrates.json. musdb_eval's six.
 bitrates: [24, 32, 48, 64, 96, 128]
 window_seconds: 10.0      # cut to whole latent frames: 107 frames, 9.94 s
 
@@ -40,7 +55,8 @@ seed: 0
 
 inpaint_mask_value: 0.0   # 0 = nothing given, generate every frame (upstream's convention)
 validation_timesteps: [0.1, 0.3, 0.5, 0.7, 0.9]
-sample_steps: 50          # sampling steps for the best checkpoint's listening window
+sample_steps: 50          # sampling steps for the best checkpoint's listening windows
+listening_songs: 4        # validation songs whose first window each new best restores
 log_every: 10             # steps between batch_loss / seconds_per_step points
 
 # Continue from .../checkpoint-{step}: weights, Adam's averages, step and epoch.

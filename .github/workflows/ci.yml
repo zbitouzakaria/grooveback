@@ -46,11 +46,12 @@ jobs:
           cache-suffix: test
       - name: Install the locked environment
         run: uv sync --frozen
-      # The musdb_eval tests encode MP3 through torchaudio's sox backend; without it they skip.
+      # The musdb_eval tests encode MP3 through torchaudio's sox backend, and the dataset's
+      # alignment tests also through ffmpeg's MP3, Opus and AAC; without them they skip.
       # The runner's Microsoft package source can fail apt-get update; nothing here comes from it.
-      - name: Install sox with MP3 support
+      - name: Install sox with MP3 support, and ffmpeg
         run: |
           sudo rm -f /etc/apt/sources.list.d/microsoft-prod.*
-          sudo apt-get update && sudo apt-get install -y libsox-dev libsox-fmt-mp3
+          sudo apt-get update && sudo apt-get install -y libsox-dev libsox-fmt-mp3 ffmpeg
       - name: Run pytest
         run: uv run pytest

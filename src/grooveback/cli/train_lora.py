@@ -7,12 +7,13 @@
     uv run python -m grooveback.cli.train_lora ... num_train_epochs=2 lr=5e-5 \\
         resume_from_checkpoint=artifacts/lora/run1/checkpoint-{step}
 
-Every training item is a fresh window, coded as MP3 at a bitrate drawn from
-`bitrates`, read from one of the `sources` picked by its weight: `tracks`, real
-tracks at a random start (`TrackDataset`), or `remixes`, sums of MUSDB18-HQ
-stems from random songs (`RemixDataset`, Apollo's recipe). Apollo splits them
-half and half, as the config does. `valid_dir` is a `scripts/prepare_dataset.py`
-output: fixed windows at a fixed bitrate each. The split between training and
+Every training item is a fresh window, read from one of the `sources` picked
+by its weight: `tracks`, real tracks at a random start (`TrackDataset`), or
+`remixes`, one MUSDB18-HQ stem of each kind from random songs (`RemixDataset`).
+Apollo splits them half and half, as the config does. `augmentations` sets
+ADR-0017's random EQs, left/right swap and chain of one or two codecs.
+`valid_dir` is a `scripts/prepare_dataset.py` output: fixed windows, each with
+a sox MP3 at a fixed one of `bitrates`. The split between training and
 validation is in the folders: the training ones must not hold the validation
 songs. MUSDB18-HQ's own train/ folder holds musdb's 14 validation songs, so
 they are moved out of it.
@@ -23,11 +24,11 @@ checkpoints it writes, it keeps two, the one with the lowest validation loss
 and the last, and deletes the others: on medium-base each is about 1 GB.
 Checkpoints of earlier runs, such as the one a run resumes from, are never
 deleted, and a save_dir that holds a checkpoint past the step a run starts
-from is refused, since the run would write over it. Each new best also gets a
-level-matched listening pack (`listen/`): one restored validation window next
-to its original, its MP3, and the original's own round trip through the
-autoencoder. It costs about 30 s on medium-base, paid only when the validation
-loss improves.
+from is refused, since the run would write over it. Each new best also gets
+level-matched listening packs (`listen/{song}/`): the first window of each of
+the first `listening_songs` validation songs, restored from the coded version
+validation scores it with, next to its original and that coded input. Each
+costs about 30 s on medium-base, paid only when the validation loss improves.
 
 Ctrl-C or `kill <pid>` (SIGINT or SIGTERM) ends a run at once while it trains;
 a run resumed from its last checkpoint repeats the interrupted epoch. While an
@@ -92,25 +93,20 @@ def write_listening_window(
     dataset: gd.LatentPairDataset,
     out_dir: Path,
     *,
-    kbps: int,
+    song: Path,
     steps: int,
     inpaint_mask_value: float,
 ) -> None:
-    """Restore the first window of the first validation song at `kbps`, and
-    write it level-matched next to the original, the MP3, and the original's
-    round trip through the autoencoder (the best the decoder can do with the
-    encoder's latents)."""
-    song = dataset.songs[0]
-    window = slice(0, dataset.window_frames)
+    """Restore the first window of validation song `song` from the coded
+    version validation scores it with, and write it level-matched next to the
+    original and that coded input."""
+    kbps = dataset.fixed[dataset.windows.index((song.name, 0))]
     samples = dataset.window_frames * model.pretransform.downsampling_ratio
-    clean, mp3 = dataset.clean[song.name][:, window], dataset.mp3[(song.name, kbps)][:, window]
-    with torch.no_grad():
-        roundtrip = model.pretransform.decode(clean[None])[0].float().cpu().numpy()
+    mp3 = dataset.mp3[(song.name, kbps)][:, : dataset.window_frames]
     restored = gt.restore(model, mp3, steps=steps, inpaint_mask_value=inpaint_mask_value)
     pack = {
         "original": ga.load(song / "original.wav")[0][:, :samples],
         "input": ga.load(song / f"{kbps}k.wav")[0][:, :samples],
-        "original-roundtrip": roundtrip[:, :samples],
         "restored": restored[:, :samples],
     }
     write_listening_pack(pack, model.sample_rate, out_dir, suffix=".flac")
@@ -124,6 +120,7 @@ def train(cfg: DictConfig) -> None:
     unset = [name for name, spec in sources.items() if spec.dir is None]
     if unset:
         raise ValueError(f"sources.{unset[0]}.dir is not set, though its weight is above 0.")
+    augmentations = gd.Augmentations(**OmegaConf.to_container(cfg.augmentations))
     # MLflow keeps one run per call, in a local SQLite file: its parameters are
     # this config; epoch metrics are indexed by epoch (0 = before training), batch
     # metrics by step. A resumed run is a new MLflow run whose epochs continue the
@@ -172,10 +169,10 @@ def train(cfg: DictConfig) -> None:
     window_samples = window_frames * model.pretransform.downsampling_ratio
     datasets = {
         "tracks": lambda spec: gd.TrackDataset(
-            spec.dir, glob=spec.glob, bitrates=bitrates, window_samples=window_samples
+            spec.dir, glob=spec.glob, window_samples=window_samples, augmentations=augmentations
         ),
         "remixes": lambda spec: gd.RemixDataset(
-            spec.dir, bitrates=bitrates, window_samples=window_samples
+            spec.dir, window_samples=window_samples, augmentations=augmentations
         ),
     }
     train_set = gd.InterleavedDataset(
@@ -225,14 +222,15 @@ def train(cfg: DictConfig) -> None:
             mlflow.log_metric("validation_loss", baseline, step=0)
 
         def listen(directory: Path) -> None:
-            write_listening_window(
-                model,
-                valid_set,
-                directory / "listen",
-                kbps=min(bitrates),
-                steps=cfg.sample_steps,
-                inpaint_mask_value=cfg.inpaint_mask_value,
-            )
+            for song in valid_set.songs[: cfg.listening_songs]:
+                write_listening_window(
+                    model,
+                    valid_set,
+                    directory / "listen" / song.name,
+                    song=song,
+                    steps=cfg.sample_steps,
+                    inpaint_mask_value=cfg.inpaint_mask_value,
+                )
 
         started = time.perf_counter()
         # This run's checkpoint with the lowest validation loss, and its last one.
