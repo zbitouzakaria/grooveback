@@ -27,6 +27,7 @@ import argparse
 import json
 from pathlib import Path
 
+import numpy as np
 import torch
 from omegaconf import OmegaConf
 
@@ -94,11 +95,14 @@ def prepare_chains(wav_dir: Path, out_dir: Path, *, versions: int, seed: int = 0
             for codec, kbps in chain:
                 coded = gd.round_trip(coded, codec=codec, kbps=kbps)
             coded = musdb_eval.align(coded, clean=audio)
+            # The alignment can miss by a sample, as training's ±4-sample search allows for:
+            # here the coded song is moved back instead, and anything further off is refused.
             lag = best_lag(audio, coded)
-            if lag != 0:
+            if abs(lag) > 4:
                 raise RuntimeError(
                     f"{track.name} through {chain} is {lag} samples off the original."
                 )
+            coded = np.roll(coded, -lag, axis=-1)
             ga.save(target, coded, SR)
         print(f"{track.stem}: original + {versions} chains", flush=True)
 
