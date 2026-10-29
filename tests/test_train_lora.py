@@ -87,9 +87,8 @@ def test_one_epoch_writes_weights_optimizer_state_and_a_listening_pack(
     checkpoint = tmp_path / "run" / "checkpoint-2"
     assert (checkpoint / "lora.safetensors").is_file()
     assert (checkpoint / "state.pt").is_file()
-    assert sorted(path.name for path in (checkpoint / "listen").iterdir()) == [
+    assert sorted(path.name for path in (checkpoint / "listen" / "b").iterdir()) == [
         "input.flac",
-        "original-roundtrip.flac",
         "original.flac",
         "restored.flac",
     ]
@@ -262,7 +261,7 @@ def test_time_budget_stops_after_the_epoch_that_crosses_it(tmp_path, monkeypatch
     train(config(tmp_path, "num_train_epochs=3", "max_train_minutes=0"))
 
     assert sorted(path.name for path in (tmp_path / "run").iterdir()) == ["checkpoint-2"]
-    assert (tmp_path / "run" / "checkpoint-2" / "listen" / "restored.flac").is_file()
+    assert (tmp_path / "run" / "checkpoint-2" / "listen" / "b" / "restored.flac").is_file()
 
 
 def test_keeps_only_the_checkpoint_with_the_lowest_validation_loss_and_the_last(
@@ -295,7 +294,7 @@ def test_only_the_best_checkpoint_gets_a_listening_pack(tmp_path, monkeypatch, t
     with mock.patch.object(gt, "validation_loss", autospec=True, side_effect=[1.0, 0.5, 0.3, 0.4]):
         train(config(tmp_path, "num_train_epochs=3"))
 
-    assert (tmp_path / "run" / "checkpoint-4" / "listen" / "restored.flac").is_file()
+    assert (tmp_path / "run" / "checkpoint-4" / "listen" / "b" / "restored.flac").is_file()
     assert not (tmp_path / "run" / "checkpoint-6" / "listen").exists()
 
 
@@ -429,7 +428,7 @@ def test_a_ctrl_c_while_a_checkpoint_is_written_waits_for_it(
         train(config(tmp_path, "num_train_epochs=2"))
 
     assert sorted(path.name for path in (tmp_path / "run").iterdir()) == ["checkpoint-2"]
-    assert (tmp_path / "run" / "checkpoint-2" / "listen" / "restored.flac").is_file()
+    assert (tmp_path / "run" / "checkpoint-2" / "listen" / "b" / "restored.flac").is_file()
 
 
 def test_training_puts_back_the_signal_handlers_it_found(tmp_path, monkeypatch, tiny_checkpoint):
