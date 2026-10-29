@@ -50,4 +50,4 @@ the source of truth stays obvious.
 | 0011 | **Autoencoder round-trips and mean damage subtraction** — four open autoencoders at 32/64/128k, the damage-direction formula, chains as solvers |
 | 0015 | **Reproduce Apollo's test protocol** — Apollo and Apollo → εar-VAE scored on the 50 held-out MUSDB18-HQ test mixtures at six bitrates with the authors' own preprocessing, codec and metrics; their codec leaves some MP3s 25 ms late, fixed here with a Hann taper |
 | 0016 | AudioSR, A2SB, εar-VAE and εar-VAE2 on 50 clips drawn from the MUSDB18-HQ test mixtures — none scores above the untouched MP3 on SDR; `musdb_eval --clips` draws them, `--render` scores renders made in other environments |
-| 0017 | **Augment the LoRA's training data** (proposed) — remixes with one stem per kind at Demucs's gains, Jeon et al.'s random EQ on stems and mix, a left/right swap, and one or two codec round trips drawn from MP3, Opus and AAC |
+| 0017 | **Augment the LoRA's training data** — remixes with one stem per kind at Demucs's gains, Jeon et al.'s random EQ on stems and mix, a left/right swap, and one or two codec round trips drawn from MP3, Opus and AAC |
