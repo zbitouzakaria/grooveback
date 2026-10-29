@@ -4,7 +4,7 @@ Date: 2026-10-29
 
 ## Status
 
-Accepted. The next long run of the LoRA fine-tune adds four augmentations:
+Proposed. We propose that the next long run of the LoRA fine-tune add four augmentations:
 
 - remixes with one stem of each kind;
 - a random EQ on the clean window;
@@ -43,7 +43,7 @@ codec. Damage added to the MP3 alone is different: the clean original stays the 
 change the master. It learns to de-limit, to de-reverberate, or to brighten. That is remastering, and every proposal
 of that kind is rejected below.
 
-## The next run adds four augmentations
+## We propose four augmentations for the next run
 
 ### Remixes hold one stem of each kind
 
@@ -65,13 +65,14 @@ narrower than Demucs's on purpose: a remix keeps roughly the balance each stem h
 ### A random EQ changes the master's balance, before coding
 
 With probability 0.5, the whole window goes through one random EQ before it is coded, for tracks and remixes alike.
-For remixes, the EQ runs once, on the sum. We use MERL's mixture settings:
+For remixes, the EQ runs once, on the sum. We use the mixture settings of MERL's released code:
 
 - a low shelf at 50 to 150 Hz;
 - a high shelf at 6 to 12 kHz;
-- 1 to 4 peaks between the two shelves, with Q drawn from 0.7 to 3;
+- 0 to 4 peaks between the two shelves, with Q drawn from 0.7 to 3;
 - every gain drawn from −6 to +6 dB.
 
+The paper says 1 to 4 peaks, and the code draws 0 to 4. We follow the code, since it produced the paper's results.
 One change from MERL: our shelves are monotonic (Q 0.707), so they add no random bump above the codec's cut-off.
 
 The target and the MP3 carry the same balance, so the EQ teaches the model to keep the input's balance rather than
