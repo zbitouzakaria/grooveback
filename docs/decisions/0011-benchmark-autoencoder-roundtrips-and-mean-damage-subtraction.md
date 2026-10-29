@@ -44,14 +44,14 @@ Apollo → εar-VAE, εar-VAE − MP3 damage.
 
 ### Published set
 
-`docs/listen/` carries the kept set for the codec and aerofunk sources at
+`docs/benchmark/` carries the kept set for the codec and aerofunk sources at
 32/64/128 kbps on GitHub Pages, as 24-bit FLAC listening copies at −14 LUFS
 under one common −1 dBFS gain per pack — about 556 MB of audio committed to
 the repository, accepted over the initial 500 MB budget to keep aerofunk at
 its full three minutes. The same-artist pair stays out of the published set.
 ADR-0016 adds AudioSR and the εar-VAE and εar-VAE2 round trips to these sets,
 and stores all of them as 16-bit FLAC: 392 MB of audio, 419 MB for the page.
-`scripts/publish_listen.py` rebuilds the page, and the audio URLs carry each
+`scripts/publish_benchmark.py` rebuilds the page, and the audio URLs carry each
 file's mtime, so a browser fetches a republished pack again instead of
 playing a cached copy.
 

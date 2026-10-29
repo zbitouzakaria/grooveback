@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>grooveback listening — published packs</title>
+<title>grooveback listening — LoRA fine-tune and Apollo</title>
 <style>
   body { font: 15px/1.5 system-ui, sans-serif; margin: 2rem auto; max-width: 1100px;
          padding: 0 1rem; background: #fafafa; color: #222; }
@@ -12,165 +12,95 @@
   summary { cursor: pointer; font-weight: 600; }
   trackswitch-player { display: block; margin: .5rem 0 1.5rem; }
   .note { color: #555; }
+  h4 { margin: 1.4rem 0 .3rem; }
+  table.metrics { border-collapse: collapse; margin: .3rem 0 .6rem; font-size: 14px; }
+  table.metrics th, table.metrics td { padding: .15rem .7rem; text-align: right; border-bottom: 1px solid #ddd; }
+  table.metrics th:first-child, table.metrics td:first-child { text-align: left; }
+  nav.tabs { position: sticky; top: 0; z-index: 10; display: flex; gap: .4rem; padding: .6rem 0 0; background: #fafafa; border-bottom: 2px solid #888; }
+  nav.tabs button { font: 600 17px system-ui, sans-serif; padding: .45rem 1.2rem; border: 1px solid #ccc; border-bottom: none; border-radius: 6px 6px 0 0; background: #e8e8e8; color: #444; cursor: pointer; }
+  nav.tabs button[aria-selected="true"] { background: #222; border-color: #222; color: #fff; }
 </style>
 <script src="trackswitch.js"></script>
 </head>
 <body>
-<h1>grooveback listening — published packs</h1>
+<h1>grooveback listening — LoRA fine-tune and Apollo</h1>
 <p class="note">Every track is level-matched to −14 LUFS with one common headroom gain per
-player, master included. Keys 1–9 and 0 or a click switch tracks in place.
+player, master included. Keys 1–9 or a click switch tracks in place.
 Space plays, R toggles repeat, loop a section with the loop controls or A/B/L.</p>
-<p>These are the listening sets of
-<a href="https://github.com/zbitouzakaria/grooveback">grooveback</a>, a project
-restoring records that survive only as MP3/AAC/Opus rips. Each set below is one
-experiment: a track with a clean master is compressed to MP3 at a known bitrate,
-and each method restores that MP3. All tracks of a set hold the same excerpt, so
-switching between them compares the methods directly.</p>
-<p>The ten tracks:</p>
+<p>An initial run of <a href="https://github.com/zbitouzakaria/grooveback">grooveback</a>'s
+own restorer: Stable Audio 3 medium-base, fine-tuned with a LoRA to turn MP3s back into their
+masters, next to <a href="https://arxiv.org/abs/2409.08514">Apollo</a>, a model trained for
+the same task. This is the LoRA after 40 epochs, 5 hours on one GPU; a longer training run is
+in progress. The LoRA trained on fresh windows of the 86 MUSDB18-HQ training songs and on
+remixes of their stems, as Apollo does. Both restore every 6 s clip of the 50 MUSDB18-HQ test
+songs, 3,677 clips, at six MP3 bitrates; the figure shows their mean scores against the
+master.</p>
+<p><img src="bitrates.png?v=1793215424" style="width:100%"
+alt="SDR, SI-SNR, spectral SNR and LSD per MP3 bitrate on all 3,677 MUSDB18-HQ test clips,
+for the MP3, Apollo and the LoRA"></p>
+<p>Apollo scores above the LoRA on all four metrics at every bitrate: at 32 kbps, 11.8 against 7.1 dB SDR, and 9.1 against 12.1 dB LSD. The LoRA beats the untouched MP3 only on LSD, which counts the band above the codec's cutoff that the MP3 lost: 12.1 against 32.0 dB at 32 kbps.</p>
+<p>Each player below holds one clip, four ways:</p>
 <ol class="note">
-<li><b>Ground Truth</b> — the clean master the MP3 was made from; the reference.</li>
-<li><b>Degraded Input</b> — the MP3 each method receives. Above the codec's cutoff
-frequency nothing is kept, which the spectrogram shows plainly; below the cutoff
-the signal survives but degrades — transients smear, and reverb tails and stereo
-detail thin out.</li>
-<li><b><a href="https://arxiv.org/abs/2409.08514">Apollo</a></b> — a supervised
-model trained on MP3-compressed music; it restores the full band in one pass.</li>
-<li><b><a href="https://arxiv.org/abs/2501.11311">A²SB</a></b> — a diffusion model
-for bandwidth extension; by design it generates only the band above the cutoff and
-leaves the band below unchanged.</li>
-<li><b><a href="https://arxiv.org/abs/2309.07314">AudioSR</a></b> — another
-diffusion model for bandwidth extension, which works on mel spectrograms. It
-restores about 10 s at a time, so on the 3-minute excerpt the band it generates can
-change level from one 10 s chunk to the next.</li>
-<li><b><a href="https://arxiv.org/abs/2509.14912">εar-VAE</a></b> — the MP3
-encoded and decoded by the εar-VAE autoencoder, with nothing else done. It shows
-what the autoencoder alone changes, which tracks 8 and 9 build on.</li>
-<li><b><a href="https://arxiv.org/abs/2608.19843">εar-VAE2</a></b> — the same
-round trip through εar-VAE2, the autoencoder's successor. Its open weights are
-retrained on public datasets.</li>
-<li><b>Apollo → εar-VAE</b> — our chained method: Apollo's output passed through
-the εar-VAE autoencoder. The autoencoder is trained on clean music only, so the
-round trip smooths the artifacts Apollo introduces on heavily degraded input.</li>
-<li><b>εar-VAE − MP3 damage</b> — our latent damage subtraction: the input is
-encoded, the mean shift that MP3 compression causes in εar-VAE's latent space
-(measured on a different track) is subtracted, and the result is decoded. It
-restores spectral balance rather than waveform detail.</li>
-<li><b>LoRA</b> (key 0) — our first attempt at a restorer of our own: Stable Audio 3
-medium-base, fine-tuned with a LoRA to turn MP3s back into their masters, on the
-MUSDB18-HQ training songs and on remixes of their stems. This is the LoRA after 40 epochs,
-5 hours on one GPU; a longer training run is in progress. It is sampled with Euler at 32
-steps. It trained on 10 s windows, and here restores each file in one
-pass, the 3-minute excerpt included. The
-<a href="../lora/">LoRA listening page</a> compares it with Apollo on the MUSDB18-HQ
-test songs.</li>
+<li><b>Master</b> — the clean clip; the reference.</li>
+<li><b>MP3</b> — the master coded at the section's bitrate, which both models receive.</li>
+<li><b>Apollo</b> — Apollo's restoration of the MP3.</li>
+<li><b>LoRA</b> — the LoRA's restoration, Euler sampler at 32 steps.</li>
 </ol>
-<p class="note">The spectrogram belongs to the selected track, and clicking it
-seeks. Differences are clearest on monitoring headphones or speakers.</p>
-<h2>codec_32k</h2>
-<p class="note">A 6 s clip, the test asset from Apollo's release — the brighter of the two sources. At 32 kbps the codec keeps nothing above about 5.5 kHz; everything a method shows above that edge is generated, not recovered. This is the severe case, and the only one where Apollo → εar-VAE helps: it smooths Apollo's output.</p>
+<p class="note">For each bitrate, the clips come from the 3 songs where the LoRA gains most
+over the MP3 it was given and the 3 where it gains least, one clip per song, the most
+extreme. The gain is the mean of its SDR gain and its LSD drop, in dB, so a clip ranks high
+when the LoRA raises SDR or lowers LSD. Scores are in dB against the master, measured on
+these files before level matching. The
+spectrogram belongs to the selected track, and clicking it seeks.</p>
+<nav class="tabs" role="tablist"><button role="tab" data-tab="kbps-32" aria-selected="true">32 kbps</button><button role="tab" data-tab="kbps-64" aria-selected="false">64 kbps</button></nav>
+<section class="bitrate" id="kbps-32">
+<h2>32 kbps</h2>
+<h3>Where the LoRA gains most over the MP3</h3>
+<h4>Skelpolu - Resurrection, 300–306 s (+14.13 dB over the MP3)</h4>
+<table class="metrics"><tr><th>dB</th><th>SDR</th><th>SI-SNR</th><th>spectral SNR</th><th>LSD (lower is better)</th></tr><tr><td>MP3</td><td>10.98</td><td>7.18</td><td>8.74</td><td>48.65</td></tr><tr><td>Apollo</td><td>8.84</td><td>5.88</td><td>11.46</td><td>8.97</td></tr><tr><td>LoRA</td><td>7.08</td><td>4.44</td><td>9.08</td><td>16.48</td></tr></table>
 <trackswitch-player>
 <script type="application/json">{
  "media": {
   "t0": {
    "type": "audio",
-   "title": "1 - Ground Truth",
-   "src": "audio/codec_32k/original.flac?v=1792842363",
+   "title": "1 - Master",
+   "src": "audio/32k/skelpolu-resurrection-13230000/original.flac?v=1793230060",
    "imageID": "t0Plot",
    "solo": true
   },
   "t0Plot": {
    "type": "image",
-   "src": "media/codec_32k/original.png?v=1792842363"
+   "src": "media/32k-skelpolu-resurrection-13230000/original.png?v=1793230060"
   },
   "t1": {
    "type": "audio",
-   "title": "2 - Degraded Input",
-   "src": "audio/codec_32k/input.flac?v=1792842363",
+   "title": "2 - MP3",
+   "src": "audio/32k/skelpolu-resurrection-13230000/input.flac?v=1793230060",
    "imageID": "t1Plot"
   },
   "t1Plot": {
    "type": "image",
-   "src": "media/codec_32k/input.png?v=1792842363"
+   "src": "media/32k-skelpolu-resurrection-13230000/input.png?v=1793230060"
   },
   "t2": {
    "type": "audio",
    "title": "3 - Apollo",
-   "src": "audio/codec_32k/apollo.flac?v=1792842363",
+   "src": "audio/32k/skelpolu-resurrection-13230000/apollo.flac?v=1793230060",
    "imageID": "t2Plot"
   },
   "t2Plot": {
    "type": "image",
-   "src": "media/codec_32k/apollo.png?v=1792842363"
+   "src": "media/32k-skelpolu-resurrection-13230000/apollo.png?v=1793230060"
   },
   "t3": {
    "type": "audio",
-   "title": "4 - A\u00b2SB",
-   "src": "audio/codec_32k/a2sb.flac?v=1792842363",
+   "title": "4 - LoRA",
+   "src": "audio/32k/skelpolu-resurrection-13230000/lora-remix.flac?v=1793230060",
    "imageID": "t3Plot"
   },
   "t3Plot": {
    "type": "image",
-   "src": "media/codec_32k/a2sb.png?v=1792842363"
-  },
-  "t4": {
-   "type": "audio",
-   "title": "5 - AudioSR",
-   "src": "audio/codec_32k/audiosr.flac?v=1792842363",
-   "imageID": "t4Plot"
-  },
-  "t4Plot": {
-   "type": "image",
-   "src": "media/codec_32k/audiosr.png?v=1792842363"
-  },
-  "t5": {
-   "type": "audio",
-   "title": "6 - \u03b5ar-VAE",
-   "src": "audio/codec_32k/earvae.flac?v=1792842363",
-   "imageID": "t5Plot"
-  },
-  "t5Plot": {
-   "type": "image",
-   "src": "media/codec_32k/earvae.png?v=1792842363"
-  },
-  "t6": {
-   "type": "audio",
-   "title": "7 - \u03b5ar-VAE2",
-   "src": "audio/codec_32k/earvae2.flac?v=1792842363",
-   "imageID": "t6Plot"
-  },
-  "t6Plot": {
-   "type": "image",
-   "src": "media/codec_32k/earvae2.png?v=1792842363"
-  },
-  "t7": {
-   "type": "audio",
-   "title": "8 - Apollo \u2192 \u03b5ar-VAE",
-   "src": "audio/codec_32k/apollo-earvae.flac?v=1792842363",
-   "imageID": "t7Plot"
-  },
-  "t7Plot": {
-   "type": "image",
-   "src": "media/codec_32k/apollo-earvae.png?v=1792842363"
-  },
-  "t8": {
-   "type": "audio",
-   "title": "9 - \u03b5ar-VAE \u2212 MP3 damage",
-   "src": "audio/codec_32k/earvae-sub.flac?v=1792842363",
-   "imageID": "t8Plot"
-  },
-  "t8Plot": {
-   "type": "image",
-   "src": "media/codec_32k/earvae-sub.png?v=1792842363"
-  },
-  "t9": {
-   "type": "audio",
-   "title": "0 - LoRA",
-   "src": "audio/codec_32k/lora-remix.flac?v=1793227237",
-   "imageID": "t9Plot"
-  },
-  "t9Plot": {
-   "type": "image",
-   "src": "media/codec_32k/lora-remix.png?v=1793227237"
+   "src": "media/32k-skelpolu-resurrection-13230000/lora-remix.png?v=1793230060"
   }
  },
  "views": [
@@ -197,124 +127,58 @@ seeks. Differences are clearest on monitoring headphones or speakers.</p>
     "t0",
     "t1",
     "t2",
-    "t3",
-    "t4",
-    "t5",
-    "t6",
-    "t7",
-    "t8",
-    "t9"
+    "t3"
    ],
    "soloGroup": 0
   }
  ]
 }</script>
 </trackswitch-player>
-<h2>codec_64k</h2>
-<p class="note">A 6 s clip, the test asset from Apollo's release — the brighter of the two sources. At 64 kbps the kept band reaches about 11 kHz. Here Apollo → εar-VAE sounds worse than Apollo alone.</p>
+<h4>AM Contra - Heart Peripheral, 105–111 s (+13.00 dB over the MP3)</h4>
+<table class="metrics"><tr><th>dB</th><th>SDR</th><th>SI-SNR</th><th>spectral SNR</th><th>LSD (lower is better)</th></tr><tr><td>MP3</td><td>12.38</td><td>9.60</td><td>11.03</td><td>44.09</td></tr><tr><td>Apollo</td><td>10.39</td><td>8.24</td><td>13.80</td><td>8.37</td></tr><tr><td>LoRA</td><td>6.30</td><td>4.94</td><td>10.03</td><td>12.00</td></tr></table>
 <trackswitch-player>
 <script type="application/json">{
  "media": {
   "t0": {
    "type": "audio",
-   "title": "1 - Ground Truth",
-   "src": "audio/codec_64k/original.flac?v=1792842364",
+   "title": "1 - Master",
+   "src": "audio/32k/am-contra-heart-peripheral-4630500/original.flac?v=1793230061",
    "imageID": "t0Plot",
    "solo": true
   },
   "t0Plot": {
    "type": "image",
-   "src": "media/codec_64k/original.png?v=1792842364"
+   "src": "media/32k-am-contra-heart-peripheral-4630500/original.png?v=1793230061"
   },
   "t1": {
    "type": "audio",
-   "title": "2 - Degraded Input",
-   "src": "audio/codec_64k/input.flac?v=1792842364",
+   "title": "2 - MP3",
+   "src": "audio/32k/am-contra-heart-peripheral-4630500/input.flac?v=1793230061",
    "imageID": "t1Plot"
   },
   "t1Plot": {
    "type": "image",
-   "src": "media/codec_64k/input.png?v=1792842364"
+   "src": "media/32k-am-contra-heart-peripheral-4630500/input.png?v=1793230061"
   },
   "t2": {
    "type": "audio",
    "title": "3 - Apollo",
-   "src": "audio/codec_64k/apollo.flac?v=1792842364",
+   "src": "audio/32k/am-contra-heart-peripheral-4630500/apollo.flac?v=1793230061",
    "imageID": "t2Plot"
   },
   "t2Plot": {
    "type": "image",
-   "src": "media/codec_64k/apollo.png?v=1792842364"
+   "src": "media/32k-am-contra-heart-peripheral-4630500/apollo.png?v=1793230061"
   },
   "t3": {
    "type": "audio",
-   "title": "4 - A\u00b2SB",
-   "src": "audio/codec_64k/a2sb.flac?v=1792842364",
+   "title": "4 - LoRA",
+   "src": "audio/32k/am-contra-heart-peripheral-4630500/lora-remix.flac?v=1793230061",
    "imageID": "t3Plot"
   },
   "t3Plot": {
    "type": "image",
-   "src": "media/codec_64k/a2sb.png?v=1792842364"
-  },
-  "t4": {
-   "type": "audio",
-   "title": "5 - AudioSR",
-   "src": "audio/codec_64k/audiosr.flac?v=1792842364",
-   "imageID": "t4Plot"
-  },
-  "t4Plot": {
-   "type": "image",
-   "src": "media/codec_64k/audiosr.png?v=1792842364"
-  },
-  "t5": {
-   "type": "audio",
-   "title": "6 - \u03b5ar-VAE",
-   "src": "audio/codec_64k/earvae.flac?v=1792842364",
-   "imageID": "t5Plot"
-  },
-  "t5Plot": {
-   "type": "image",
-   "src": "media/codec_64k/earvae.png?v=1792842364"
-  },
-  "t6": {
-   "type": "audio",
-   "title": "7 - \u03b5ar-VAE2",
-   "src": "audio/codec_64k/earvae2.flac?v=1792842364",
-   "imageID": "t6Plot"
-  },
-  "t6Plot": {
-   "type": "image",
-   "src": "media/codec_64k/earvae2.png?v=1792842364"
-  },
-  "t7": {
-   "type": "audio",
-   "title": "8 - Apollo \u2192 \u03b5ar-VAE",
-   "src": "audio/codec_64k/apollo-earvae.flac?v=1792842364",
-   "imageID": "t7Plot"
-  },
-  "t7Plot": {
-   "type": "image",
-   "src": "media/codec_64k/apollo-earvae.png?v=1792842364"
-  },
-  "t8": {
-   "type": "audio",
-   "title": "9 - \u03b5ar-VAE \u2212 MP3 damage",
-   "src": "audio/codec_64k/earvae-sub.flac?v=1792842364",
-   "imageID": "t8Plot"
-  },
-  "t8Plot": {
-   "type": "image",
-   "src": "media/codec_64k/earvae-sub.png?v=1792842364"
-  },
-  "t9": {
-   "type": "audio",
-   "title": "0 - LoRA",
-   "src": "audio/codec_64k/lora-remix.flac?v=1793227238",
-   "imageID": "t9Plot"
-  },
-  "t9Plot": {
-   "type": "image",
-   "src": "media/codec_64k/lora-remix.png?v=1793227238"
+   "src": "media/32k-am-contra-heart-peripheral-4630500/lora-remix.png?v=1793230061"
   }
  },
  "views": [
@@ -341,124 +205,58 @@ seeks. Differences are clearest on monitoring headphones or speakers.</p>
     "t0",
     "t1",
     "t2",
-    "t3",
-    "t4",
-    "t5",
-    "t6",
-    "t7",
-    "t8",
-    "t9"
+    "t3"
    ],
    "soloGroup": 0
   }
  ]
 }</script>
 </trackswitch-player>
-<h2>codec_128k</h2>
-<p class="note">A 6 s clip, the test asset from Apollo's release — the brighter of the two sources. At 128 kbps the kept band reaches about 16.5 kHz — the damage level of a typical rip — and most of the remaining damage sits inside the kept band. As at 64 kbps, Apollo → εar-VAE sounds worse than Apollo alone.</p>
+<h4>Georgia Wonder - Siren, 324–330 s (+12.98 dB over the MP3)</h4>
+<table class="metrics"><tr><th>dB</th><th>SDR</th><th>SI-SNR</th><th>spectral SNR</th><th>LSD (lower is better)</th></tr><tr><td>MP3</td><td>9.93</td><td>7.64</td><td>9.57</td><td>42.31</td></tr><tr><td>Apollo</td><td>8.07</td><td>6.20</td><td>11.97</td><td>8.63</td></tr><tr><td>LoRA</td><td>4.36</td><td>2.92</td><td>8.59</td><td>10.77</td></tr></table>
 <trackswitch-player>
 <script type="application/json">{
  "media": {
   "t0": {
    "type": "audio",
-   "title": "1 - Ground Truth",
-   "src": "audio/codec_128k/original.flac?v=1792842365",
+   "title": "1 - Master",
+   "src": "audio/32k/georgia-wonder-siren-14288400/original.flac?v=1793230062",
    "imageID": "t0Plot",
    "solo": true
   },
   "t0Plot": {
    "type": "image",
-   "src": "media/codec_128k/original.png?v=1792842365"
+   "src": "media/32k-georgia-wonder-siren-14288400/original.png?v=1793230062"
   },
   "t1": {
    "type": "audio",
-   "title": "2 - Degraded Input",
-   "src": "audio/codec_128k/input.flac?v=1792842365",
+   "title": "2 - MP3",
+   "src": "audio/32k/georgia-wonder-siren-14288400/input.flac?v=1793230062",
    "imageID": "t1Plot"
   },
   "t1Plot": {
    "type": "image",
-   "src": "media/codec_128k/input.png?v=1792842365"
+   "src": "media/32k-georgia-wonder-siren-14288400/input.png?v=1793230062"
   },
   "t2": {
    "type": "audio",
    "title": "3 - Apollo",
-   "src": "audio/codec_128k/apollo.flac?v=1792842365",
+   "src": "audio/32k/georgia-wonder-siren-14288400/apollo.flac?v=1793230062",
    "imageID": "t2Plot"
   },
   "t2Plot": {
    "type": "image",
-   "src": "media/codec_128k/apollo.png?v=1792842365"
+   "src": "media/32k-georgia-wonder-siren-14288400/apollo.png?v=1793230062"
   },
   "t3": {
    "type": "audio",
-   "title": "4 - A\u00b2SB",
-   "src": "audio/codec_128k/a2sb.flac?v=1792842365",
+   "title": "4 - LoRA",
+   "src": "audio/32k/georgia-wonder-siren-14288400/lora-remix.flac?v=1793230062",
    "imageID": "t3Plot"
   },
   "t3Plot": {
    "type": "image",
-   "src": "media/codec_128k/a2sb.png?v=1792842365"
-  },
-  "t4": {
-   "type": "audio",
-   "title": "5 - AudioSR",
-   "src": "audio/codec_128k/audiosr.flac?v=1792842365",
-   "imageID": "t4Plot"
-  },
-  "t4Plot": {
-   "type": "image",
-   "src": "media/codec_128k/audiosr.png?v=1792842365"
-  },
-  "t5": {
-   "type": "audio",
-   "title": "6 - \u03b5ar-VAE",
-   "src": "audio/codec_128k/earvae.flac?v=1792842365",
-   "imageID": "t5Plot"
-  },
-  "t5Plot": {
-   "type": "image",
-   "src": "media/codec_128k/earvae.png?v=1792842365"
-  },
-  "t6": {
-   "type": "audio",
-   "title": "7 - \u03b5ar-VAE2",
-   "src": "audio/codec_128k/earvae2.flac?v=1792842365",
-   "imageID": "t6Plot"
-  },
-  "t6Plot": {
-   "type": "image",
-   "src": "media/codec_128k/earvae2.png?v=1792842365"
-  },
-  "t7": {
-   "type": "audio",
-   "title": "8 - Apollo \u2192 \u03b5ar-VAE",
-   "src": "audio/codec_128k/apollo-earvae.flac?v=1792842365",
-   "imageID": "t7Plot"
-  },
-  "t7Plot": {
-   "type": "image",
-   "src": "media/codec_128k/apollo-earvae.png?v=1792842365"
-  },
-  "t8": {
-   "type": "audio",
-   "title": "9 - \u03b5ar-VAE \u2212 MP3 damage",
-   "src": "audio/codec_128k/earvae-sub.flac?v=1792842365",
-   "imageID": "t8Plot"
-  },
-  "t8Plot": {
-   "type": "image",
-   "src": "media/codec_128k/earvae-sub.png?v=1792842365"
-  },
-  "t9": {
-   "type": "audio",
-   "title": "0 - LoRA",
-   "src": "audio/codec_128k/lora-remix.flac?v=1793227239",
-   "imageID": "t9Plot"
-  },
-  "t9Plot": {
-   "type": "image",
-   "src": "media/codec_128k/lora-remix.png?v=1793227239"
+   "src": "media/32k-georgia-wonder-siren-14288400/lora-remix.png?v=1793230062"
   }
  },
  "views": [
@@ -485,124 +283,59 @@ seeks. Differences are clearest on monitoring headphones or speakers.</p>
     "t0",
     "t1",
     "t2",
-    "t3",
-    "t4",
-    "t5",
-    "t6",
-    "t7",
-    "t8",
-    "t9"
+    "t3"
    ],
    "soloGroup": 0
   }
  ]
 }</script>
 </trackswitch-player>
-<h2>aerofunk_32k</h2>
-<p class="note">A 180 s excerpt of an electronic track, compared against its clean master. At 32 kbps the codec keeps nothing above about 5.5 kHz; everything a method shows above that edge is generated, not recovered. This is the severe case, and the only one where Apollo → εar-VAE helps: it smooths Apollo's output.</p>
+<h3>Where the LoRA gains least over the MP3</h3>
+<h4>Detsky Sad - Walkie Talkie, 9–15 s (-4.13 dB over the MP3)</h4>
+<table class="metrics"><tr><th>dB</th><th>SDR</th><th>SI-SNR</th><th>spectral SNR</th><th>LSD (lower is better)</th></tr><tr><td>MP3</td><td>10.95</td><td>9.34</td><td>11.75</td><td>22.42</td></tr><tr><td>Apollo</td><td>9.63</td><td>8.05</td><td>13.70</td><td>8.26</td></tr><tr><td>LoRA</td><td>1.15</td><td>0.26</td><td>6.02</td><td>20.86</td></tr></table>
 <trackswitch-player>
 <script type="application/json">{
  "media": {
   "t0": {
    "type": "audio",
-   "title": "1 - Ground Truth",
-   "src": "audio/aerofunk_32k/original.flac?v=1792842369",
+   "title": "1 - Master",
+   "src": "audio/32k/detsky-sad-walkie-talkie-396900/original.flac?v=1793230062",
    "imageID": "t0Plot",
    "solo": true
   },
   "t0Plot": {
    "type": "image",
-   "src": "media/aerofunk_32k/original.png?v=1792842369"
+   "src": "media/32k-detsky-sad-walkie-talkie-396900/original.png?v=1793230062"
   },
   "t1": {
    "type": "audio",
-   "title": "2 - Degraded Input",
-   "src": "audio/aerofunk_32k/input.flac?v=1792842369",
+   "title": "2 - MP3",
+   "src": "audio/32k/detsky-sad-walkie-talkie-396900/input.flac?v=1793230062",
    "imageID": "t1Plot"
   },
   "t1Plot": {
    "type": "image",
-   "src": "media/aerofunk_32k/input.png?v=1792842369"
+   "src": "media/32k-detsky-sad-walkie-talkie-396900/input.png?v=1793230062"
   },
   "t2": {
    "type": "audio",
    "title": "3 - Apollo",
-   "src": "audio/aerofunk_32k/apollo.flac?v=1792842369",
+   "src": "audio/32k/detsky-sad-walkie-talkie-396900/apollo.flac?v=1793230063",
    "imageID": "t2Plot"
   },
   "t2Plot": {
    "type": "image",
-   "src": "media/aerofunk_32k/apollo.png?v=1792842369"
+   "src": "media/32k-detsky-sad-walkie-talkie-396900/apollo.png?v=1793230063"
   },
   "t3": {
    "type": "audio",
-   "title": "4 - A\u00b2SB",
-   "src": "audio/aerofunk_32k/a2sb.flac?v=1792842370",
+   "title": "4 - LoRA",
+   "src": "audio/32k/detsky-sad-walkie-talkie-396900/lora-remix.flac?v=1793230063",
    "imageID": "t3Plot"
   },
   "t3Plot": {
    "type": "image",
-   "src": "media/aerofunk_32k/a2sb.png?v=1792842370"
-  },
-  "t4": {
-   "type": "audio",
-   "title": "5 - AudioSR",
-   "src": "audio/aerofunk_32k/audiosr.flac?v=1792842370",
-   "imageID": "t4Plot"
-  },
-  "t4Plot": {
-   "type": "image",
-   "src": "media/aerofunk_32k/audiosr.png?v=1792842370"
-  },
-  "t5": {
-   "type": "audio",
-   "title": "6 - \u03b5ar-VAE",
-   "src": "audio/aerofunk_32k/earvae.flac?v=1792842371",
-   "imageID": "t5Plot"
-  },
-  "t5Plot": {
-   "type": "image",
-   "src": "media/aerofunk_32k/earvae.png?v=1792842371"
-  },
-  "t6": {
-   "type": "audio",
-   "title": "7 - \u03b5ar-VAE2",
-   "src": "audio/aerofunk_32k/earvae2.flac?v=1792842371",
-   "imageID": "t6Plot"
-  },
-  "t6Plot": {
-   "type": "image",
-   "src": "media/aerofunk_32k/earvae2.png?v=1792842371"
-  },
-  "t7": {
-   "type": "audio",
-   "title": "8 - Apollo \u2192 \u03b5ar-VAE",
-   "src": "audio/aerofunk_32k/apollo-earvae.flac?v=1792842371",
-   "imageID": "t7Plot"
-  },
-  "t7Plot": {
-   "type": "image",
-   "src": "media/aerofunk_32k/apollo-earvae.png?v=1792842371"
-  },
-  "t8": {
-   "type": "audio",
-   "title": "9 - \u03b5ar-VAE \u2212 MP3 damage",
-   "src": "audio/aerofunk_32k/earvae-sub.flac?v=1792842372",
-   "imageID": "t8Plot"
-  },
-  "t8Plot": {
-   "type": "image",
-   "src": "media/aerofunk_32k/earvae-sub.png?v=1792842372"
-  },
-  "t9": {
-   "type": "audio",
-   "title": "0 - LoRA",
-   "src": "audio/aerofunk_32k/lora-remix.flac?v=1793227247",
-   "imageID": "t9Plot"
-  },
-  "t9Plot": {
-   "type": "image",
-   "src": "media/aerofunk_32k/lora-remix.png?v=1793227247"
+   "src": "media/32k-detsky-sad-walkie-talkie-396900/lora-remix.png?v=1793230063"
   }
  },
  "views": [
@@ -629,124 +362,58 @@ seeks. Differences are clearest on monitoring headphones or speakers.</p>
     "t0",
     "t1",
     "t2",
-    "t3",
-    "t4",
-    "t5",
-    "t6",
-    "t7",
-    "t8",
-    "t9"
+    "t3"
    ],
    "soloGroup": 0
   }
  ]
 }</script>
 </trackswitch-player>
-<h2>aerofunk_64k</h2>
-<p class="note">A 180 s excerpt of an electronic track, compared against its clean master. At 64 kbps the kept band reaches about 11 kHz. Here Apollo → εar-VAE sounds worse than Apollo alone.</p>
+<h4>PR - Happy Daze, 81–87 s (-3.99 dB over the MP3)</h4>
+<table class="metrics"><tr><th>dB</th><th>SDR</th><th>SI-SNR</th><th>spectral SNR</th><th>LSD (lower is better)</th></tr><tr><td>MP3</td><td>27.62</td><td>27.38</td><td>24.83</td><td>13.47</td></tr><tr><td>Apollo</td><td>27.16</td><td>26.83</td><td>29.23</td><td>6.86</td></tr><tr><td>LoRA</td><td>19.50</td><td>19.30</td><td>20.32</td><td>13.38</td></tr></table>
 <trackswitch-player>
 <script type="application/json">{
  "media": {
   "t0": {
    "type": "audio",
-   "title": "1 - Ground Truth",
-   "src": "audio/aerofunk_64k/original.flac?v=1792842376",
+   "title": "1 - Master",
+   "src": "audio/32k/pr-happy-daze-3572100/original.flac?v=1793230063",
    "imageID": "t0Plot",
    "solo": true
   },
   "t0Plot": {
    "type": "image",
-   "src": "media/aerofunk_64k/original.png?v=1792842376"
+   "src": "media/32k-pr-happy-daze-3572100/original.png?v=1793230063"
   },
   "t1": {
    "type": "audio",
-   "title": "2 - Degraded Input",
-   "src": "audio/aerofunk_64k/input.flac?v=1792842377",
+   "title": "2 - MP3",
+   "src": "audio/32k/pr-happy-daze-3572100/input.flac?v=1793230063",
    "imageID": "t1Plot"
   },
   "t1Plot": {
    "type": "image",
-   "src": "media/aerofunk_64k/input.png?v=1792842377"
+   "src": "media/32k-pr-happy-daze-3572100/input.png?v=1793230063"
   },
   "t2": {
    "type": "audio",
    "title": "3 - Apollo",
-   "src": "audio/aerofunk_64k/apollo.flac?v=1792842377",
+   "src": "audio/32k/pr-happy-daze-3572100/apollo.flac?v=1793230063",
    "imageID": "t2Plot"
   },
   "t2Plot": {
    "type": "image",
-   "src": "media/aerofunk_64k/apollo.png?v=1792842377"
+   "src": "media/32k-pr-happy-daze-3572100/apollo.png?v=1793230063"
   },
   "t3": {
    "type": "audio",
-   "title": "4 - A\u00b2SB",
-   "src": "audio/aerofunk_64k/a2sb.flac?v=1792842377",
+   "title": "4 - LoRA",
+   "src": "audio/32k/pr-happy-daze-3572100/lora-remix.flac?v=1793230063",
    "imageID": "t3Plot"
   },
   "t3Plot": {
    "type": "image",
-   "src": "media/aerofunk_64k/a2sb.png?v=1792842377"
-  },
-  "t4": {
-   "type": "audio",
-   "title": "5 - AudioSR",
-   "src": "audio/aerofunk_64k/audiosr.flac?v=1792842378",
-   "imageID": "t4Plot"
-  },
-  "t4Plot": {
-   "type": "image",
-   "src": "media/aerofunk_64k/audiosr.png?v=1792842378"
-  },
-  "t5": {
-   "type": "audio",
-   "title": "6 - \u03b5ar-VAE",
-   "src": "audio/aerofunk_64k/earvae.flac?v=1792842378",
-   "imageID": "t5Plot"
-  },
-  "t5Plot": {
-   "type": "image",
-   "src": "media/aerofunk_64k/earvae.png?v=1792842378"
-  },
-  "t6": {
-   "type": "audio",
-   "title": "7 - \u03b5ar-VAE2",
-   "src": "audio/aerofunk_64k/earvae2.flac?v=1792842378",
-   "imageID": "t6Plot"
-  },
-  "t6Plot": {
-   "type": "image",
-   "src": "media/aerofunk_64k/earvae2.png?v=1792842378"
-  },
-  "t7": {
-   "type": "audio",
-   "title": "8 - Apollo \u2192 \u03b5ar-VAE",
-   "src": "audio/aerofunk_64k/apollo-earvae.flac?v=1792842379",
-   "imageID": "t7Plot"
-  },
-  "t7Plot": {
-   "type": "image",
-   "src": "media/aerofunk_64k/apollo-earvae.png?v=1792842379"
-  },
-  "t8": {
-   "type": "audio",
-   "title": "9 - \u03b5ar-VAE \u2212 MP3 damage",
-   "src": "audio/aerofunk_64k/earvae-sub.flac?v=1792842379",
-   "imageID": "t8Plot"
-  },
-  "t8Plot": {
-   "type": "image",
-   "src": "media/aerofunk_64k/earvae-sub.png?v=1792842379"
-  },
-  "t9": {
-   "type": "audio",
-   "title": "0 - LoRA",
-   "src": "audio/aerofunk_64k/lora-remix.flac?v=1793227257",
-   "imageID": "t9Plot"
-  },
-  "t9Plot": {
-   "type": "image",
-   "src": "media/aerofunk_64k/lora-remix.png?v=1793227257"
+   "src": "media/32k-pr-happy-daze-3572100/lora-remix.png?v=1793230063"
   }
  },
  "views": [
@@ -773,124 +440,58 @@ seeks. Differences are clearest on monitoring headphones or speakers.</p>
     "t0",
     "t1",
     "t2",
-    "t3",
-    "t4",
-    "t5",
-    "t6",
-    "t7",
-    "t8",
-    "t9"
+    "t3"
    ],
    "soloGroup": 0
   }
  ]
 }</script>
 </trackswitch-player>
-<h2>aerofunk_128k</h2>
-<p class="note">A 180 s excerpt of an electronic track, compared against its clean master. At 128 kbps the kept band reaches about 16.5 kHz — the damage level of a typical rip — and most of the remaining damage sits inside the kept band. As at 64 kbps, Apollo → εar-VAE sounds worse than Apollo alone.</p>
+<h4>Ben Carrigan - We&#x27;ll Talk About It All Tonight, 6–12 s (-3.03 dB over the MP3)</h4>
+<table class="metrics"><tr><th>dB</th><th>SDR</th><th>SI-SNR</th><th>spectral SNR</th><th>LSD (lower is better)</th></tr><tr><td>MP3</td><td>16.18</td><td>15.82</td><td>17.96</td><td>11.22</td></tr><tr><td>Apollo</td><td>16.48</td><td>16.02</td><td>19.85</td><td>6.07</td></tr><tr><td>LoRA</td><td>11.97</td><td>11.46</td><td>15.35</td><td>13.07</td></tr></table>
 <trackswitch-player>
 <script type="application/json">{
  "media": {
   "t0": {
    "type": "audio",
-   "title": "1 - Ground Truth",
-   "src": "audio/aerofunk_128k/original.flac?v=1792842383",
+   "title": "1 - Master",
+   "src": "audio/32k/ben-carrigan-we-ll-talk-about-it-all-tonight-264600/original.flac?v=1793230064",
    "imageID": "t0Plot",
    "solo": true
   },
   "t0Plot": {
    "type": "image",
-   "src": "media/aerofunk_128k/original.png?v=1792842383"
+   "src": "media/32k-ben-carrigan-we-ll-talk-about-it-all-tonight-264600/original.png?v=1793230064"
   },
   "t1": {
    "type": "audio",
-   "title": "2 - Degraded Input",
-   "src": "audio/aerofunk_128k/input.flac?v=1792842384",
+   "title": "2 - MP3",
+   "src": "audio/32k/ben-carrigan-we-ll-talk-about-it-all-tonight-264600/input.flac?v=1793230064",
    "imageID": "t1Plot"
   },
   "t1Plot": {
    "type": "image",
-   "src": "media/aerofunk_128k/input.png?v=1792842384"
+   "src": "media/32k-ben-carrigan-we-ll-talk-about-it-all-tonight-264600/input.png?v=1793230064"
   },
   "t2": {
    "type": "audio",
    "title": "3 - Apollo",
-   "src": "audio/aerofunk_128k/apollo.flac?v=1792842384",
+   "src": "audio/32k/ben-carrigan-we-ll-talk-about-it-all-tonight-264600/apollo.flac?v=1793230064",
    "imageID": "t2Plot"
   },
   "t2Plot": {
    "type": "image",
-   "src": "media/aerofunk_128k/apollo.png?v=1792842384"
+   "src": "media/32k-ben-carrigan-we-ll-talk-about-it-all-tonight-264600/apollo.png?v=1793230064"
   },
   "t3": {
    "type": "audio",
-   "title": "4 - A\u00b2SB",
-   "src": "audio/aerofunk_128k/a2sb.flac?v=1792842384",
+   "title": "4 - LoRA",
+   "src": "audio/32k/ben-carrigan-we-ll-talk-about-it-all-tonight-264600/lora-remix.flac?v=1793230064",
    "imageID": "t3Plot"
   },
   "t3Plot": {
    "type": "image",
-   "src": "media/aerofunk_128k/a2sb.png?v=1792842384"
-  },
-  "t4": {
-   "type": "audio",
-   "title": "5 - AudioSR",
-   "src": "audio/aerofunk_128k/audiosr.flac?v=1792842385",
-   "imageID": "t4Plot"
-  },
-  "t4Plot": {
-   "type": "image",
-   "src": "media/aerofunk_128k/audiosr.png?v=1792842385"
-  },
-  "t5": {
-   "type": "audio",
-   "title": "6 - \u03b5ar-VAE",
-   "src": "audio/aerofunk_128k/earvae.flac?v=1792842385",
-   "imageID": "t5Plot"
-  },
-  "t5Plot": {
-   "type": "image",
-   "src": "media/aerofunk_128k/earvae.png?v=1792842385"
-  },
-  "t6": {
-   "type": "audio",
-   "title": "7 - \u03b5ar-VAE2",
-   "src": "audio/aerofunk_128k/earvae2.flac?v=1792842386",
-   "imageID": "t6Plot"
-  },
-  "t6Plot": {
-   "type": "image",
-   "src": "media/aerofunk_128k/earvae2.png?v=1792842386"
-  },
-  "t7": {
-   "type": "audio",
-   "title": "8 - Apollo \u2192 \u03b5ar-VAE",
-   "src": "audio/aerofunk_128k/apollo-earvae.flac?v=1792842386",
-   "imageID": "t7Plot"
-  },
-  "t7Plot": {
-   "type": "image",
-   "src": "media/aerofunk_128k/apollo-earvae.png?v=1792842386"
-  },
-  "t8": {
-   "type": "audio",
-   "title": "9 - \u03b5ar-VAE \u2212 MP3 damage",
-   "src": "audio/aerofunk_128k/earvae-sub.flac?v=1792842386",
-   "imageID": "t8Plot"
-  },
-  "t8Plot": {
-   "type": "image",
-   "src": "media/aerofunk_128k/earvae-sub.png?v=1792842386"
-  },
-  "t9": {
-   "type": "audio",
-   "title": "0 - LoRA",
-   "src": "audio/aerofunk_128k/lora-remix.flac?v=1793227265",
-   "imageID": "t9Plot"
-  },
-  "t9Plot": {
-   "type": "image",
-   "src": "media/aerofunk_128k/lora-remix.png?v=1793227265"
+   "src": "media/32k-ben-carrigan-we-ll-talk-about-it-all-tonight-264600/lora-remix.png?v=1793230064"
   }
  },
  "views": [
@@ -917,20 +518,488 @@ seeks. Differences are clearest on monitoring headphones or speakers.</p>
     "t0",
     "t1",
     "t2",
-    "t3",
-    "t4",
-    "t5",
-    "t6",
-    "t7",
-    "t8",
-    "t9"
+    "t3"
    ],
    "soloGroup": 0
   }
  ]
 }</script>
 </trackswitch-player>
-<p class="note">Powered by <a href="https://audiolabs.github.io/trackswitch.js/">trackswitch.js</a> (AudioLabs Erlangen)</p>
+</section>
+<section class="bitrate" id="kbps-64" hidden>
+<h2>64 kbps</h2>
+<h3>Where the LoRA gains most over the MP3</h3>
+<h4>Georgia Wonder - Siren, 363–369 s (+9.91 dB over the MP3)</h4>
+<table class="metrics"><tr><th>dB</th><th>SDR</th><th>SI-SNR</th><th>spectral SNR</th><th>LSD (lower is better)</th></tr><tr><td>MP3</td><td>12.37</td><td>10.59</td><td>12.40</td><td>34.86</td></tr><tr><td>Apollo</td><td>10.98</td><td>9.30</td><td>14.92</td><td>8.21</td></tr><tr><td>LoRA</td><td>7.77</td><td>5.80</td><td>11.22</td><td>10.44</td></tr></table>
+<trackswitch-player>
+<script type="application/json">{
+ "media": {
+  "t0": {
+   "type": "audio",
+   "title": "1 - Master",
+   "src": "audio/64k/georgia-wonder-siren-16008300/original.flac?v=1793230065",
+   "imageID": "t0Plot",
+   "solo": true
+  },
+  "t0Plot": {
+   "type": "image",
+   "src": "media/64k-georgia-wonder-siren-16008300/original.png?v=1793230065"
+  },
+  "t1": {
+   "type": "audio",
+   "title": "2 - MP3",
+   "src": "audio/64k/georgia-wonder-siren-16008300/input.flac?v=1793230065",
+   "imageID": "t1Plot"
+  },
+  "t1Plot": {
+   "type": "image",
+   "src": "media/64k-georgia-wonder-siren-16008300/input.png?v=1793230065"
+  },
+  "t2": {
+   "type": "audio",
+   "title": "3 - Apollo",
+   "src": "audio/64k/georgia-wonder-siren-16008300/apollo.flac?v=1793230065",
+   "imageID": "t2Plot"
+  },
+  "t2Plot": {
+   "type": "image",
+   "src": "media/64k-georgia-wonder-siren-16008300/apollo.png?v=1793230065"
+  },
+  "t3": {
+   "type": "audio",
+   "title": "4 - LoRA",
+   "src": "audio/64k/georgia-wonder-siren-16008300/lora-remix.flac?v=1793230065",
+   "imageID": "t3Plot"
+  },
+  "t3Plot": {
+   "type": "image",
+   "src": "media/64k-georgia-wonder-siren-16008300/lora-remix.png?v=1793230065"
+  }
+ },
+ "views": [
+  {
+   "type": "navigationBar",
+   "controls": [
+    "playback",
+    "globalVolume",
+    "looping",
+    "seekBar",
+    "timer"
+   ],
+   "repeatEnabled": true
+  },
+  {
+   "type": "perTrackImage",
+   "seekable": true,
+   "seekMarginLeft": 5.0,
+   "seekMarginRight": 7.9999999999999964
+  },
+  {
+   "type": "trackList",
+   "tracks": [
+    "t0",
+    "t1",
+    "t2",
+    "t3"
+   ],
+   "soloGroup": 0
+  }
+ ]
+}</script>
+</trackswitch-player>
+<h4>Skelpolu - Resurrection, 306–312 s (+9.73 dB over the MP3)</h4>
+<table class="metrics"><tr><th>dB</th><th>SDR</th><th>SI-SNR</th><th>spectral SNR</th><th>LSD (lower is better)</th></tr><tr><td>MP3</td><td>11.46</td><td>9.18</td><td>11.16</td><td>37.73</td></tr><tr><td>Apollo</td><td>10.35</td><td>7.99</td><td>13.16</td><td>8.68</td></tr><tr><td>LoRA</td><td>7.65</td><td>4.87</td><td>10.22</td><td>14.46</td></tr></table>
+<trackswitch-player>
+<script type="application/json">{
+ "media": {
+  "t0": {
+   "type": "audio",
+   "title": "1 - Master",
+   "src": "audio/64k/skelpolu-resurrection-13494600/original.flac?v=1793230065",
+   "imageID": "t0Plot",
+   "solo": true
+  },
+  "t0Plot": {
+   "type": "image",
+   "src": "media/64k-skelpolu-resurrection-13494600/original.png?v=1793230065"
+  },
+  "t1": {
+   "type": "audio",
+   "title": "2 - MP3",
+   "src": "audio/64k/skelpolu-resurrection-13494600/input.flac?v=1793230066",
+   "imageID": "t1Plot"
+  },
+  "t1Plot": {
+   "type": "image",
+   "src": "media/64k-skelpolu-resurrection-13494600/input.png?v=1793230066"
+  },
+  "t2": {
+   "type": "audio",
+   "title": "3 - Apollo",
+   "src": "audio/64k/skelpolu-resurrection-13494600/apollo.flac?v=1793230066",
+   "imageID": "t2Plot"
+  },
+  "t2Plot": {
+   "type": "image",
+   "src": "media/64k-skelpolu-resurrection-13494600/apollo.png?v=1793230066"
+  },
+  "t3": {
+   "type": "audio",
+   "title": "4 - LoRA",
+   "src": "audio/64k/skelpolu-resurrection-13494600/lora-remix.flac?v=1793230066",
+   "imageID": "t3Plot"
+  },
+  "t3Plot": {
+   "type": "image",
+   "src": "media/64k-skelpolu-resurrection-13494600/lora-remix.png?v=1793230066"
+  }
+ },
+ "views": [
+  {
+   "type": "navigationBar",
+   "controls": [
+    "playback",
+    "globalVolume",
+    "looping",
+    "seekBar",
+    "timer"
+   ],
+   "repeatEnabled": true
+  },
+  {
+   "type": "perTrackImage",
+   "seekable": true,
+   "seekMarginLeft": 5.0,
+   "seekMarginRight": 7.9999999999999964
+  },
+  {
+   "type": "trackList",
+   "tracks": [
+    "t0",
+    "t1",
+    "t2",
+    "t3"
+   ],
+   "soloGroup": 0
+  }
+ ]
+}</script>
+</trackswitch-player>
+<h4>AM Contra - Heart Peripheral, 60–66 s (+8.75 dB over the MP3)</h4>
+<table class="metrics"><tr><th>dB</th><th>SDR</th><th>SI-SNR</th><th>spectral SNR</th><th>LSD (lower is better)</th></tr><tr><td>MP3</td><td>12.90</td><td>10.88</td><td>12.67</td><td>35.18</td></tr><tr><td>Apollo</td><td>11.40</td><td>9.49</td><td>15.13</td><td>7.67</td></tr><tr><td>LoRA</td><td>8.37</td><td>6.16</td><td>11.47</td><td>13.16</td></tr></table>
+<trackswitch-player>
+<script type="application/json">{
+ "media": {
+  "t0": {
+   "type": "audio",
+   "title": "1 - Master",
+   "src": "audio/64k/am-contra-heart-peripheral-2646000/original.flac?v=1793230066",
+   "imageID": "t0Plot",
+   "solo": true
+  },
+  "t0Plot": {
+   "type": "image",
+   "src": "media/64k-am-contra-heart-peripheral-2646000/original.png?v=1793230066"
+  },
+  "t1": {
+   "type": "audio",
+   "title": "2 - MP3",
+   "src": "audio/64k/am-contra-heart-peripheral-2646000/input.flac?v=1793230066",
+   "imageID": "t1Plot"
+  },
+  "t1Plot": {
+   "type": "image",
+   "src": "media/64k-am-contra-heart-peripheral-2646000/input.png?v=1793230066"
+  },
+  "t2": {
+   "type": "audio",
+   "title": "3 - Apollo",
+   "src": "audio/64k/am-contra-heart-peripheral-2646000/apollo.flac?v=1793230066",
+   "imageID": "t2Plot"
+  },
+  "t2Plot": {
+   "type": "image",
+   "src": "media/64k-am-contra-heart-peripheral-2646000/apollo.png?v=1793230066"
+  },
+  "t3": {
+   "type": "audio",
+   "title": "4 - LoRA",
+   "src": "audio/64k/am-contra-heart-peripheral-2646000/lora-remix.flac?v=1793230066",
+   "imageID": "t3Plot"
+  },
+  "t3Plot": {
+   "type": "image",
+   "src": "media/64k-am-contra-heart-peripheral-2646000/lora-remix.png?v=1793230066"
+  }
+ },
+ "views": [
+  {
+   "type": "navigationBar",
+   "controls": [
+    "playback",
+    "globalVolume",
+    "looping",
+    "seekBar",
+    "timer"
+   ],
+   "repeatEnabled": true
+  },
+  {
+   "type": "perTrackImage",
+   "seekable": true,
+   "seekMarginLeft": 5.0,
+   "seekMarginRight": 7.9999999999999964
+  },
+  {
+   "type": "trackList",
+   "tracks": [
+    "t0",
+    "t1",
+    "t2",
+    "t3"
+   ],
+   "soloGroup": 0
+  }
+ ]
+}</script>
+</trackswitch-player>
+<h3>Where the LoRA gains least over the MP3</h3>
+<h4>Ben Carrigan - We&#x27;ll Talk About It All Tonight, 6–12 s (-7.28 dB over the MP3)</h4>
+<table class="metrics"><tr><th>dB</th><th>SDR</th><th>SI-SNR</th><th>spectral SNR</th><th>LSD (lower is better)</th></tr><tr><td>MP3</td><td>20.85</td><td>20.64</td><td>21.70</td><td>6.23</td></tr><tr><td>Apollo</td><td>21.28</td><td>20.97</td><td>23.94</td><td>4.30</td></tr><tr><td>LoRA</td><td>12.52</td><td>12.07</td><td>15.90</td><td>12.48</td></tr></table>
+<trackswitch-player>
+<script type="application/json">{
+ "media": {
+  "t0": {
+   "type": "audio",
+   "title": "1 - Master",
+   "src": "audio/64k/ben-carrigan-we-ll-talk-about-it-all-tonight-264600/original.flac?v=1793230067",
+   "imageID": "t0Plot",
+   "solo": true
+  },
+  "t0Plot": {
+   "type": "image",
+   "src": "media/64k-ben-carrigan-we-ll-talk-about-it-all-tonight-264600/original.png?v=1793230067"
+  },
+  "t1": {
+   "type": "audio",
+   "title": "2 - MP3",
+   "src": "audio/64k/ben-carrigan-we-ll-talk-about-it-all-tonight-264600/input.flac?v=1793230067",
+   "imageID": "t1Plot"
+  },
+  "t1Plot": {
+   "type": "image",
+   "src": "media/64k-ben-carrigan-we-ll-talk-about-it-all-tonight-264600/input.png?v=1793230067"
+  },
+  "t2": {
+   "type": "audio",
+   "title": "3 - Apollo",
+   "src": "audio/64k/ben-carrigan-we-ll-talk-about-it-all-tonight-264600/apollo.flac?v=1793230067",
+   "imageID": "t2Plot"
+  },
+  "t2Plot": {
+   "type": "image",
+   "src": "media/64k-ben-carrigan-we-ll-talk-about-it-all-tonight-264600/apollo.png?v=1793230067"
+  },
+  "t3": {
+   "type": "audio",
+   "title": "4 - LoRA",
+   "src": "audio/64k/ben-carrigan-we-ll-talk-about-it-all-tonight-264600/lora-remix.flac?v=1793230067",
+   "imageID": "t3Plot"
+  },
+  "t3Plot": {
+   "type": "image",
+   "src": "media/64k-ben-carrigan-we-ll-talk-about-it-all-tonight-264600/lora-remix.png?v=1793230067"
+  }
+ },
+ "views": [
+  {
+   "type": "navigationBar",
+   "controls": [
+    "playback",
+    "globalVolume",
+    "looping",
+    "seekBar",
+    "timer"
+   ],
+   "repeatEnabled": true
+  },
+  {
+   "type": "perTrackImage",
+   "seekable": true,
+   "seekMarginLeft": 5.0,
+   "seekMarginRight": 7.9999999999999964
+  },
+  {
+   "type": "trackList",
+   "tracks": [
+    "t0",
+    "t1",
+    "t2",
+    "t3"
+   ],
+   "soloGroup": 0
+  }
+ ]
+}</script>
+</trackswitch-player>
+<h4>The Easton Ellises - Falcon 69, 165–171 s (-6.63 dB over the MP3)</h4>
+<table class="metrics"><tr><th>dB</th><th>SDR</th><th>SI-SNR</th><th>spectral SNR</th><th>LSD (lower is better)</th></tr><tr><td>MP3</td><td>16.40</td><td>16.29</td><td>18.94</td><td>16.15</td></tr><tr><td>Apollo</td><td>15.92</td><td>15.67</td><td>19.79</td><td>7.41</td></tr><tr><td>LoRA</td><td>6.09</td><td>5.44</td><td>10.51</td><td>19.11</td></tr></table>
+<trackswitch-player>
+<script type="application/json">{
+ "media": {
+  "t0": {
+   "type": "audio",
+   "title": "1 - Master",
+   "src": "audio/64k/the-easton-ellises-falcon-69-7276500/original.flac?v=1793230068",
+   "imageID": "t0Plot",
+   "solo": true
+  },
+  "t0Plot": {
+   "type": "image",
+   "src": "media/64k-the-easton-ellises-falcon-69-7276500/original.png?v=1793230068"
+  },
+  "t1": {
+   "type": "audio",
+   "title": "2 - MP3",
+   "src": "audio/64k/the-easton-ellises-falcon-69-7276500/input.flac?v=1793230068",
+   "imageID": "t1Plot"
+  },
+  "t1Plot": {
+   "type": "image",
+   "src": "media/64k-the-easton-ellises-falcon-69-7276500/input.png?v=1793230068"
+  },
+  "t2": {
+   "type": "audio",
+   "title": "3 - Apollo",
+   "src": "audio/64k/the-easton-ellises-falcon-69-7276500/apollo.flac?v=1793230068",
+   "imageID": "t2Plot"
+  },
+  "t2Plot": {
+   "type": "image",
+   "src": "media/64k-the-easton-ellises-falcon-69-7276500/apollo.png?v=1793230068"
+  },
+  "t3": {
+   "type": "audio",
+   "title": "4 - LoRA",
+   "src": "audio/64k/the-easton-ellises-falcon-69-7276500/lora-remix.flac?v=1793230068",
+   "imageID": "t3Plot"
+  },
+  "t3Plot": {
+   "type": "image",
+   "src": "media/64k-the-easton-ellises-falcon-69-7276500/lora-remix.png?v=1793230068"
+  }
+ },
+ "views": [
+  {
+   "type": "navigationBar",
+   "controls": [
+    "playback",
+    "globalVolume",
+    "looping",
+    "seekBar",
+    "timer"
+   ],
+   "repeatEnabled": true
+  },
+  {
+   "type": "perTrackImage",
+   "seekable": true,
+   "seekMarginLeft": 5.0,
+   "seekMarginRight": 7.9999999999999964
+  },
+  {
+   "type": "trackList",
+   "tracks": [
+    "t0",
+    "t1",
+    "t2",
+    "t3"
+   ],
+   "soloGroup": 0
+  }
+ ]
+}</script>
+</trackswitch-player>
+<h4>Motor Tapes - Shore, 93–99 s (-5.55 dB over the MP3)</h4>
+<table class="metrics"><tr><th>dB</th><th>SDR</th><th>SI-SNR</th><th>spectral SNR</th><th>LSD (lower is better)</th></tr><tr><td>MP3</td><td>20.76</td><td>20.64</td><td>22.28</td><td>5.74</td></tr><tr><td>Apollo</td><td>20.07</td><td>19.88</td><td>22.18</td><td>3.89</td></tr><tr><td>LoRA</td><td>12.95</td><td>12.31</td><td>16.65</td><td>9.04</td></tr></table>
+<trackswitch-player>
+<script type="application/json">{
+ "media": {
+  "t0": {
+   "type": "audio",
+   "title": "1 - Master",
+   "src": "audio/64k/motor-tapes-shore-4101300/original.flac?v=1793230068",
+   "imageID": "t0Plot",
+   "solo": true
+  },
+  "t0Plot": {
+   "type": "image",
+   "src": "media/64k-motor-tapes-shore-4101300/original.png?v=1793230068"
+  },
+  "t1": {
+   "type": "audio",
+   "title": "2 - MP3",
+   "src": "audio/64k/motor-tapes-shore-4101300/input.flac?v=1793230068",
+   "imageID": "t1Plot"
+  },
+  "t1Plot": {
+   "type": "image",
+   "src": "media/64k-motor-tapes-shore-4101300/input.png?v=1793230068"
+  },
+  "t2": {
+   "type": "audio",
+   "title": "3 - Apollo",
+   "src": "audio/64k/motor-tapes-shore-4101300/apollo.flac?v=1793230069",
+   "imageID": "t2Plot"
+  },
+  "t2Plot": {
+   "type": "image",
+   "src": "media/64k-motor-tapes-shore-4101300/apollo.png?v=1793230069"
+  },
+  "t3": {
+   "type": "audio",
+   "title": "4 - LoRA",
+   "src": "audio/64k/motor-tapes-shore-4101300/lora-remix.flac?v=1793230069",
+   "imageID": "t3Plot"
+  },
+  "t3Plot": {
+   "type": "image",
+   "src": "media/64k-motor-tapes-shore-4101300/lora-remix.png?v=1793230069"
+  }
+ },
+ "views": [
+  {
+   "type": "navigationBar",
+   "controls": [
+    "playback",
+    "globalVolume",
+    "looping",
+    "seekBar",
+    "timer"
+   ],
+   "repeatEnabled": true
+  },
+  {
+   "type": "perTrackImage",
+   "seekable": true,
+   "seekMarginLeft": 5.0,
+   "seekMarginRight": 7.9999999999999964
+  },
+  {
+   "type": "trackList",
+   "tracks": [
+    "t0",
+    "t1",
+    "t2",
+    "t3"
+   ],
+   "soloGroup": 0
+  }
+ ]
+}</script>
+</trackswitch-player>
+</section>
+<p class="note">The earlier listening sets, the open methods and the LoRA on two tracks, are <a href="../benchmark/">here</a>. Powered by <a href="https://audiolabs.github.io/trackswitch.js/">trackswitch.js</a> (AudioLabs Erlangen)</p>
 <script>
 if (!customElements.get(TrackSwitch.TRACKSWITCH_DEFAULT_ELEMENT_NAME)) {
   TrackSwitch.defineTrackswitchDefaultElement();
@@ -992,6 +1061,26 @@ setInterval(() => {
   );
   if (loading) unloadOtherPlayers(loading);
 }, 500);
+
+// A tab shows its bitrate's section and hides the other; a player left loaded in the
+// hidden section is unloaded, which also stops it playing.
+document.querySelectorAll("nav.tabs button").forEach((tab) => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll("nav.tabs button").forEach((other) => {
+      other.setAttribute("aria-selected", String(other === tab));
+    });
+    document.querySelectorAll("section.bitrate").forEach((section) => {
+      section.hidden = section.id !== tab.dataset.tab;
+      if (!section.hidden) return;
+      section.querySelectorAll("trackswitch-player").forEach((player) => {
+        if (!player.controller || !player.controller.getState().isLoaded) return;
+        player.destroyController();
+        player.applyCurrentConfig();
+        delete player.dataset.soleLoadedArmed;
+      });
+    });
+  });
+});
 
 </script>
 </body>

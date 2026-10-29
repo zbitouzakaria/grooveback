@@ -30,7 +30,7 @@ uv run python scripts/run_xp.py device=cuda     # the whole benchmark, one pass
 uv run python -m grooveback.cli.baseline --method apollo <track> <output.wav>
 uv run python -m grooveback.cli.musdb_eval musdb18hq/test scores.csv --kbps 24   # ADR-0015, ADR-0016
 uv run --group notebooks python scripts/build_demo.py   # listening pages from artifacts/*/listen
-uv run --group notebooks python scripts/publish_listen.py [--page-only]   # the published page, docs/listen/
+uv run --group notebooks python scripts/publish_benchmark.py [--page-only]   # the benchmark page, docs/benchmark/
 python3 -m http.server 8880 -d demo      # then open /base/, /sdedit/ or /roundtrip/ (ADR-0010)
 ```
 

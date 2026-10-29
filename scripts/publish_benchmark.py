@@ -1,6 +1,6 @@
-"""Build the published listening page — docs/listen/, served by GitHub Pages.
+"""Build the published listening page — docs/benchmark/, served by GitHub Pages.
 
-  uv run --group notebooks python scripts/publish_listen.py [--page-only]
+  uv run --group notebooks python scripts/publish_benchmark.py [--page-only]
 
 The curated set from ADR-0011's listening verdict, with the open methods
 ADR-0016 scores, and the LoRA fine-tune: ten tracks per (source x bitrate),
@@ -34,7 +34,7 @@ from grooveback.evaluation import level_matched_set  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[1]
 XP = REPO / "artifacts" / "xp"
-OUT = REPO / "docs" / "listen"
+OUT = REPO / "docs" / "benchmark"
 SR = 44_100
 SIZE_BUDGET_MB = 600
 
@@ -97,7 +97,7 @@ MUSDB18-HQ training songs and on remixes of their stems. This is the LoRA after 
 5 hours on one GPU; a longer training run is in progress. It is sampled with Euler at 32
 steps. It trained on 10 s windows, and here restores each file in one
 pass, the 3-minute excerpt included. The
-<a href="../lora/">LoRA listening page</a> compares it with Apollo on the MUSDB18-HQ
+<a href="../listen/">LoRA listening page</a> compares it with Apollo on the MUSDB18-HQ
 test songs.</li>
 </ol>
 <p class="note">The spectrogram belongs to the selected track, and clicking it
