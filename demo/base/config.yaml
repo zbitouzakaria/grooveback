@@ -1,7 +1,7 @@
 # The curated comparison: input / master / apollo / a2sb / picked sdedits, per
 # (source x bitrate) — the full tracks, straight from the listen packs.
 # The picks come from ADR-0009, which rejected SDEdit; later methods are on
-# demo/roundtrip/ and docs/listen/.
+# demo/roundtrip/ and docs/benchmark/.
 #   uv run --group notebooks python scripts/build_demo.py demo/base/config.yaml
 
 aerofunk_32k:

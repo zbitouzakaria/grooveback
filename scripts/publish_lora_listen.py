@@ -1,4 +1,4 @@
-"""Build the LoRA's listening page, Apollo next to it — docs/lora/, served by GitHub Pages.
+"""Build the LoRA's listening page, Apollo next to it — docs/listen/, served by GitHub Pages.
 
   uv run --group notebooks python scripts/publish_lora_listen.py select <scores.csv> <clips dir>
   uv run --group notebooks python scripts/publish_lora_listen.py build <scores.csv> \\
@@ -14,7 +14,7 @@ per bitrate, to <clips dir>/clips-{k}k.csv for rendering. The gain is the mean
 of the LoRA's SDR gain and LSD drop over the MP3 (`gain_over_mp3`). `build`
 reads those renders, {renders dir}/{k}k/{track}@{start}/{original,input,apollo,
 lora-remix}.wav, scores them, and writes the page with the bitrate figure, one
-tab per bitrate. Like docs/listen/, the audio is committed: copies at -14 LUFS
+tab per bitrate. Like docs/benchmark/, the audio is committed: copies at -14 LUFS
 under one common -1 dBFS gain per clip, 16-bit FLAC with triangular dither.
 """
 
@@ -30,7 +30,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import pandas as pd  # noqa: E402
 from build_demo import PAGE, SCRIPT, player_config, save_spectrogram  # noqa: E402
-from publish_listen import dithered  # noqa: E402
+from publish_benchmark import dithered  # noqa: E402
 
 from grooveback import audio as ga  # noqa: E402
 from grooveback.evaluation import (  # noqa: E402
@@ -42,7 +42,7 @@ from grooveback.evaluation import (  # noqa: E402
 )
 
 REPO = Path(__file__).resolve().parents[1]
-OUT = REPO / "docs" / "lora"
+OUT = REPO / "docs" / "listen"
 SR = 44_100
 BITRATES = (32, 64)
 PICKED = 3
@@ -250,7 +250,7 @@ def build(scores: pd.DataFrame, renders_dir: Path, figure: Path) -> None:
     sections.append("</section>")
     sections.append(
         '<p class="note">The earlier listening sets, the open methods and the LoRA on two '
-        'tracks, are <a href="../listen/">here</a>. Powered by '
+        'tracks, are <a href="../benchmark/">here</a>. Powered by '
         '<a href="https://audiolabs.github.io/trackswitch.js/">trackswitch.js</a>'
         " (AudioLabs Erlangen)</p>"
     )
