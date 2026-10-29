@@ -1,0 +1,998 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>grooveback listening — published packs</title>
+<style>
+  body { font: 15px/1.5 system-ui, sans-serif; margin: 2rem auto; max-width: 1100px;
+         padding: 0 1rem; background: #fafafa; color: #222; }
+  h2 { margin: 2rem 0 .5rem; }
+  details { margin: .4rem 0; }
+  summary { cursor: pointer; font-weight: 600; }
+  trackswitch-player { display: block; margin: .5rem 0 1.5rem; }
+  .note { color: #555; }
+</style>
+<script src="trackswitch.js"></script>
+</head>
+<body>
+<h1>grooveback listening — published packs</h1>
+<p class="note">Every track is level-matched to −14 LUFS with one common headroom gain per
+player, master included. Keys 1–9 and 0 or a click switch tracks in place.
+Space plays, R toggles repeat, loop a section with the loop controls or A/B/L.</p>
+<p>These are the listening sets of
+<a href="https://github.com/zbitouzakaria/grooveback">grooveback</a>, a project
+restoring records that survive only as MP3/AAC/Opus rips. Each set below is one
+experiment: a track with a clean master is compressed to MP3 at a known bitrate,
+and each method restores that MP3. All tracks of a set hold the same excerpt, so
+switching between them compares the methods directly.</p>
+<p>The ten tracks:</p>
+<ol class="note">
+<li><b>Ground Truth</b> — the clean master the MP3 was made from; the reference.</li>
+<li><b>Degraded Input</b> — the MP3 each method receives. Above the codec's cutoff
+frequency nothing is kept, which the spectrogram shows plainly; below the cutoff
+the signal survives but degrades — transients smear, and reverb tails and stereo
+detail thin out.</li>
+<li><b><a href="https://arxiv.org/abs/2409.08514">Apollo</a></b> — a supervised
+model trained on MP3-compressed music; it restores the full band in one pass.</li>
+<li><b><a href="https://arxiv.org/abs/2501.11311">A²SB</a></b> — a diffusion model
+for bandwidth extension; by design it generates only the band above the cutoff and
+leaves the band below unchanged.</li>
+<li><b><a href="https://arxiv.org/abs/2309.07314">AudioSR</a></b> — another
+diffusion model for bandwidth extension, which works on mel spectrograms. It
+restores about 10 s at a time, so on the 3-minute excerpt the band it generates can
+change level from one 10 s chunk to the next.</li>
+<li><b><a href="https://arxiv.org/abs/2509.14912">εar-VAE</a></b> — the MP3
+encoded and decoded by the εar-VAE autoencoder, with nothing else done. It shows
+what the autoencoder alone changes, which tracks 8 and 9 build on.</li>
+<li><b><a href="https://arxiv.org/abs/2608.19843">εar-VAE2</a></b> — the same
+round trip through εar-VAE2, the autoencoder's successor. Its open weights are
+retrained on public datasets.</li>
+<li><b>Apollo → εar-VAE</b> — our chained method: Apollo's output passed through
+the εar-VAE autoencoder. The autoencoder is trained on clean music only, so the
+round trip smooths the artifacts Apollo introduces on heavily degraded input.</li>
+<li><b>εar-VAE − MP3 damage</b> — our latent damage subtraction: the input is
+encoded, the mean shift that MP3 compression causes in εar-VAE's latent space
+(measured on a different track) is subtracted, and the result is decoded. It
+restores spectral balance rather than waveform detail.</li>
+<li><b>LoRA</b> (key 0) — our first attempt at a restorer of our own: Stable Audio 3
+medium-base, fine-tuned with a LoRA to turn MP3s back into their masters, on the
+MUSDB18-HQ training songs and on remixes of their stems. This is the LoRA after 40 epochs,
+5 hours on one GPU; a longer training run is in progress. It is sampled with Euler at 32
+steps. It trained on 10 s windows, and here restores each file in one
+pass, the 3-minute excerpt included. The
+<a href="../lora/">LoRA listening page</a> compares it with Apollo on the MUSDB18-HQ
+test songs.</li>
+</ol>
+<p class="note">The spectrogram belongs to the selected track, and clicking it
+seeks. Differences are clearest on monitoring headphones or speakers.</p>
+<h2>codec_32k</h2>
+<p class="note">A 6 s clip, the test asset from Apollo's release — the brighter of the two sources. At 32 kbps the codec keeps nothing above about 5.5 kHz; everything a method shows above that edge is generated, not recovered. This is the severe case, and the only one where Apollo → εar-VAE helps: it smooths Apollo's output.</p>
+<trackswitch-player>
+<script type="application/json">{
+ "media": {
+  "t0": {
+   "type": "audio",
+   "title": "1 - Ground Truth",
+   "src": "audio/codec_32k/original.flac?v=1792842363",
+   "imageID": "t0Plot",
+   "solo": true
+  },
+  "t0Plot": {
+   "type": "image",
+   "src": "media/codec_32k/original.png?v=1792842363"
+  },
+  "t1": {
+   "type": "audio",
+   "title": "2 - Degraded Input",
+   "src": "audio/codec_32k/input.flac?v=1792842363",
+   "imageID": "t1Plot"
+  },
+  "t1Plot": {
+   "type": "image",
+   "src": "media/codec_32k/input.png?v=1792842363"
+  },
+  "t2": {
+   "type": "audio",
+   "title": "3 - Apollo",
+   "src": "audio/codec_32k/apollo.flac?v=1792842363",
+   "imageID": "t2Plot"
+  },
+  "t2Plot": {
+   "type": "image",
+   "src": "media/codec_32k/apollo.png?v=1792842363"
+  },
+  "t3": {
+   "type": "audio",
+   "title": "4 - A\u00b2SB",
+   "src": "audio/codec_32k/a2sb.flac?v=1792842363",
+   "imageID": "t3Plot"
+  },
+  "t3Plot": {
+   "type": "image",
+   "src": "media/codec_32k/a2sb.png?v=1792842363"
+  },
+  "t4": {
+   "type": "audio",
+   "title": "5 - AudioSR",
+   "src": "audio/codec_32k/audiosr.flac?v=1792842363",
+   "imageID": "t4Plot"
+  },
+  "t4Plot": {
+   "type": "image",
+   "src": "media/codec_32k/audiosr.png?v=1792842363"
+  },
+  "t5": {
+   "type": "audio",
+   "title": "6 - \u03b5ar-VAE",
+   "src": "audio/codec_32k/earvae.flac?v=1792842363",
+   "imageID": "t5Plot"
+  },
+  "t5Plot": {
+   "type": "image",
+   "src": "media/codec_32k/earvae.png?v=1792842363"
+  },
+  "t6": {
+   "type": "audio",
+   "title": "7 - \u03b5ar-VAE2",
+   "src": "audio/codec_32k/earvae2.flac?v=1792842363",
+   "imageID": "t6Plot"
+  },
+  "t6Plot": {
+   "type": "image",
+   "src": "media/codec_32k/earvae2.png?v=1792842363"
+  },
+  "t7": {
+   "type": "audio",
+   "title": "8 - Apollo \u2192 \u03b5ar-VAE",
+   "src": "audio/codec_32k/apollo-earvae.flac?v=1792842363",
+   "imageID": "t7Plot"
+  },
+  "t7Plot": {
+   "type": "image",
+   "src": "media/codec_32k/apollo-earvae.png?v=1792842363"
+  },
+  "t8": {
+   "type": "audio",
+   "title": "9 - \u03b5ar-VAE \u2212 MP3 damage",
+   "src": "audio/codec_32k/earvae-sub.flac?v=1792842363",
+   "imageID": "t8Plot"
+  },
+  "t8Plot": {
+   "type": "image",
+   "src": "media/codec_32k/earvae-sub.png?v=1792842363"
+  },
+  "t9": {
+   "type": "audio",
+   "title": "0 - LoRA",
+   "src": "audio/codec_32k/lora-remix.flac?v=1793227237",
+   "imageID": "t9Plot"
+  },
+  "t9Plot": {
+   "type": "image",
+   "src": "media/codec_32k/lora-remix.png?v=1793227237"
+  }
+ },
+ "views": [
+  {
+   "type": "navigationBar",
+   "controls": [
+    "playback",
+    "globalVolume",
+    "looping",
+    "seekBar",
+    "timer"
+   ],
+   "repeatEnabled": true
+  },
+  {
+   "type": "perTrackImage",
+   "seekable": true,
+   "seekMarginLeft": 5.0,
+   "seekMarginRight": 7.9999999999999964
+  },
+  {
+   "type": "trackList",
+   "tracks": [
+    "t0",
+    "t1",
+    "t2",
+    "t3",
+    "t4",
+    "t5",
+    "t6",
+    "t7",
+    "t8",
+    "t9"
+   ],
+   "soloGroup": 0
+  }
+ ]
+}</script>
+</trackswitch-player>
+<h2>codec_64k</h2>
+<p class="note">A 6 s clip, the test asset from Apollo's release — the brighter of the two sources. At 64 kbps the kept band reaches about 11 kHz. Here Apollo → εar-VAE sounds worse than Apollo alone.</p>
+<trackswitch-player>
+<script type="application/json">{
+ "media": {
+  "t0": {
+   "type": "audio",
+   "title": "1 - Ground Truth",
+   "src": "audio/codec_64k/original.flac?v=1792842364",
+   "imageID": "t0Plot",
+   "solo": true
+  },
+  "t0Plot": {
+   "type": "image",
+   "src": "media/codec_64k/original.png?v=1792842364"
+  },
+  "t1": {
+   "type": "audio",
+   "title": "2 - Degraded Input",
+   "src": "audio/codec_64k/input.flac?v=1792842364",
+   "imageID": "t1Plot"
+  },
+  "t1Plot": {
+   "type": "image",
+   "src": "media/codec_64k/input.png?v=1792842364"
+  },
+  "t2": {
+   "type": "audio",
+   "title": "3 - Apollo",
+   "src": "audio/codec_64k/apollo.flac?v=1792842364",
+   "imageID": "t2Plot"
+  },
+  "t2Plot": {
+   "type": "image",
+   "src": "media/codec_64k/apollo.png?v=1792842364"
+  },
+  "t3": {
+   "type": "audio",
+   "title": "4 - A\u00b2SB",
+   "src": "audio/codec_64k/a2sb.flac?v=1792842364",
+   "imageID": "t3Plot"
+  },
+  "t3Plot": {
+   "type": "image",
+   "src": "media/codec_64k/a2sb.png?v=1792842364"
+  },
+  "t4": {
+   "type": "audio",
+   "title": "5 - AudioSR",
+   "src": "audio/codec_64k/audiosr.flac?v=1792842364",
+   "imageID": "t4Plot"
+  },
+  "t4Plot": {
+   "type": "image",
+   "src": "media/codec_64k/audiosr.png?v=1792842364"
+  },
+  "t5": {
+   "type": "audio",
+   "title": "6 - \u03b5ar-VAE",
+   "src": "audio/codec_64k/earvae.flac?v=1792842364",
+   "imageID": "t5Plot"
+  },
+  "t5Plot": {
+   "type": "image",
+   "src": "media/codec_64k/earvae.png?v=1792842364"
+  },
+  "t6": {
+   "type": "audio",
+   "title": "7 - \u03b5ar-VAE2",
+   "src": "audio/codec_64k/earvae2.flac?v=1792842364",
+   "imageID": "t6Plot"
+  },
+  "t6Plot": {
+   "type": "image",
+   "src": "media/codec_64k/earvae2.png?v=1792842364"
+  },
+  "t7": {
+   "type": "audio",
+   "title": "8 - Apollo \u2192 \u03b5ar-VAE",
+   "src": "audio/codec_64k/apollo-earvae.flac?v=1792842364",
+   "imageID": "t7Plot"
+  },
+  "t7Plot": {
+   "type": "image",
+   "src": "media/codec_64k/apollo-earvae.png?v=1792842364"
+  },
+  "t8": {
+   "type": "audio",
+   "title": "9 - \u03b5ar-VAE \u2212 MP3 damage",
+   "src": "audio/codec_64k/earvae-sub.flac?v=1792842364",
+   "imageID": "t8Plot"
+  },
+  "t8Plot": {
+   "type": "image",
+   "src": "media/codec_64k/earvae-sub.png?v=1792842364"
+  },
+  "t9": {
+   "type": "audio",
+   "title": "0 - LoRA",
+   "src": "audio/codec_64k/lora-remix.flac?v=1793227238",
+   "imageID": "t9Plot"
+  },
+  "t9Plot": {
+   "type": "image",
+   "src": "media/codec_64k/lora-remix.png?v=1793227238"
+  }
+ },
+ "views": [
+  {
+   "type": "navigationBar",
+   "controls": [
+    "playback",
+    "globalVolume",
+    "looping",
+    "seekBar",
+    "timer"
+   ],
+   "repeatEnabled": true
+  },
+  {
+   "type": "perTrackImage",
+   "seekable": true,
+   "seekMarginLeft": 5.0,
+   "seekMarginRight": 7.9999999999999964
+  },
+  {
+   "type": "trackList",
+   "tracks": [
+    "t0",
+    "t1",
+    "t2",
+    "t3",
+    "t4",
+    "t5",
+    "t6",
+    "t7",
+    "t8",
+    "t9"
+   ],
+   "soloGroup": 0
+  }
+ ]
+}</script>
+</trackswitch-player>
+<h2>codec_128k</h2>
+<p class="note">A 6 s clip, the test asset from Apollo's release — the brighter of the two sources. At 128 kbps the kept band reaches about 16.5 kHz — the damage level of a typical rip — and most of the remaining damage sits inside the kept band. As at 64 kbps, Apollo → εar-VAE sounds worse than Apollo alone.</p>
+<trackswitch-player>
+<script type="application/json">{
+ "media": {
+  "t0": {
+   "type": "audio",
+   "title": "1 - Ground Truth",
+   "src": "audio/codec_128k/original.flac?v=1792842365",
+   "imageID": "t0Plot",
+   "solo": true
+  },
+  "t0Plot": {
+   "type": "image",
+   "src": "media/codec_128k/original.png?v=1792842365"
+  },
+  "t1": {
+   "type": "audio",
+   "title": "2 - Degraded Input",
+   "src": "audio/codec_128k/input.flac?v=1792842365",
+   "imageID": "t1Plot"
+  },
+  "t1Plot": {
+   "type": "image",
+   "src": "media/codec_128k/input.png?v=1792842365"
+  },
+  "t2": {
+   "type": "audio",
+   "title": "3 - Apollo",
+   "src": "audio/codec_128k/apollo.flac?v=1792842365",
+   "imageID": "t2Plot"
+  },
+  "t2Plot": {
+   "type": "image",
+   "src": "media/codec_128k/apollo.png?v=1792842365"
+  },
+  "t3": {
+   "type": "audio",
+   "title": "4 - A\u00b2SB",
+   "src": "audio/codec_128k/a2sb.flac?v=1792842365",
+   "imageID": "t3Plot"
+  },
+  "t3Plot": {
+   "type": "image",
+   "src": "media/codec_128k/a2sb.png?v=1792842365"
+  },
+  "t4": {
+   "type": "audio",
+   "title": "5 - AudioSR",
+   "src": "audio/codec_128k/audiosr.flac?v=1792842365",
+   "imageID": "t4Plot"
+  },
+  "t4Plot": {
+   "type": "image",
+   "src": "media/codec_128k/audiosr.png?v=1792842365"
+  },
+  "t5": {
+   "type": "audio",
+   "title": "6 - \u03b5ar-VAE",
+   "src": "audio/codec_128k/earvae.flac?v=1792842365",
+   "imageID": "t5Plot"
+  },
+  "t5Plot": {
+   "type": "image",
+   "src": "media/codec_128k/earvae.png?v=1792842365"
+  },
+  "t6": {
+   "type": "audio",
+   "title": "7 - \u03b5ar-VAE2",
+   "src": "audio/codec_128k/earvae2.flac?v=1792842365",
+   "imageID": "t6Plot"
+  },
+  "t6Plot": {
+   "type": "image",
+   "src": "media/codec_128k/earvae2.png?v=1792842365"
+  },
+  "t7": {
+   "type": "audio",
+   "title": "8 - Apollo \u2192 \u03b5ar-VAE",
+   "src": "audio/codec_128k/apollo-earvae.flac?v=1792842365",
+   "imageID": "t7Plot"
+  },
+  "t7Plot": {
+   "type": "image",
+   "src": "media/codec_128k/apollo-earvae.png?v=1792842365"
+  },
+  "t8": {
+   "type": "audio",
+   "title": "9 - \u03b5ar-VAE \u2212 MP3 damage",
+   "src": "audio/codec_128k/earvae-sub.flac?v=1792842365",
+   "imageID": "t8Plot"
+  },
+  "t8Plot": {
+   "type": "image",
+   "src": "media/codec_128k/earvae-sub.png?v=1792842365"
+  },
+  "t9": {
+   "type": "audio",
+   "title": "0 - LoRA",
+   "src": "audio/codec_128k/lora-remix.flac?v=1793227239",
+   "imageID": "t9Plot"
+  },
+  "t9Plot": {
+   "type": "image",
+   "src": "media/codec_128k/lora-remix.png?v=1793227239"
+  }
+ },
+ "views": [
+  {
+   "type": "navigationBar",
+   "controls": [
+    "playback",
+    "globalVolume",
+    "looping",
+    "seekBar",
+    "timer"
+   ],
+   "repeatEnabled": true
+  },
+  {
+   "type": "perTrackImage",
+   "seekable": true,
+   "seekMarginLeft": 5.0,
+   "seekMarginRight": 7.9999999999999964
+  },
+  {
+   "type": "trackList",
+   "tracks": [
+    "t0",
+    "t1",
+    "t2",
+    "t3",
+    "t4",
+    "t5",
+    "t6",
+    "t7",
+    "t8",
+    "t9"
+   ],
+   "soloGroup": 0
+  }
+ ]
+}</script>
+</trackswitch-player>
+<h2>aerofunk_32k</h2>
+<p class="note">A 180 s excerpt of an electronic track, compared against its clean master. At 32 kbps the codec keeps nothing above about 5.5 kHz; everything a method shows above that edge is generated, not recovered. This is the severe case, and the only one where Apollo → εar-VAE helps: it smooths Apollo's output.</p>
+<trackswitch-player>
+<script type="application/json">{
+ "media": {
+  "t0": {
+   "type": "audio",
+   "title": "1 - Ground Truth",
+   "src": "audio/aerofunk_32k/original.flac?v=1792842369",
+   "imageID": "t0Plot",
+   "solo": true
+  },
+  "t0Plot": {
+   "type": "image",
+   "src": "media/aerofunk_32k/original.png?v=1792842369"
+  },
+  "t1": {
+   "type": "audio",
+   "title": "2 - Degraded Input",
+   "src": "audio/aerofunk_32k/input.flac?v=1792842369",
+   "imageID": "t1Plot"
+  },
+  "t1Plot": {
+   "type": "image",
+   "src": "media/aerofunk_32k/input.png?v=1792842369"
+  },
+  "t2": {
+   "type": "audio",
+   "title": "3 - Apollo",
+   "src": "audio/aerofunk_32k/apollo.flac?v=1792842369",
+   "imageID": "t2Plot"
+  },
+  "t2Plot": {
+   "type": "image",
+   "src": "media/aerofunk_32k/apollo.png?v=1792842369"
+  },
+  "t3": {
+   "type": "audio",
+   "title": "4 - A\u00b2SB",
+   "src": "audio/aerofunk_32k/a2sb.flac?v=1792842370",
+   "imageID": "t3Plot"
+  },
+  "t3Plot": {
+   "type": "image",
+   "src": "media/aerofunk_32k/a2sb.png?v=1792842370"
+  },
+  "t4": {
+   "type": "audio",
+   "title": "5 - AudioSR",
+   "src": "audio/aerofunk_32k/audiosr.flac?v=1792842370",
+   "imageID": "t4Plot"
+  },
+  "t4Plot": {
+   "type": "image",
+   "src": "media/aerofunk_32k/audiosr.png?v=1792842370"
+  },
+  "t5": {
+   "type": "audio",
+   "title": "6 - \u03b5ar-VAE",
+   "src": "audio/aerofunk_32k/earvae.flac?v=1792842371",
+   "imageID": "t5Plot"
+  },
+  "t5Plot": {
+   "type": "image",
+   "src": "media/aerofunk_32k/earvae.png?v=1792842371"
+  },
+  "t6": {
+   "type": "audio",
+   "title": "7 - \u03b5ar-VAE2",
+   "src": "audio/aerofunk_32k/earvae2.flac?v=1792842371",
+   "imageID": "t6Plot"
+  },
+  "t6Plot": {
+   "type": "image",
+   "src": "media/aerofunk_32k/earvae2.png?v=1792842371"
+  },
+  "t7": {
+   "type": "audio",
+   "title": "8 - Apollo \u2192 \u03b5ar-VAE",
+   "src": "audio/aerofunk_32k/apollo-earvae.flac?v=1792842371",
+   "imageID": "t7Plot"
+  },
+  "t7Plot": {
+   "type": "image",
+   "src": "media/aerofunk_32k/apollo-earvae.png?v=1792842371"
+  },
+  "t8": {
+   "type": "audio",
+   "title": "9 - \u03b5ar-VAE \u2212 MP3 damage",
+   "src": "audio/aerofunk_32k/earvae-sub.flac?v=1792842372",
+   "imageID": "t8Plot"
+  },
+  "t8Plot": {
+   "type": "image",
+   "src": "media/aerofunk_32k/earvae-sub.png?v=1792842372"
+  },
+  "t9": {
+   "type": "audio",
+   "title": "0 - LoRA",
+   "src": "audio/aerofunk_32k/lora-remix.flac?v=1793227247",
+   "imageID": "t9Plot"
+  },
+  "t9Plot": {
+   "type": "image",
+   "src": "media/aerofunk_32k/lora-remix.png?v=1793227247"
+  }
+ },
+ "views": [
+  {
+   "type": "navigationBar",
+   "controls": [
+    "playback",
+    "globalVolume",
+    "looping",
+    "seekBar",
+    "timer"
+   ],
+   "repeatEnabled": true
+  },
+  {
+   "type": "perTrackImage",
+   "seekable": true,
+   "seekMarginLeft": 5.0,
+   "seekMarginRight": 7.9999999999999964
+  },
+  {
+   "type": "trackList",
+   "tracks": [
+    "t0",
+    "t1",
+    "t2",
+    "t3",
+    "t4",
+    "t5",
+    "t6",
+    "t7",
+    "t8",
+    "t9"
+   ],
+   "soloGroup": 0
+  }
+ ]
+}</script>
+</trackswitch-player>
+<h2>aerofunk_64k</h2>
+<p class="note">A 180 s excerpt of an electronic track, compared against its clean master. At 64 kbps the kept band reaches about 11 kHz. Here Apollo → εar-VAE sounds worse than Apollo alone.</p>
+<trackswitch-player>
+<script type="application/json">{
+ "media": {
+  "t0": {
+   "type": "audio",
+   "title": "1 - Ground Truth",
+   "src": "audio/aerofunk_64k/original.flac?v=1792842376",
+   "imageID": "t0Plot",
+   "solo": true
+  },
+  "t0Plot": {
+   "type": "image",
+   "src": "media/aerofunk_64k/original.png?v=1792842376"
+  },
+  "t1": {
+   "type": "audio",
+   "title": "2 - Degraded Input",
+   "src": "audio/aerofunk_64k/input.flac?v=1792842377",
+   "imageID": "t1Plot"
+  },
+  "t1Plot": {
+   "type": "image",
+   "src": "media/aerofunk_64k/input.png?v=1792842377"
+  },
+  "t2": {
+   "type": "audio",
+   "title": "3 - Apollo",
+   "src": "audio/aerofunk_64k/apollo.flac?v=1792842377",
+   "imageID": "t2Plot"
+  },
+  "t2Plot": {
+   "type": "image",
+   "src": "media/aerofunk_64k/apollo.png?v=1792842377"
+  },
+  "t3": {
+   "type": "audio",
+   "title": "4 - A\u00b2SB",
+   "src": "audio/aerofunk_64k/a2sb.flac?v=1792842377",
+   "imageID": "t3Plot"
+  },
+  "t3Plot": {
+   "type": "image",
+   "src": "media/aerofunk_64k/a2sb.png?v=1792842377"
+  },
+  "t4": {
+   "type": "audio",
+   "title": "5 - AudioSR",
+   "src": "audio/aerofunk_64k/audiosr.flac?v=1792842378",
+   "imageID": "t4Plot"
+  },
+  "t4Plot": {
+   "type": "image",
+   "src": "media/aerofunk_64k/audiosr.png?v=1792842378"
+  },
+  "t5": {
+   "type": "audio",
+   "title": "6 - \u03b5ar-VAE",
+   "src": "audio/aerofunk_64k/earvae.flac?v=1792842378",
+   "imageID": "t5Plot"
+  },
+  "t5Plot": {
+   "type": "image",
+   "src": "media/aerofunk_64k/earvae.png?v=1792842378"
+  },
+  "t6": {
+   "type": "audio",
+   "title": "7 - \u03b5ar-VAE2",
+   "src": "audio/aerofunk_64k/earvae2.flac?v=1792842378",
+   "imageID": "t6Plot"
+  },
+  "t6Plot": {
+   "type": "image",
+   "src": "media/aerofunk_64k/earvae2.png?v=1792842378"
+  },
+  "t7": {
+   "type": "audio",
+   "title": "8 - Apollo \u2192 \u03b5ar-VAE",
+   "src": "audio/aerofunk_64k/apollo-earvae.flac?v=1792842379",
+   "imageID": "t7Plot"
+  },
+  "t7Plot": {
+   "type": "image",
+   "src": "media/aerofunk_64k/apollo-earvae.png?v=1792842379"
+  },
+  "t8": {
+   "type": "audio",
+   "title": "9 - \u03b5ar-VAE \u2212 MP3 damage",
+   "src": "audio/aerofunk_64k/earvae-sub.flac?v=1792842379",
+   "imageID": "t8Plot"
+  },
+  "t8Plot": {
+   "type": "image",
+   "src": "media/aerofunk_64k/earvae-sub.png?v=1792842379"
+  },
+  "t9": {
+   "type": "audio",
+   "title": "0 - LoRA",
+   "src": "audio/aerofunk_64k/lora-remix.flac?v=1793227257",
+   "imageID": "t9Plot"
+  },
+  "t9Plot": {
+   "type": "image",
+   "src": "media/aerofunk_64k/lora-remix.png?v=1793227257"
+  }
+ },
+ "views": [
+  {
+   "type": "navigationBar",
+   "controls": [
+    "playback",
+    "globalVolume",
+    "looping",
+    "seekBar",
+    "timer"
+   ],
+   "repeatEnabled": true
+  },
+  {
+   "type": "perTrackImage",
+   "seekable": true,
+   "seekMarginLeft": 5.0,
+   "seekMarginRight": 7.9999999999999964
+  },
+  {
+   "type": "trackList",
+   "tracks": [
+    "t0",
+    "t1",
+    "t2",
+    "t3",
+    "t4",
+    "t5",
+    "t6",
+    "t7",
+    "t8",
+    "t9"
+   ],
+   "soloGroup": 0
+  }
+ ]
+}</script>
+</trackswitch-player>
+<h2>aerofunk_128k</h2>
+<p class="note">A 180 s excerpt of an electronic track, compared against its clean master. At 128 kbps the kept band reaches about 16.5 kHz — the damage level of a typical rip — and most of the remaining damage sits inside the kept band. As at 64 kbps, Apollo → εar-VAE sounds worse than Apollo alone.</p>
+<trackswitch-player>
+<script type="application/json">{
+ "media": {
+  "t0": {
+   "type": "audio",
+   "title": "1 - Ground Truth",
+   "src": "audio/aerofunk_128k/original.flac?v=1792842383",
+   "imageID": "t0Plot",
+   "solo": true
+  },
+  "t0Plot": {
+   "type": "image",
+   "src": "media/aerofunk_128k/original.png?v=1792842383"
+  },
+  "t1": {
+   "type": "audio",
+   "title": "2 - Degraded Input",
+   "src": "audio/aerofunk_128k/input.flac?v=1792842384",
+   "imageID": "t1Plot"
+  },
+  "t1Plot": {
+   "type": "image",
+   "src": "media/aerofunk_128k/input.png?v=1792842384"
+  },
+  "t2": {
+   "type": "audio",
+   "title": "3 - Apollo",
+   "src": "audio/aerofunk_128k/apollo.flac?v=1792842384",
+   "imageID": "t2Plot"
+  },
+  "t2Plot": {
+   "type": "image",
+   "src": "media/aerofunk_128k/apollo.png?v=1792842384"
+  },
+  "t3": {
+   "type": "audio",
+   "title": "4 - A\u00b2SB",
+   "src": "audio/aerofunk_128k/a2sb.flac?v=1792842384",
+   "imageID": "t3Plot"
+  },
+  "t3Plot": {
+   "type": "image",
+   "src": "media/aerofunk_128k/a2sb.png?v=1792842384"
+  },
+  "t4": {
+   "type": "audio",
+   "title": "5 - AudioSR",
+   "src": "audio/aerofunk_128k/audiosr.flac?v=1792842385",
+   "imageID": "t4Plot"
+  },
+  "t4Plot": {
+   "type": "image",
+   "src": "media/aerofunk_128k/audiosr.png?v=1792842385"
+  },
+  "t5": {
+   "type": "audio",
+   "title": "6 - \u03b5ar-VAE",
+   "src": "audio/aerofunk_128k/earvae.flac?v=1792842385",
+   "imageID": "t5Plot"
+  },
+  "t5Plot": {
+   "type": "image",
+   "src": "media/aerofunk_128k/earvae.png?v=1792842385"
+  },
+  "t6": {
+   "type": "audio",
+   "title": "7 - \u03b5ar-VAE2",
+   "src": "audio/aerofunk_128k/earvae2.flac?v=1792842386",
+   "imageID": "t6Plot"
+  },
+  "t6Plot": {
+   "type": "image",
+   "src": "media/aerofunk_128k/earvae2.png?v=1792842386"
+  },
+  "t7": {
+   "type": "audio",
+   "title": "8 - Apollo \u2192 \u03b5ar-VAE",
+   "src": "audio/aerofunk_128k/apollo-earvae.flac?v=1792842386",
+   "imageID": "t7Plot"
+  },
+  "t7Plot": {
+   "type": "image",
+   "src": "media/aerofunk_128k/apollo-earvae.png?v=1792842386"
+  },
+  "t8": {
+   "type": "audio",
+   "title": "9 - \u03b5ar-VAE \u2212 MP3 damage",
+   "src": "audio/aerofunk_128k/earvae-sub.flac?v=1792842386",
+   "imageID": "t8Plot"
+  },
+  "t8Plot": {
+   "type": "image",
+   "src": "media/aerofunk_128k/earvae-sub.png?v=1792842386"
+  },
+  "t9": {
+   "type": "audio",
+   "title": "0 - LoRA",
+   "src": "audio/aerofunk_128k/lora-remix.flac?v=1793227265",
+   "imageID": "t9Plot"
+  },
+  "t9Plot": {
+   "type": "image",
+   "src": "media/aerofunk_128k/lora-remix.png?v=1793227265"
+  }
+ },
+ "views": [
+  {
+   "type": "navigationBar",
+   "controls": [
+    "playback",
+    "globalVolume",
+    "looping",
+    "seekBar",
+    "timer"
+   ],
+   "repeatEnabled": true
+  },
+  {
+   "type": "perTrackImage",
+   "seekable": true,
+   "seekMarginLeft": 5.0,
+   "seekMarginRight": 7.9999999999999964
+  },
+  {
+   "type": "trackList",
+   "tracks": [
+    "t0",
+    "t1",
+    "t2",
+    "t3",
+    "t4",
+    "t5",
+    "t6",
+    "t7",
+    "t8",
+    "t9"
+   ],
+   "soloGroup": 0
+  }
+ ]
+}</script>
+</trackswitch-player>
+<p class="note">Powered by <a href="https://audiolabs.github.io/trackswitch.js/">trackswitch.js</a> (AudioLabs Erlangen)</p>
+<script>
+if (!customElements.get(TrackSwitch.TRACKSWITCH_DEFAULT_ELEMENT_NAME)) {
+  TrackSwitch.defineTrackswitchDefaultElement();
+}
+
+// The bundle's own declarative boot never completes for parser-inserted
+// players carrying an inline config (dynamically created ones boot fine),
+// so kick each one explicitly; the element's config-load generation counter
+// makes this later call the one that wins.
+document.querySelectorAll("trackswitch-player").forEach((player) => {
+  if (!player.currentConfig) player.loadDeclarativeConfig();
+});
+
+// Collapsed sections hold their player config as an inline JSON script; the
+// player element is created around it the first time the section is opened,
+// and audio decodes on first play — memory follows what is actually
+// listened to. The config script must be inside the element before it
+// connects, so it is moved in first.
+document.querySelectorAll("details").forEach((section) => {
+  const config = section.querySelector("script[data-player-config]");
+  if (!config) return;
+  section.addEventListener("toggle", () => {
+    if (!section.open || section.dataset.loaded) return;
+    section.dataset.loaded = "1";
+    const player = document.createElement("trackswitch-player");
+    player.appendChild(config);
+    section.appendChild(player);
+  });
+});
+
+// At most one decoded player per page, torn down as soon as another one
+// STARTS loading — the freed audio does not wait for the new decode to
+// finish, so the memory peak is one decoded player plus the file currently
+// decoding, never two full players. destroyController drops the audio;
+// applyCurrentConfig re-mounts the idle UI (power button) from the same
+// config. A re-mounted player gets a fresh controller, so arming re-runs
+// from the sweep below; the "loaded" listener covers decodes faster than
+// one sweep tick.
+const unloadOtherPlayers = (active) => {
+  document.querySelectorAll("trackswitch-player").forEach((other) => {
+    if (other === active || !other.controller) return;
+    if (!other.controller.getState().isLoaded) return;
+    other.destroyController();
+    other.applyCurrentConfig();
+    delete other.dataset.soleLoadedArmed;
+  });
+};
+const armSoleLoadedPlayer = (player) => {
+  const controller = player.controller;
+  if (!controller || player.dataset.soleLoadedArmed) return;
+  player.dataset.soleLoadedArmed = "1";
+  controller.on("loaded", () => unloadOtherPlayers(player));
+};
+setInterval(() => {
+  const players = [...document.querySelectorAll("trackswitch-player")];
+  players.forEach(armSoleLoadedPlayer);
+  const loading = players.find(
+    (p) => p.controller && p.controller.getState().isLoading
+  );
+  if (loading) unloadOtherPlayers(loading);
+}, 500);
+
+</script>
+</body>
+</html>
