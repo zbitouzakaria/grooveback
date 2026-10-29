@@ -68,6 +68,11 @@ mp3_ffmpeg: 0.5
 "Half of the windows MP3 alone, half MP3 then Opus or AAC" is then `codec_rounds: {1: 0.5, 2: 0.5}` with
 `codec_choices: [[mp3], [opus, aac]]`.
 
+The weights of `codec_rounds` must sum to 1, and a config whose weights do not is refused. This matters on the
+command line, where Hydra merges a dict with the config's instead of replacing it:
+`augmentations.codec_rounds={1:1.0}` becomes `{1: 1.0, 2: 0.6}`, which would still code 37.5% of the windows twice.
+Give every count instead: `augmentations.codec_rounds={1:1.0,2:0}`.
+
 The coded copy has to come back aligned, because a shift of one sample ruins the waveform metrics (ADR-0007). Today
 the alignment lives inside `codec_simu`: after the sox round trip, it rolls the MP3 by the lag that a phase-transform
 cross-correlation finds against the clean window (ADR-0015). We move that step out of `codec_simu` and run it once,
@@ -76,15 +81,88 @@ after the last round trip, against the clean window, so the coded copy is aligne
 the 4,096-sample pads hold the lag of two round trips. `codec_simu` still aligns its own output, so the test does not
 change.
 
-The test of that alignment moves to the data loader. Today it codes one clip with `codec_simu` and checks that the
-cross-correlation of the clean clip and the MP3 peaks at lag 0. Its clip is the one that broke Apollo's `match2`:
-noise below 2 kHz under a loud ramp. The new test asks the same of the pairs that `TrackDataset` and `RemixDataset`
-return, with the real codecs. It runs once for every chain of one or two codecs, with the sox and ffmpeg MP3s
-counted apart, at each codec's lowest bitrate. So it passes only if the pairs are aligned whichever codecs ran.
-`codec_simu`'s own test stays, for the test protocol.
-
 Validation and the test do not change: one sox MP3 at the six bitrates. Their scores stay comparable with earlier
 runs and with ADR-0015.
+
+## How we test it
+
+The tests enter where training does, through `TrackDataset`, `RemixDataset` or `train_lora.train`, except the ones
+that check a single codec. Most of them replace the codecs with a stand-in that halves the audio and records each
+call, so they run without sox or ffmpeg. The tests of the real codecs skip only when sox cannot write MP3 or ffmpeg
+lacks one of its three encoders; an error in our own call to a codec fails them. A test of a rate draws 400 items
+with a fixed seed and accepts four standard deviations around the expected count, so it does not depend on the seed:
+at a share of 0.25, that is 66 to 134 items of 400.
+
+Every test below was seen failing under a deliberate bug that breaks what its name says, and passes on the real
+code. For example, `test_the_opus_round_trip_removes_a_dc_offset_as_libopus_does` fails when the `-c:a` argument is
+dropped, because ffmpeg then writes the `.ogg` file with Vorbis.
+
+The codecs code, with the encoder and bitrate asked:
+
+- `test_each_codec_gives_a_lower_snr_at_its_lowest_bitrate_than_at_its_highest`, for sox, libmp3lame, libopus and aac
+- `test_the_opus_round_trip_removes_a_dc_offset_as_libopus_does`
+- `test_a_sox_round_trip_comes_back_1_105_samples_late`
+- `test_an_ffmpeg_round_trip_comes_back_aligned`, for libmp3lame, libopus and aac
+
+A chain codes the previous codec's output, and the pair comes back aligned whatever the chain:
+
+- `test_opus_after_an_mp3_at_24_kbps_codes_the_mp3_not_the_clean_window`
+- `test_a_track_pair_lines_up_whichever_codecs_coded_it` and `test_a_remix_pair_lines_up_whichever_codecs_coded_it`,
+  once for each of the 20 chains of one or two codecs at each codec's lowest bitrate. Their clip is the one that
+  broke Apollo's `match2` (ADR-0015): noise below 2 kHz under a loud ramp.
+- `test_the_delay_of_two_sox_mp3s_stays_inside_the_codec_pads`
+- `test_an_mp3_a_sample_off_is_paired_with_the_clean_audio_it_holds`
+
+The codec draws follow the config:
+
+- `test_codec_rounds_of_one_at_0_25_codes_about_a_quarter_of_the_windows_once`
+- `test_the_second_round_trip_draws_from_the_second_list_of_codec_choices`
+- `test_a_window_coded_once_draws_its_codec_from_the_first_list_of_codec_choices`
+- `test_the_two_round_trips_of_a_window_give_all_four_pairs_of_mp3_and_opus`
+- `test_a_round_trip_picks_each_of_its_codecs_with_equal_odds`
+- `test_each_codec_is_coded_at_one_of_its_own_bitrates`
+- `test_each_remix_item_draws_its_own_bitrate`
+- `test_mp3_ffmpeg_at_0_25_codes_about_a_quarter_of_the_mp3s_with_ffmpeg`
+
+A config that would not do what it says is refused:
+
+- `test_augmentations_refuse_more_round_trips_than_codec_choices`
+- `test_augmentations_refuse_an_unknown_codec`
+- `test_augmentations_refuse_a_codec_without_bitrates`
+- `test_augmentations_refuse_codec_rounds_whose_weights_do_not_sum_to_1`
+- `test_refuses_codec_rounds_1_at_1_0_given_on_the_command_line_before_loading_the_model`
+
+Remixes hold one stem of each kind, at Demucs's gains:
+
+- `test_every_remix_holds_one_stem_of_each_kind`
+- `test_remix_stem_gains_spread_from_0_25_to_1_25`
+- `test_drop_kind_at_0_5_leaves_one_random_kind_out_of_about_half_the_remixes`
+- `test_drop_kind_never_leaves_out_the_only_stem_kind_with_audio`
+- `test_remixes_still_draw_from_the_other_kinds_when_one_kind_is_silent_throughout`
+- `test_tracks_at_weight_0_25_make_about_a_quarter_of_the_training_windows`
+
+Left and right are swapped as the config says:
+
+- `test_a_swapped_track_window_plays_entirely_on_the_other_side`
+- `test_swap_at_0_25_swaps_left_and_right_in_about_a_quarter_of_the_track_windows`
+- `test_a_remix_swaps_left_and_right_of_each_stem_on_its_own`
+
+The EQs move the level at 0 Hz, where only their low shelf acts, within their ranges and at their rates:
+
+- `test_the_mix_eq_moves_a_track_by_up_to_6_db_at_0_hz`
+- `test_mix_eq_at_0_25_equalizes_about_a_quarter_of_the_track_windows`
+- `test_the_stem_eq_boosts_a_stem_by_up_to_9_db_at_0_hz`
+- `test_the_mix_eq_moves_a_remix_by_up_to_6_db_even_with_stem_eq_at_0`
+
+Every augmentation runs before coding, and the trainer uses the config's:
+
+- `test_every_remix_item_pairs_its_clean_window_with_the_codec_output`
+- `test_a_config_naming_only_opus_codes_every_track_window_with_opus`
+- `test_a_config_naming_only_opus_codes_every_remix_with_opus`
+
+Three things are not tested. The EQ's shelf frequencies and its number of peaks are copied from Jeon et al.'s code,
+and no test reads them. Nothing checks that the stem EQ goes on all of a remix's stems or on none. And the stem EQ's
+cuts are not checked, only its boosts, since a stem's random gain hides them.
 
 ## What is left
 
