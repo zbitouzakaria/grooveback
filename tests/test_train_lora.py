@@ -161,6 +161,63 @@ def test_a_source_at_weight_0_is_not_read(tmp_path, monkeypatch, tiny_checkpoint
     assert sorted(path.name for path in (tmp_path / "run").iterdir()) == ["checkpoint-2"]
 
 
+def test_a_config_naming_only_opus_codes_every_track_window_with_opus(
+    tmp_path, monkeypatch, tiny_checkpoint
+):
+    """The datasets' default codes every window as a sox MP3, so a trainer that
+    dropped the config's augmentations would still train."""
+    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
+    codecs = []
+
+    def recording_codec(audio, *, codec, kbps):
+        codecs.append(codec)
+        return 0.5 * audio
+
+    monkeypatch.setattr(gd, "round_trip", recording_codec)
+    write_musdb_song(tmp_path / "musdb", "a", seconds=2.0, seed=0)
+    write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
+
+    train(
+        config(tmp_path, "sources.remixes.weight=0", "augmentations.codec_choices=[[opus],[opus]]")
+    )
+
+    assert set(codecs) == {"libopus"}
+
+
+def test_a_config_naming_only_opus_codes_every_remix_with_opus(
+    tmp_path, monkeypatch, tiny_checkpoint
+):
+    """As for tracks: the datasets' default codes every remix as a sox MP3."""
+    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
+    codecs = []
+
+    def recording_codec(audio, *, codec, kbps):
+        codecs.append(codec)
+        return 0.5 * audio
+
+    monkeypatch.setattr(gd, "round_trip", recording_codec)
+    write_musdb_song(tmp_path / "musdb", "a", seconds=2.0, seed=0)
+    write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
+
+    train(
+        config(tmp_path, "sources.tracks.weight=0", "augmentations.codec_choices=[[opus],[opus]]")
+    )
+
+    assert set(codecs) == {"libopus"}
+
+
+def test_refuses_codec_rounds_1_at_1_0_given_on_the_command_line_before_loading_the_model(
+    tmp_path,
+):
+    """The override merges with the config's {1: 0.4, 2: 0.6} into {1: 1.0, 2: 0.6},
+    which would still code 37.5% of the windows twice (0.6 / 1.6)."""
+    with mock.patch.object(gt, "load_model", autospec=True) as load_model:
+        with pytest.raises(ValueError, match="sum to 1.6"):
+            train(config(tmp_path, "augmentations.codec_rounds={1:1.0}"))
+
+    load_model.assert_not_called()
+
+
 def test_mlflow_metrics_are_indexed_by_epoch_with_the_untrained_model_at_0(
     tmp_path, monkeypatch, tiny_checkpoint
 ):

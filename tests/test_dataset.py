@@ -5,6 +5,7 @@ which need sox and ffmpeg, except in the alignment tests at the end."""
 
 import itertools
 import json
+import shutil
 import subprocess
 
 import numpy as np
@@ -88,6 +89,30 @@ class HalvingCodec:
         self.bitrates.append(kbps)
         self.peaks.append(float(np.abs(audio).max()))
         return 0.5 * audio
+
+
+def skip_unless_codecs_run():
+    """Skips the calling test when sox cannot write MP3 or ffmpeg lacks one of its
+    three encoders. Nothing is coded here, so an error in our own call to a codec
+    fails the test rather than skipping it."""
+    try:
+        from torchaudio.utils import sox_utils
+
+        formats = sox_utils.list_write_formats()
+    except (RuntimeError, OSError, ImportError) as error:
+        pytest.skip(f"sox is unavailable: {error}")
+    if "mp3" not in formats:
+        pytest.skip("sox cannot write MP3")
+    if shutil.which("ffmpeg") is None:
+        pytest.skip("ffmpeg is not installed")
+    listed = subprocess.run(
+        ["ffmpeg", "-hide_banner", "-encoders"], capture_output=True, text=True, check=True
+    ).stdout
+    # Each line is "flags name description": the name is the second field.
+    names = {fields[1] for fields in map(str.split, listed.splitlines()) if len(fields) > 1}
+    missing = [name for name in ("libmp3lame", "libopus", "aac") if name not in names]
+    if missing:
+        pytest.skip(f"ffmpeg lacks {', '.join(missing)}")
 
 
 def test_an_epoch_holds_each_window_once_whatever_the_bitrates(
@@ -224,7 +249,9 @@ def test_each_remix_item_draws_its_own_bitrate(tmp_path, monkeypatch):
     assert set(codec.bitrates) == {24, 128}
 
 
-def test_a_window_goes_through_as_many_round_trips_as_codec_rounds_draws(tmp_path, monkeypatch):
+def test_codec_rounds_of_one_at_0_25_codes_about_a_quarter_of_the_windows_once(
+    tmp_path, monkeypatch
+):
     """One round trip at weight 0.25, two at 0.75. The stand-in halves the audio on
     every round trip, so a pair at 0.5 went through one and a pair at 0.25 through
     two. Of 400 windows, 66 to 134 go through one: four standard deviations (8.7)
@@ -256,7 +283,7 @@ def test_a_window_goes_through_as_many_round_trips_as_codec_rounds_draws(tmp_pat
     assert 66 <= ratios.count(0.5) <= 134
 
 
-def test_each_round_trip_draws_from_its_own_codec_choices(tmp_path, monkeypatch):
+def test_the_second_round_trip_draws_from_the_second_list_of_codec_choices(tmp_path, monkeypatch):
     """An MP3 first, then Opus or AAC: 50 windows make 100 calls in pairs. A fair
     draw misses Opus or AAC in the second round trips with probability
     2 * 0.5**50."""
@@ -288,7 +315,8 @@ def test_each_round_trip_draws_from_its_own_codec_choices(tmp_path, monkeypatch)
 
 
 def test_each_codec_is_coded_at_one_of_its_own_bitrates(tmp_path, monkeypatch):
-    """MP3 at 24 kbps only, Opus at 192 only: any other pairing would show."""
+    """MP3 at 24 kbps only, Opus at 192 only: any other pairing would show. A fair
+    draw misses one of the two codecs in 50 windows with probability 2 * 0.5**50."""
     torch.manual_seed(0)
     codec = HalvingCodec()
     monkeypatch.setattr(gd, "round_trip", codec)
@@ -314,7 +342,7 @@ def test_each_codec_is_coded_at_one_of_its_own_bitrates(tmp_path, monkeypatch):
     assert set(zip(codec.codecs, codec.bitrates, strict=True)) == {("sox", 24), ("libopus", 192)}
 
 
-def test_a_share_of_the_mp3s_goes_through_ffmpeg(tmp_path, monkeypatch):
+def test_mp3_ffmpeg_at_0_25_codes_about_a_quarter_of_the_mp3s_with_ffmpeg(tmp_path, monkeypatch):
     """mp3_ffmpeg at 0.25: of 400 MP3s, 66 to 134 go through ffmpeg's libmp3lame,
     four standard deviations (8.7) around 100, and the others through sox."""
     torch.manual_seed(0)
@@ -341,19 +369,16 @@ def test_a_share_of_the_mp3s_goes_through_ffmpeg(tmp_path, monkeypatch):
     assert 66 <= codec.codecs.count("libmp3lame") <= 134
 
 
-def test_a_remix_mp3_ends_with_the_window_not_the_codec_lead_in(tmp_path, monkeypatch):
-    """A sox MP3 comes back 1_105 samples late and is cut to the clip's length, so
-    once aligned its last 1_105 samples are decoder lead-in, not the clip's end
-    (ADR-0015). The stand-in zeroes them. Coded with pads, the window keeps the
-    codec's clip end in the pad that is cut off."""
+def test_a_window_coded_once_draws_its_codec_from_the_first_list_of_codec_choices(
+    tmp_path, monkeypatch
+):
+    """ADR-0017's example: half the windows coded once, half twice, with
+    [[mp3], [opus, aac]], so a window coded once is an MP3, never Opus or AAC.
+    Every one of the 400 windows has one sox MP3, from the first list, so sox is
+    called 400 times."""
     torch.manual_seed(0)
-
-    def lead_in_codec(audio, *, codec, kbps):
-        coded = audio.copy()
-        coded[:, -1_105:] = 0.0
-        return coded
-
-    monkeypatch.setattr(gd, "round_trip", lead_in_codec)
+    codec = HalvingCodec()
+    monkeypatch.setattr(gd, "round_trip", codec)
     amplitudes = {"mixture": 0.5, "bass": 0.1, "drums": 0.1, "other": 0.1, "vocals": 0.1}
     write_musdb_song(
         tmp_path,
@@ -364,11 +389,105 @@ def test_a_remix_mp3_ends_with_the_window_not_the_codec_lead_in(tmp_path, monkey
         right_gain=1.0,
         sample_rate=SR,
     )
-    dataset = gd.RemixDataset(tmp_path, window_samples=2048)
+    augmentations = gd.Augmentations(
+        codec_rounds={1: 0.5, 2: 0.5},
+        codec_choices=[["mp3"], ["opus", "aac"]],
+        codec_bitrates={"mp3": [24], "opus": [64], "aac": [64]},
+    )
+    dataset = gd.TrackDataset(
+        tmp_path, glob="*/mixture.wav", window_samples=2048, augmentations=augmentations
+    )
 
-    clean, mp3 = dataset[0]
+    [dataset[index] for index in range(400)]
 
-    torch.testing.assert_close(mp3, clean, rtol=0, atol=0)
+    assert codec.codecs.count("sox") == 400
+
+
+def test_the_two_round_trips_of_a_window_give_all_four_pairs_of_mp3_and_opus(tmp_path, monkeypatch):
+    """Both round trips draw from [mp3, opus]. Drawn on their own, all four
+    ordered pairs show up in 100 windows; one draw shared by both would only give
+    MP3 twice and Opus twice. A fair draw misses a pair with probability below
+    4 * 0.75**100."""
+    torch.manual_seed(0)
+    codec = HalvingCodec()
+    monkeypatch.setattr(gd, "round_trip", codec)
+    amplitudes = {"mixture": 0.5, "bass": 0.1, "drums": 0.1, "other": 0.1, "vocals": 0.1}
+    write_musdb_song(
+        tmp_path,
+        "a",
+        seconds=1.0,
+        amplitudes=amplitudes,
+        silent_seconds=0.0,
+        right_gain=1.0,
+        sample_rate=SR,
+    )
+    augmentations = gd.Augmentations(
+        codec_rounds={2: 1.0},
+        codec_choices=[["mp3", "opus"], ["mp3", "opus"]],
+        codec_bitrates={"mp3": [24], "opus": [64]},
+    )
+    dataset = gd.TrackDataset(
+        tmp_path, glob="*/mixture.wav", window_samples=2048, augmentations=augmentations
+    )
+
+    [dataset[index] for index in range(100)]
+
+    pairs = set(zip(codec.codecs[0::2], codec.codecs[1::2], strict=True))
+    assert pairs == {("sox", "sox"), ("sox", "libopus"), ("libopus", "sox"), ("libopus", "libopus")}
+
+
+def test_a_round_trip_picks_each_of_its_codecs_with_equal_odds(tmp_path, monkeypatch):
+    """MP3 or AAC: of 400 windows, 160 to 240 go through AAC, four standard
+    deviations (10) around 200."""
+    torch.manual_seed(0)
+    codec = HalvingCodec()
+    monkeypatch.setattr(gd, "round_trip", codec)
+    amplitudes = {"mixture": 0.5, "bass": 0.1, "drums": 0.1, "other": 0.1, "vocals": 0.1}
+    write_musdb_song(
+        tmp_path,
+        "a",
+        seconds=1.0,
+        amplitudes=amplitudes,
+        silent_seconds=0.0,
+        right_gain=1.0,
+        sample_rate=SR,
+    )
+    augmentations = gd.Augmentations(
+        codec_choices=[["mp3", "aac"]], codec_bitrates={"mp3": [24], "aac": [64]}
+    )
+    dataset = gd.TrackDataset(
+        tmp_path, glob="*/mixture.wav", window_samples=2048, augmentations=augmentations
+    )
+
+    [dataset[index] for index in range(400)]
+
+    assert 160 <= codec.codecs.count("aac") <= 240
+
+
+def test_the_delay_of_two_sox_mp3s_stays_inside_the_codec_pads(tmp_path, monkeypatch):
+    """A sox MP3 comes back 1_105 samples late, behind decoder silence, cut to its
+    input's length, so two in a row are 2_210 late. The alignment moves that
+    silence to the end of the padded window, into the 4_096-sample pad that is
+    cut off. With pads under 2_210 samples, the window would end in silence. The
+    stand-in only delays, so the pair must be equal to its last sample. White
+    noise, since a test tone would also line up with itself one period away."""
+    torch.manual_seed(0)
+
+    def sox_delay(audio, *, codec, kbps):
+        silence = np.zeros((2, 1_105), dtype=np.float32)
+        return np.concatenate([silence, audio[:, :-1_105]], axis=-1)
+
+    monkeypatch.setattr(gd, "round_trip", sox_delay)
+    noise = np.random.default_rng(0).uniform(-0.5, 0.5, size=(2, 10 * SR)).astype(np.float32)
+    ga.save(tmp_path / "a" / "mixture.wav", noise, SR, subtype="PCM_16")
+    augmentations = gd.Augmentations(codec_rounds={2: 1.0}, codec_choices=[["mp3"], ["mp3"]])
+    dataset = gd.TrackDataset(
+        tmp_path, glob="*/mixture.wav", window_samples=2048, augmentations=augmentations
+    )
+
+    clean, coded = dataset[0]
+
+    torch.testing.assert_close(coded, clean, rtol=0, atol=0)
 
 
 @pytest.mark.parametrize(
@@ -439,11 +558,45 @@ def test_a_remix_holds_stems_and_never_the_mixture(tmp_path, monkeypatch):
     assert max(s[CYCLES["mixture"]] for s in spectra) < 1e-3
 
 
-def test_every_remix_holds_each_stem_kind_once_at_a_gain_of_0_25_to_1_25(tmp_path, monkeypatch):
+def test_tracks_at_weight_0_25_make_about_a_quarter_of_the_training_windows(tmp_path, monkeypatch):
+    """Tracks at weight 0.25, remixes at 0.75: of 400 draws, 66 to 134 are mixture
+    windows, four standard deviations (8.7 draws each) around 100. Equal odds
+    would give about 200. A mixture window's bin 7 reads 0.5 and a remix's about
+    0, so 0.25 tells them apart."""
+    torch.manual_seed(0)
+    monkeypatch.setattr(gd, "round_trip", HalvingCodec())
+    amplitudes = {"mixture": 0.5, "bass": 0.1, "drums": 0.1, "other": 0.1, "vocals": 0.1}
+    write_musdb_song(
+        tmp_path,
+        "a",
+        seconds=1.0,
+        amplitudes=amplitudes,
+        silent_seconds=0.0,
+        right_gain=1.0,
+        sample_rate=SR,
+    )
+    dataset = gd.InterleavedDataset(
+        [
+            gd.TrackDataset(tmp_path, glob="*/mixture.wav", window_samples=2048),
+            gd.RemixDataset(tmp_path, window_samples=2048),
+        ],
+        probabilities=[0.25, 0.75],
+        windows=400,
+    )
+
+    spectra = [
+        np.abs(np.fft.rfft(dataset[index][0][0].numpy())) * 2 / 2048
+        for index in range(len(dataset))
+    ]
+
+    assert 66 <= sum(s[CYCLES["mixture"]] > 0.25 for s in spectra) <= 134
+
+
+def test_every_remix_holds_one_stem_of_each_kind(tmp_path, monkeypatch):
     """Each stem is a sine at 0.1 in its own bin, so a remix's bin amplitudes are
-    its stems' gains times 0.1: from 0.025 to 0.125 for every kind, in every
-    remix. A kind left out would show 0, and two stems of one kind would sum past
-    0.125 in some remixes. abs=1e-3 covers the 16-bit rounding."""
+    its stems' gains times 0.1, from 0.025 to 0.125 for every kind in every
+    remix. A kind left out would read 0, and two stems of one kind would sum past
+    0.125 in some remixes. 1e-3 covers the 16-bit rounding."""
     torch.manual_seed(0)
     monkeypatch.setattr(gd, "round_trip", HalvingCodec())
     amplitudes = {"mixture": 0.5, "bass": 0.1, "drums": 0.1, "other": 0.1, "vocals": 0.1}
@@ -467,11 +620,42 @@ def test_every_remix_holds_each_stem_kind_once_at_a_gain_of_0_25_to_1_25(tmp_pat
     assert stems.max() < 0.125 + 1e-3
 
 
-def test_half_the_remixes_leave_out_one_random_kind(tmp_path, monkeypatch):
+def test_remix_stem_gains_spread_from_0_25_to_1_25(tmp_path, monkeypatch):
+    """Demucs's gains are uniform from 0.25 to 1.25, so over the 1_600 stems of 400
+    remixes the lowest falls below 0.26 and the highest above 1.24; each misses
+    with probability 0.99**1_600 (1e-7). Every stem is a sine at 0.1 in its own
+    bin, which reads its gain times 0.1."""
+    torch.manual_seed(0)
+    monkeypatch.setattr(gd, "round_trip", HalvingCodec())
+    amplitudes = {"mixture": 0.5, "bass": 0.1, "drums": 0.1, "other": 0.1, "vocals": 0.1}
+    write_musdb_song(
+        tmp_path,
+        "a",
+        seconds=1.0,
+        amplitudes=amplitudes,
+        silent_seconds=0.0,
+        right_gain=1.0,
+        sample_rate=SR,
+    )
+    dataset = gd.RemixDataset(tmp_path, window_samples=2048)
+
+    spectra = np.stack(
+        [np.abs(np.fft.rfft(dataset[index][0][0].numpy())) * 2 / 2048 for index in range(400)]
+    )
+
+    gains = spectra[:, [CYCLES[kind] for kind in STEMS]] / 0.1
+    assert gains.min() < 0.26
+    assert gains.max() > 1.24
+
+
+def test_drop_kind_at_0_5_leaves_one_random_kind_out_of_about_half_the_remixes(
+    tmp_path, monkeypatch
+):
     """drop_kind at 0.5: of 400 remixes, 160 to 240 hold three kinds, four standard
     deviations (10) around 200, the others all four, and each kind is the one left
-    out in some of them. A kind is there when its bin passes 0.02, below the
-    quietest stem's 0.025."""
+    out in some of them: each kind is the one left out with probability 1/4, so
+    one never is with probability below 4 * 0.75**160 (1e-19). A kind is there
+    when its bin passes 0.02, below the quietest stem's 0.025."""
     torch.manual_seed(0)
     monkeypatch.setattr(gd, "round_trip", HalvingCodec())
     amplitudes = {"mixture": 0.5, "bass": 0.1, "drums": 0.1, "other": 0.1, "vocals": 0.1}
@@ -499,9 +683,11 @@ def test_half_the_remixes_leave_out_one_random_kind(tmp_path, monkeypatch):
     assert {STEMS[kind] for kind in np.argmin(present[three], axis=1)} == set(STEMS)
 
 
-def test_a_set_with_one_active_kind_never_leaves_it_out(tmp_path, monkeypatch):
-    """Only the bass is ever active, so drop_kind at 1 has nothing it can leave
-    out: dropped anyway, the remix would hold no stem at all."""
+def test_drop_kind_never_leaves_out_the_only_stem_kind_with_audio(tmp_path, monkeypatch):
+    """Only the bass has audio, so drop_kind at 1 has nothing it can leave out.
+    Dropped anyway, the remix sums no stem and coded_pair fails on the 0 it gets.
+    The quietest bass, at gain 0.25, has an RMS of 0.025 / sqrt(2) = 0.018, so 0.01
+    tells a held bass from a silent item."""
     torch.manual_seed(0)
     monkeypatch.setattr(gd, "round_trip", HalvingCodec())
     amplitudes = {"mixture": 0.5, "bass": 0.1, "drums": 0.0, "other": 0.0, "vocals": 0.0}
@@ -523,10 +709,11 @@ def test_a_set_with_one_active_kind_never_leaves_it_out(tmp_path, monkeypatch):
     assert min(rms) > 0.01
 
 
-def test_a_track_window_swaps_left_and_right_as_a_whole(tmp_path, monkeypatch):
+def test_a_swapped_track_window_plays_entirely_on_the_other_side(tmp_path, monkeypatch):
     """The mixture plays on the left only. Swapped half the time, a window plays on
     the left or on the right, never on both; a fair draw keeps one side in all 50
-    with probability 2 * 0.5**50."""
+    with probability 2 * 0.5**50. The left peaks near 0.5 and the right is exactly
+    0, so 0.1 tells them apart."""
     torch.manual_seed(0)
     monkeypatch.setattr(gd, "round_trip", HalvingCodec())
     amplitudes = {"mixture": 0.5, "bass": 0.1, "drums": 0.1, "other": 0.1, "vocals": 0.1}
@@ -551,11 +738,44 @@ def test_a_track_window_swaps_left_and_right_as_a_whole(tmp_path, monkeypatch):
     assert sides == {(True, False), (False, True)}
 
 
+def test_swap_at_0_25_swaps_left_and_right_in_about_a_quarter_of_the_track_windows(
+    tmp_path, monkeypatch
+):
+    """The mixture plays on the left only, so a swapped window plays on the right:
+    of 400 windows, 66 to 134, four standard deviations (8.7) around 100. The left
+    peaks near 0.5 and the right is exactly 0 unless swapped, so 0.1 tells them
+    apart."""
+    torch.manual_seed(0)
+    monkeypatch.setattr(gd, "round_trip", HalvingCodec())
+    amplitudes = {"mixture": 0.5, "bass": 0.1, "drums": 0.1, "other": 0.1, "vocals": 0.1}
+    write_musdb_song(
+        tmp_path,
+        "a",
+        seconds=1.0,
+        amplitudes=amplitudes,
+        silent_seconds=0.0,
+        right_gain=0.0,
+        sample_rate=SR,
+    )
+    dataset = gd.TrackDataset(
+        tmp_path,
+        glob="*/mixture.wav",
+        window_samples=2048,
+        augmentations=gd.Augmentations(swap=0.25),
+    )
+
+    on_the_right = [float(dataset[index][0][1].abs().max()) > 0.1 for index in range(400)]
+
+    assert 66 <= sum(on_the_right) <= 134
+
+
 def test_a_remix_swaps_left_and_right_of_each_stem_on_its_own(tmp_path, monkeypatch):
     """Every stem plays on the left only. Swapped on its own half the time, each of
     a remix's four stems lands on either side, so all four share a side in 1 of 8
     remixes: of 50, 34 or more mix both sides, four standard deviations (2.3)
-    below 43.75. Swapped as a whole, no remix would."""
+    below 43.75. Swapped as a whole, no remix would. A stem is on the left when its
+    bin there passes 0.02, below the quietest stem's 0.025; a swapped stem reads 0
+    there."""
     torch.manual_seed(0)
     monkeypatch.setattr(gd, "round_trip", HalvingCodec())
     amplitudes = {"mixture": 0.5, "bass": 0.1, "drums": 0.1, "other": 0.1, "vocals": 0.1}
@@ -605,6 +825,76 @@ def test_the_mix_eq_moves_a_track_by_up_to_6_db_at_0_hz(tmp_path, monkeypatch):
 
     assert -6.1 < gains_db.min() < -3.0
     assert 3.0 < gains_db.max() < 6.1
+
+
+def test_mix_eq_at_0_25_equalizes_about_a_quarter_of_the_track_windows(tmp_path, monkeypatch):
+    """At 0 Hz the mix EQ moves a steady level by its low shelf's gain, so an
+    equalized window moves by more than 0.01 dB except in 1 draw of 600, and one left
+    alone keeps its 16-bit level of 3_277 / 32_768, 0.0005 dB from 0.1. Of 400
+    windows, 66 to 134 move, four standard deviations (8.7) around 100."""
+    torch.manual_seed(0)
+    monkeypatch.setattr(gd, "round_trip", HalvingCodec())
+    level = np.full((2, SR), 0.1, dtype=np.float32)
+    ga.save(tmp_path / "a" / "mixture.wav", level, SR, subtype="PCM_16")
+    dataset = gd.TrackDataset(
+        tmp_path,
+        glob="*/mixture.wav",
+        window_samples=2048,
+        augmentations=gd.Augmentations(mix_eq=0.25),
+    )
+
+    gains_db = np.array(
+        [20 * np.log10(float(dataset[index][0].mean()) / 0.1) for index in range(400)]
+    )
+
+    assert 66 <= (np.abs(gains_db) > 0.01).sum() <= 134
+
+
+def test_the_stem_eq_boosts_a_stem_by_up_to_9_db_at_0_hz(tmp_path, monkeypatch):
+    """Only the bass has audio, a steady level of 0.1, so a remix's level is 0.1
+    times the stem's gain (0.25 to 1.25) times its EQ's low shelf at 0 Hz (-9 to
+    +9 dB for stems, Jeon et al. 2026, Table 4). Only a stem EQ past +6 dB on a
+    gain above 0.89 reaches past 1.25 * 10**(6 / 20) = 2.49, 3.2% of remixes, so
+    all 400 miss it with probability 2e-6. None passes 1.25 * 10**(9 / 20) = 3.52;
+    3.55 leaves 0.75% for the filters' gain at 0 Hz, measured within 0.4% of
+    nominal."""
+    torch.manual_seed(0)
+    monkeypatch.setattr(gd, "round_trip", HalvingCodec())
+    level, silence = np.full((2, SR), 0.1, np.float32), np.zeros((2, SR), np.float32)
+    ga.save(tmp_path / "a" / "bass.wav", level, SR, subtype="PCM_16")
+    ga.save(tmp_path / "a" / "drums.wav", silence, SR, subtype="PCM_16")
+    ga.save(tmp_path / "a" / "other.wav", silence, SR, subtype="PCM_16")
+    ga.save(tmp_path / "a" / "vocals.wav", silence, SR, subtype="PCM_16")
+    dataset = gd.RemixDataset(
+        tmp_path, window_samples=2048, augmentations=gd.Augmentations(stem_eq=1.0)
+    )
+
+    ratios = np.array([float(dataset[index][0].mean()) / 0.1 for index in range(400)])
+
+    assert 2.49 < ratios.max() < 3.55
+
+
+def test_the_mix_eq_moves_a_remix_by_up_to_6_db_even_with_stem_eq_at_0(tmp_path, monkeypatch):
+    """Only the bass has audio, a steady level of 0.1, and no stem gets an EQ, so
+    without the mix EQ a remix's level is 0.1 times the stem's gain, at most 1.25.
+    The mix EQ's low shelf moves it by up to +6 dB, to at most 1.25 * 10**(6 / 20) =
+    2.49. A remix passes 1.3 with probability 0.16, so all 400 miss it with
+    probability 3e-30; 2.52 leaves 1% for the filters' gain at 0 Hz, measured
+    within 0.2% at +6 dB and Q 3."""
+    torch.manual_seed(0)
+    monkeypatch.setattr(gd, "round_trip", HalvingCodec())
+    level, silence = np.full((2, SR), 0.1, np.float32), np.zeros((2, SR), np.float32)
+    ga.save(tmp_path / "a" / "bass.wav", level, SR, subtype="PCM_16")
+    ga.save(tmp_path / "a" / "drums.wav", silence, SR, subtype="PCM_16")
+    ga.save(tmp_path / "a" / "other.wav", silence, SR, subtype="PCM_16")
+    ga.save(tmp_path / "a" / "vocals.wav", silence, SR, subtype="PCM_16")
+    dataset = gd.RemixDataset(
+        tmp_path, window_samples=2048, augmentations=gd.Augmentations(stem_eq=0.0, mix_eq=1.0)
+    )
+
+    ratios = np.array([float(dataset[index][0].mean()) / 0.1 for index in range(400)])
+
+    assert 1.3 < ratios.max() < 2.52
 
 
 def test_a_remix_past_full_scale_is_scaled_to_it_not_clipped(tmp_path, monkeypatch):
@@ -682,9 +972,14 @@ def test_remix_windows_come_from_the_active_stretch_of_each_track(tmp_path, monk
     assert min(rms) > 0.01
 
 
-def test_a_stem_kind_silent_throughout_is_left_out_of_remixes(tmp_path, monkeypatch):
-    """An instrumental's vocals keep no active window. Drawn anyway, a vocal stem
-    would have no window to come from, and every remix would fail."""
+def test_remixes_still_draw_from_the_other_kinds_when_one_kind_is_silent_throughout(
+    tmp_path, monkeypatch
+):
+    """An instrumental's vocals keep no window that passes the activity check.
+    Drawn anyway, a vocal stem would have no window to come from, and every remix
+    would fail in draw_window. The other three kinds are in every remix, each a
+    sine at 0.1 whose bin reads its gain (0.25 to 1.25) times 0.1; 1e-3 covers the
+    16-bit rounding."""
     torch.manual_seed(0)
     monkeypatch.setattr(gd, "round_trip", HalvingCodec())
     amplitudes = {"mixture": 0.5, "bass": 0.1, "drums": 0.1, "other": 0.1, "vocals": 0.0}
@@ -699,9 +994,13 @@ def test_a_stem_kind_silent_throughout_is_left_out_of_remixes(tmp_path, monkeypa
     )
     dataset = gd.RemixDataset(tmp_path, window_samples=2048)
 
-    rms = [float(dataset[index][0].square().mean().sqrt()) for index in range(200)]
+    spectra = np.stack(
+        [np.abs(np.fft.rfft(dataset[index][0][0].numpy())) * 2 / 2048 for index in range(200)]
+    )
 
-    assert min(rms) > 0.01
+    stems = spectra[:, [CYCLES["bass"], CYCLES["drums"], CYCLES["other"]]]
+    assert 0.025 - 1e-3 < stems.min()
+    assert stems.max() < 0.125 + 1e-3
 
 
 def test_active_starts_keep_windows_whose_frames_are_mostly_loud():
@@ -731,6 +1030,14 @@ def test_augmentations_refuse_an_unknown_codec():
 def test_augmentations_refuse_a_codec_without_bitrates():
     with pytest.raises(ValueError, match="no bitrates for opus"):
         gd.Augmentations(codec_choices=[["opus"]])
+
+
+def test_augmentations_refuse_codec_rounds_whose_weights_do_not_sum_to_1():
+    """`augmentations.codec_rounds={1:1.0}` on the command line merges with the
+    config's {1: 0.4, 2: 0.6} into {1: 1.0, 2: 0.6}, which would code 37.5% of
+    the windows twice (0.6 / 1.6)."""
+    with pytest.raises(ValueError, match="sum to 1.6"):
+        gd.Augmentations(codec_rounds={1: 1.0, 2: 0.6}, codec_choices=[["mp3"], ["mp3"]])
 
 
 def test_remix_dataset_refuses_a_track_shorter_than_one_window(tmp_path):
@@ -837,13 +1144,90 @@ def test_track_dataset_refuses_a_mono_file(tmp_path):
         gd.TrackDataset(tmp_path, glob="*/mixture.wav", window_samples=2048)
 
 
-def skip_unless_codecs_run():
-    """Skips the calling test unless sox's MP3 and ffmpeg's three encoders all run here."""
-    try:
-        for codec in LOWEST:
-            gd.round_trip(np.zeros((2, 4_096), dtype=np.float32), codec=codec, kbps=64)
-    except (RuntimeError, OSError, subprocess.CalledProcessError) as error:
-        pytest.skip(f"a codec is unavailable: {error}")
+@pytest.mark.parametrize(
+    "codec, low, high",
+    [
+        pytest.param("sox", 24, 128, id="sox"),
+        pytest.param("libmp3lame", 24, 128, id="libmp3lame"),
+        pytest.param("libopus", 64, 192, id="libopus"),
+        pytest.param("aac", 64, 192, id="aac"),
+    ],
+)
+def test_each_codec_gives_a_lower_snr_at_its_lowest_bitrate_than_at_its_highest(codec, low, high):
+    """A codec that ran loses some of the signal, and more at a lower bitrate.
+    Returned uncoded, both SNRs would be infinite; coded at one bitrate whatever
+    is asked, they would be equal. On this noise, aligned as the data loader
+    aligns: sox and libmp3lame 0.4 and 3.1 dB, libopus 0.3 and 6.5, aac 0.3 and
+    1.5. White noise, so every band carries signal."""
+    skip_unless_codecs_run()
+    noise = np.random.default_rng(0).uniform(-0.3, 0.3, size=(2, 5 * SR)).astype(np.float32)
+
+    coded = {kbps: gd.round_trip(noise, codec=codec, kbps=kbps) for kbps in (low, high)}
+
+    error = {kbps: musdb_eval.align(c, clean=noise) - noise for kbps, c in coded.items()}
+    snr_db = {kbps: 10 * np.log10((noise**2).sum() / (e**2).sum()) for kbps, e in error.items()}
+    assert snr_db[low] < snr_db[high]
+
+
+def test_a_sox_round_trip_comes_back_1_105_samples_late():
+    """LAME's encoder delay of 576 samples plus its decoder's 529 (ADR-0015). The
+    data loader aligns once, after the whole chain, and its pads are sized for
+    this delay; a sox round trip that aligned itself would hide a change in it."""
+    skip_unless_codecs_run()
+    noise = np.random.default_rng(0).uniform(-0.3, 0.3, size=(2, SR)).astype(np.float32)
+
+    coded = gd.round_trip(noise, codec="sox", kbps=128)
+
+    xcorr = np.fft.irfft(np.fft.rfft(coded[0]) * np.fft.rfft(noise[0]).conj(), n=SR)
+    assert int(np.argmax(xcorr)) == 1_105
+
+
+@pytest.mark.parametrize("codec", ["libmp3lame", "libopus", "aac"])
+def test_an_ffmpeg_round_trip_comes_back_aligned(codec):
+    """ffmpeg's decoder trims the delay each container records, and the padding
+    of AAC's last frame is cut from the end. 1 s is not a whole number of AAC's
+    1_024-sample frames, so padding cut from the start would show."""
+    skip_unless_codecs_run()
+    noise = np.random.default_rng(0).uniform(-0.3, 0.3, size=(2, SR)).astype(np.float32)
+
+    coded = gd.round_trip(noise, codec=codec, kbps=128)
+
+    xcorr = np.fft.irfft(np.fft.rfft(coded[0]) * np.fft.rfft(noise[0]).conj(), n=SR)
+    assert int(np.argmax(xcorr)) == 0
+
+
+def test_the_opus_round_trip_removes_a_dc_offset_as_libopus_does():
+    """libopus high-passes its input below a few hertz, which the other codecs do
+    not: without `-c:a libopus`, ffmpeg would write its .ogg file with Vorbis,
+    which kept 0.199 of a 0.2 offset where Opus kept 0.000. The mean is taken over
+    the second half, after the filter has settled."""
+    skip_unless_codecs_run()
+    noise = np.random.default_rng(0).uniform(-0.05, 0.05, size=(2, 2 * SR))
+    offset = (0.2 + noise).astype(np.float32)
+
+    coded = gd.round_trip(offset, codec="libopus", kbps=64)
+
+    assert abs(float(coded[:, SR:].mean())) < 0.01
+
+
+def test_opus_after_an_mp3_at_24_kbps_codes_the_mp3_not_the_clean_window(tmp_path, monkeypatch):
+    """An MP3 at 24 kbps keeps nothing above about 5 kHz. Opus at 64 kbps alone
+    keeps 59% of white noise's power above 16 kHz. So the chain keeps about 6e-7
+    of the clean power there when Opus codes the MP3, and 59% when it codes the
+    clean window: 1% sits far from both."""
+    skip_unless_codecs_run()
+    torch.manual_seed(0)
+    monkeypatch.setattr(gd, "draw_codecs", lambda augmentations: [("sox", 24), ("libopus", 64)])
+    noise = np.random.default_rng(0).uniform(-0.3, 0.3, size=(2, 6 * SR)).astype(np.float32)
+    ga.save(tmp_path / "a" / "mixture.wav", noise, SR, subtype="PCM_16")
+    dataset = gd.TrackDataset(tmp_path, glob="*/mixture.wav", window_samples=4 * SR)
+
+    clean, coded = dataset[0]
+
+    above = np.fft.rfftfreq(4 * SR, 1 / SR) > 16_000
+    coded_power = np.abs(np.fft.rfft(coded.numpy(), axis=-1))[:, above] ** 2
+    clean_power = np.abs(np.fft.rfft(clean.numpy(), axis=-1))[:, above] ** 2
+    assert coded_power.sum() / clean_power.sum() < 0.01
 
 
 @pytest.mark.parametrize("chain", CHAINS)
@@ -852,9 +1236,10 @@ def test_a_track_pair_lines_up_whichever_codecs_coded_it(tmp_path, monkeypatch, 
     back aligned; the pair must line up after any chain. The track is the clip
     that broke Apollo's `match2` (tests/test_musdb_eval.py): noise below 2 kHz
     leaves the band above the cut-off to the jump between the window's edges, and
-    the ramp makes that jump loud. Every window gets the mix EQ, which moves the
-    phase of what is coded, and half are swapped. The lowest bitrates are the
-    ones where the alignment missed by a sample."""
+    the ramp makes that jump loud. The one window read gets the mix EQ, which
+    moves the phase of what is coded, and is swapped (swap at 0.5; seed 0 draws a
+    swap), so the alignment correlates what was the right channel. The lowest
+    bitrates are the ones where the alignment missed by a sample."""
     skip_unless_codecs_run()
     torch.manual_seed(0)
     monkeypatch.setattr(gd, "draw_codecs", lambda augmentations: chain)
@@ -870,7 +1255,8 @@ def test_a_track_pair_lines_up_whichever_codecs_coded_it(tmp_path, monkeypatch, 
 
     # Opus takes out the ramp, which is nearly DC, so the pair is correlated on its first
     # differences, where the ramp is a constant. Aligned, the circular cross-correlation
-    # of the channel sums peaks at index 0; one sox MP3 late, at 1_105.
+    # of the channel sums peaks at index 0; one sox MP3 late, near 1_105, since the
+    # clean window's search then moves it by up to 4 samples.
     clean, coded = np.diff(clean.numpy().sum(axis=0)), np.diff(coded.numpy().sum(axis=0))
     xcorr = np.fft.irfft(np.fft.rfft(coded) * np.fft.rfft(clean).conj(), n=clean.shape[-1])
     assert int(np.argmax(xcorr)) == 0
@@ -879,8 +1265,9 @@ def test_a_track_pair_lines_up_whichever_codecs_coded_it(tmp_path, monkeypatch, 
 @pytest.mark.parametrize("chain", CHAINS)
 def test_a_remix_pair_lines_up_whichever_codecs_coded_it(tmp_path, monkeypatch, chain):
     """As for a track, with every stem the clip that broke Apollo's `match2`, each
-    from its own noise. Every stem and every mix gets its own EQ, and half the
-    stems are swapped and half the remixes leave out a kind."""
+    from its own noise. Every stem and the mix get their own EQ; with drop_kind and
+    swap at 0.5, seed 0 leaves out one kind and swaps two of the three stems left.
+    draw_codecs is replaced, so every chain sees these same draws."""
     skip_unless_codecs_run()
     torch.manual_seed(0)
     monkeypatch.setattr(gd, "draw_codecs", lambda augmentations: chain)

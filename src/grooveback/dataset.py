@@ -12,6 +12,7 @@ worked example: small-music-base, 10 s windows of 107 latent frames.
 from __future__ import annotations
 
 import json
+import math
 import subprocess
 import tempfile
 from dataclasses import dataclass, field
@@ -223,6 +224,13 @@ class Augmentations:
     mp3_ffmpeg: float = 0.0  # MP3s coded by ffmpeg's libmp3lame instead of torchaudio's sox
 
     def __post_init__(self):
+        # A dict given on the command line merges with the config's: codec_rounds={1:1.0}
+        # over {1: 0.4, 2: 0.6} gives {1: 1.0, 2: 0.6}, which would still code 37.5% twice.
+        if not math.isclose(sum(self.codec_rounds.values()), 1.0):
+            raise ValueError(
+                f"codec_rounds weights sum to {sum(self.codec_rounds.values()):g}, not 1. "
+                "On the command line, give every count: augmentations.codec_rounds={1:1.0,2:0}."
+            )
         if max(self.codec_rounds) > len(self.codec_choices):
             raise ValueError(
                 f"codec_rounds draws up to {max(self.codec_rounds)} round trips, "
