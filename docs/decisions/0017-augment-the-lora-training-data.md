@@ -74,7 +74,14 @@ cross-correlation finds against the clean window (ADR-0015). We move that step o
 after the last round trip, against the clean window, so the coded copy is aligned whatever chain it went through.
 `coded_pair`'s search of ±4 samples then runs as today. A sox MP3 comes out 1,105 samples late before that step, and
 the 4,096-sample pads hold the lag of two round trips. `codec_simu` still aligns its own output, so the test does not
-change. The tests send a click through each chain and check where it lands.
+change.
+
+The test of that alignment moves to the data loader. Today it codes one clip with `codec_simu` and checks that the
+cross-correlation of the clean clip and the MP3 peaks at lag 0. Its clip is the one that broke Apollo's `match2`:
+noise below 2 kHz under a loud ramp. The new test asks the same of the pairs that `TrackDataset` and `RemixDataset`
+return, with the real codecs. It runs once for every chain of one or two codecs, with the sox and ffmpeg MP3s
+counted apart, at each codec's lowest bitrate. So it passes only if the pairs are aligned whichever codecs ran.
+`codec_simu`'s own test stays, for the test protocol.
 
 Validation and the test do not change: one sox MP3 at the six bitrates. Their scores stay comparable with earlier
 runs and with ADR-0015.
