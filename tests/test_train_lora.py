@@ -250,6 +250,81 @@ def test_mlflow_batch_loss_is_indexed_by_step(tmp_path, monkeypatch, tiny_checkp
     assert [metric.step for metric in batch] == [1, 2]
 
 
+def test_a_resume_logs_into_the_mlflow_run_that_wrote_its_checkpoint(
+    tmp_path, monkeypatch, tiny_checkpoint
+):
+    """One epoch, then a resume from its checkpoint-2 for a second epoch: one run in
+    the store, with epochs 0 and 1 from the first call and epoch 2 from the resume."""
+    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
+    monkeypatch.setattr(gd, "round_trip", lambda audio, *, codec, kbps: 0.5 * audio)
+    write_musdb_song(tmp_path / "musdb", "a", seconds=2.0, seed=0)
+    write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
+    train(config(tmp_path))
+
+    train(
+        config(
+            tmp_path,
+            "num_train_epochs=2",
+            f"resume_from_checkpoint={tmp_path / 'run' / 'checkpoint-2'}",
+        )
+    )
+
+    client = mlflow.tracking.MlflowClient(f"sqlite:///{tmp_path / 'mlflow.db'}")
+    (run,) = client.search_runs([client.get_experiment_by_name("train_lora").experiment_id])
+    validation = client.get_metric_history(run.info.run_id, "validation_loss")
+    assert [metric.step for metric in validation] == [0, 1, 2]
+
+
+def test_a_resume_into_another_save_dir_keeps_the_mlflow_run_name(
+    tmp_path, monkeypatch, tiny_checkpoint
+):
+    """A run is named after its save_dir, "run" here; the resume writes to "more"."""
+    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
+    monkeypatch.setattr(gd, "round_trip", lambda audio, *, codec, kbps: 0.5 * audio)
+    write_musdb_song(tmp_path / "musdb", "a", seconds=2.0, seed=0)
+    write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
+    train(config(tmp_path))
+
+    train(
+        config(
+            tmp_path,
+            "num_train_epochs=2",
+            f"resume_from_checkpoint={tmp_path / 'run' / 'checkpoint-2'}",
+            f"save_dir={tmp_path / 'more'}",
+        )
+    )
+
+    client = mlflow.tracking.MlflowClient(f"sqlite:///{tmp_path / 'mlflow.db'}")
+    (run,) = client.search_runs([client.get_experiment_by_name("train_lora").experiment_id])
+    assert run.info.run_name == "run"
+
+
+def test_a_resume_on_another_mlflow_store_opens_a_new_run_there(
+    tmp_path, monkeypatch, tiny_checkpoint
+):
+    """checkpoint-2's run is in mlflow.db only, so a resume logging to other.db gets
+    a run of its own there, holding the resumed epoch 2 alone."""
+    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
+    monkeypatch.setattr(gd, "round_trip", lambda audio, *, codec, kbps: 0.5 * audio)
+    write_musdb_song(tmp_path / "musdb", "a", seconds=2.0, seed=0)
+    write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
+    train(config(tmp_path))
+
+    train(
+        config(
+            tmp_path,
+            "num_train_epochs=2",
+            f"resume_from_checkpoint={tmp_path / 'run' / 'checkpoint-2'}",
+            f"mlflow_db={tmp_path / 'other.db'}",
+        )
+    )
+
+    client = mlflow.tracking.MlflowClient(f"sqlite:///{tmp_path / 'other.db'}")
+    (run,) = client.search_runs([client.get_experiment_by_name("train_lora").experiment_id])
+    validation = client.get_metric_history(run.info.run_id, "validation_loss")
+    assert [metric.step for metric in validation] == [2]
+
+
 def test_time_budget_stops_after_the_epoch_that_crosses_it(tmp_path, monkeypatch, tiny_checkpoint):
     """A budget of 0 minutes is crossed by the first epoch, so a 3-epoch run
     ends after it: 2 steps, checkpoint-2, with the listening pack there."""
