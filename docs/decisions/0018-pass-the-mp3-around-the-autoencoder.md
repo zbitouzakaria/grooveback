@@ -92,14 +92,13 @@ inference they decode the sampler's own; the test clips show how much that matte
 
 ## How we test it
 
-Nine tests, four of them on the validation set.
+Eight tests, three of them on the validation set.
 
 Validation set:
 
 - `test_a_validation_item_holds_the_master_audio_of_its_window`
 - `test_a_validation_item_holds_the_coded_audio_its_latents_come_from`
 - `test_the_validation_audio_loss_is_the_same_on_two_calls`
-- `test_the_validation_audio_loss_of_untrained_skips_is_the_plain_decoders`
 
 Skips and training:
 
