@@ -19,7 +19,8 @@ songs. MUSDB18-HQ's own train/ folder holds musdb's 14 validation songs, so
 they are moved out of it.
 
 After every epoch the run writes `save_dir/checkpoint-{step}/`: the trained
-weights (`lora.safetensors`) and the optimizer state (`state.pt`). Of the
+weights (`lora.safetensors`), the optimizer state (`state.pt`) and the id of
+the MLflow run that wrote them (`mlflow_run_id`). Of the
 checkpoints it writes, it keeps two, the one with the lowest validation loss
 and the last, and deletes the others: on medium-base each is about 1 GB.
 Checkpoints of earlier runs, such as the one a run resumes from, are never
@@ -36,7 +37,11 @@ epoch is validated and saved, the signal waits until that is done.
 
 MLflow (`mlflow_db`) gets the losses per epoch (epoch 0 = before training),
 the batch loss and seconds per step every `log_every` steps, peak GPU memory
-per epoch, and GPU/CPU system metrics once a minute. Browse them with
+per epoch, and GPU/CPU system metrics once a minute. A run resumed from a
+checkpoint logs into the MLflow run that wrote it, when `mlflow_db` holds that
+run, and opens a new one otherwise. MLflow refuses to change a parameter, so a
+continued run keeps its name and the values it was first given, and the trainer
+prints the ones this call changed. Browse them with
 
     uv run mlflow ui --backend-store-uri sqlite:///artifacts/mlflow.db
 """
@@ -123,8 +128,8 @@ def train(cfg: DictConfig) -> None:
     augmentations = gd.Augmentations(**OmegaConf.to_container(cfg.augmentations))
     # MLflow keeps one run per call, in a local SQLite file: its parameters are
     # this config; epoch metrics are indexed by epoch (0 = before training), batch
-    # metrics by step. A resumed run is a new MLflow run whose epochs continue the
-    # old one's. Opened first, so a store that cannot be written fails before any
+    # metrics by step. A resume continues its checkpoint's run, whose epochs and
+    # steps it extends. Opened first, so a store that cannot be written fails before any
     # loading; likewise the GPU metrics, which MLflow would skip with one log line.
     mlflow.set_tracking_uri(f"sqlite:///{Path(cfg.mlflow_db).resolve()}")
     mlflow.set_experiment("train_lora")
@@ -143,11 +148,19 @@ def train(cfg: DictConfig) -> None:
     optimizer = torch.optim.AdamW(
         params, lr=cfg.lr, betas=tuple(cfg.betas), weight_decay=cfg.weight_decay
     )
-    step, start_epoch = 0, 0
+    step, start_epoch, run_id = 0, 0, None
     if cfg.resume_from_checkpoint:
         directory = Path(cfg.resume_from_checkpoint)
         gt.load_lora_weights(model, directory / "lora.safetensors", config=lora_config)
         step, start_epoch = gt.load_training_state(directory, optimizer)
+        # The MLflow run that wrote the checkpoint, continued if this store holds it.
+        # A checkpoint from before runs were recorded, or a new store, gets a new run.
+        run_file = directory / "mlflow_run_id"
+        written_by = run_file.read_text() if run_file.exists() else None
+        if written_by and mlflow.search_runs(
+            filter_string=f"attributes.run_id = '{written_by}'", output_format="list"
+        ):
+            run_id = written_by
     # This run writes checkpoint-{n} for steps n past the one it starts from. One already
     # in save_dir is an earlier run's: this run would write over it, then could delete it.
     later = sorted(
@@ -211,10 +224,23 @@ def train(cfg: DictConfig) -> None:
     # their own time axis (psutil and nvidia-ml-py).
     mlflow.set_system_metrics_sampling_interval(10)
     mlflow.set_system_metrics_samples_before_logging(6)
+    # A new run is named after save_dir. A continued run keeps its name: given one,
+    # MLflow renames it.
     with mlflow.start_run(
-        run_name=Path(cfg.save_dir).name, log_system_metrics=cfg.log_system_metrics
-    ):
-        mlflow.log_params(OmegaConf.to_container(cfg, resolve=True))
+        run_id=run_id,
+        run_name=None if run_id else Path(cfg.save_dir).name,
+        log_system_metrics=cfg.log_system_metrics,
+    ) as run:
+        # A continued run already holds the parameters it was first given, which MLflow
+        # will not change: it gets only the ones it lacks, and the changed ones are named.
+        values = OmegaConf.to_container(cfg, resolve=True)
+        first = run.data.params
+        mlflow.log_params({key: value for key, value in values.items() if key not in first})
+        changed = [
+            key for key, value in values.items() if key in first and first[key] != str(value)
+        ]
+        if changed:
+            print(f"MLflow run {run.info.run_id} keeps its first {', '.join(changed)}", flush=True)
         if step == 0:
             # The baseline every later validation loss is read against.
             baseline = validate()
@@ -300,6 +326,8 @@ def train(cfg: DictConfig) -> None:
                 gt.save_checkpoint(
                     directory, model, optimizer, config=lora_config, step=step, epoch=epoch + 1
                 )
+                # The run a resume from this checkpoint continues.
+                (directory / "mlflow_run_id").write_text(run.info.run_id)
                 print(f"wrote {directory}", flush=True)
                 # Only the best and the last of this run's checkpoints are kept, and a
                 # checkpoint is deleted only once a newer one has been written in full.
