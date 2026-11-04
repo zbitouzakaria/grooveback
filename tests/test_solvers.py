@@ -396,6 +396,25 @@ def test_lora_restores_the_last_partial_frame(tmp_path, monkeypatch, tiny_checkp
     assert np.abs(out[:, 44_096:]).min() > 0.0
 
 
+def test_lora_returns_the_input_length_from_a_checkpoint_with_skips(
+    tmp_path, monkeypatch, tiny_checkpoint
+):
+    """1 s is 689 frames of 64 and 4 samples, so the latents hold a frame the audio does
+    not fill, and the decoder wants tokens for patches the file does not have."""
+    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
+    trained = gt.load_model("small-music-base", device=torch.device("cpu"))
+    optimizer = torch.optim.AdamW(gt.add_lora(trained, gt.lora_config(rank=4, lora_alpha=4)))
+    gt.add_skips(trained)
+    gt.save_checkpoint(tmp_path, trained, optimizer, config=gt.lora_config(rank=4, lora_alpha=4),
+                       step=1, epoch=1)
+    model = gt.load_trained_model("small-music-base", tmp_path, device=torch.device("cpu"))
+    audio = np.random.default_rng(0).uniform(-0.5, 0.5, size=(2, 44_100)).astype(np.float32)
+
+    out = lora(model, audio, SR, steps=2, inpaint_mask_value=0.0)
+
+    assert out.shape == (2, 44_100)
+
+
 def test_lora_hands_the_sampler_to_sa3(tmp_path, monkeypatch, tiny_checkpoint):
     """SA3 refuses a sampler it does not know, so the name reached it."""
     monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)

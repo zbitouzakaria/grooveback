@@ -31,6 +31,13 @@ the first `listening_songs` validation songs, restored from the coded version
 validation scores it with, next to its original and that coded input. Each
 costs about 30 s on medium-base, paid only when the validation loss improves.
 
+An `audio_loss_weight` above 0 adds ADR-0018's decoder skips. Every step then
+makes a second pass, at the sampler's last noise level, that decodes the
+model's estimate with the skips and trains them and the LoRA on an audio loss.
+Validation reports that loss too, and it picks the best checkpoint in place of
+the validation loss. Checkpoints gain `skips.safetensors`. A resume from a
+checkpoint without skips starts them at zero.
+
 Ctrl-C or `kill <pid>` (SIGINT or SIGTERM) ends a run at once while it trains;
 a run resumed from its last checkpoint repeats the interrupted epoch. While an
 epoch is validated and saved, the signal waits until that is done.
@@ -108,10 +115,13 @@ def write_listening_window(
     kbps = dataset.fixed[dataset.windows.index((song.name, 0))]
     samples = dataset.window_frames * model.pretransform.downsampling_ratio
     mp3 = dataset.mp3[(song.name, kbps)][:, : dataset.window_frames]
-    restored = gt.restore(model, mp3, steps=steps, inpaint_mask_value=inpaint_mask_value)
+    coded = ga.load(song / f"{kbps}k.wav", stop=samples)[0]
+    restored = gt.restore(
+        model, mp3, steps=steps, inpaint_mask_value=inpaint_mask_value, mp3_audio=coded
+    )
     pack = {
         "original": ga.load(song / "original.wav")[0][:, :samples],
-        "input": ga.load(song / f"{kbps}k.wav")[0][:, :samples],
+        "input": coded,
         "restored": restored[:, :samples],
     }
     write_listening_pack(pack, model.sample_rate, out_dir, suffix=".flac")
@@ -148,10 +158,15 @@ def train(cfg: DictConfig) -> None:
     optimizer = torch.optim.AdamW(
         params, lr=cfg.lr, betas=tuple(cfg.betas), weight_decay=cfg.weight_decay
     )
-    step, start_epoch, run_id = 0, 0, None
+    skip_params = gt.add_skips(model) if cfg.audio_loss_weight > 0 else []
+    step, start_epoch, run_id, resumed_skips = 0, 0, None, False
     if cfg.resume_from_checkpoint:
         directory = Path(cfg.resume_from_checkpoint)
         gt.load_lora_weights(model, directory / "lora.safetensors", config=lora_config)
+        resumed_skips = bool(skip_params) and (directory / "skips.safetensors").exists()
+        if resumed_skips:
+            gt.load_skips(model, directory / "skips.safetensors")
+            optimizer.add_param_group({"params": skip_params})
         step, start_epoch = gt.load_training_state(directory, optimizer)
         # The MLflow run that wrote the checkpoint, continued if this store holds it.
         # A checkpoint from before runs were recorded, or a new store, gets a new run.
@@ -161,6 +176,13 @@ def train(cfg: DictConfig) -> None:
             filter_string=f"attributes.run_id = '{written_by}'", output_format="list"
         ):
             run_id = written_by
+    if skip_params:
+        # New skips join after the load: a checkpoint without them holds one optimizer group.
+        if not resumed_skips:
+            optimizer.add_param_group({"params": skip_params})
+        # A map that starts at zero and must reach weights near 1 needs far larger steps
+        # than the LoRA's: Adam moves each weight by about the learning rate per step.
+        optimizer.param_groups[-1]["lr"] = cfg.skip_lr
     # This run writes checkpoint-{n} for steps n past the one it starts from. One already
     # in save_dir is an earlier run's: this run would write over it, then could delete it.
     later = sorted(
@@ -199,7 +221,9 @@ def train(cfg: DictConfig) -> None:
         bitrates=bitrates,
         window_frames=window_frames,
         bitrates_file=Path(cfg.valid_dir) / "validation_bitrates.json",
+        keep_audio=bool(skip_params),
     )
+    level = gt.last_noise_level(model, steps=cfg.sample_steps, frames=window_frames)
     print(
         f"{len(train_set)} training windows an epoch from {', '.join(sources)}, "
         f"{len(valid_set)} validation windows",
@@ -215,6 +239,15 @@ def train(cfg: DictConfig) -> None:
             model,
             valid_set,
             timesteps=list(cfg.validation_timesteps),
+            batch_size=cfg.batch_size,
+            inpaint_mask_value=cfg.inpaint_mask_value,
+        )
+
+    def validate_audio() -> float:
+        return gt.validation_audio_loss(
+            model,
+            valid_set,
+            level=level,
             batch_size=cfg.batch_size,
             inpaint_mask_value=cfg.inpaint_mask_value,
         )
@@ -246,6 +279,11 @@ def train(cfg: DictConfig) -> None:
             baseline = validate()
             print(f"step 0 validation loss {baseline:.4f}", flush=True)
             mlflow.log_metric("validation_loss", baseline, step=0)
+        if skip_params and not resumed_skips:
+            # Skips at zero: the audio loss every later one is read against.
+            baseline = validate_audio()
+            print(f"step {step} validation audio loss {baseline:.4f}", flush=True)
+            mlflow.log_metric("validation_audio_loss", baseline, step=start_epoch)
 
         def listen(directory: Path) -> None:
             for song in valid_set.songs[: cfg.listening_songs]:
@@ -272,19 +310,33 @@ def train(cfg: DictConfig) -> None:
                 generator=torch.Generator().manual_seed(cfg.seed + epoch),
                 num_workers=cfg.num_workers,
             )
-            losses = []
+            losses, audio_losses = [], []
             since, since_step = time.perf_counter(), step
-            for clean, mp3 in loader:
+            for master, mp3_audio in loader:
                 # Fresh audio from the workers, (8, 2, 438_272) on medium-base, to
                 # (8, 256, 107) latents. Whole frames already, so nothing to pad.
+                master, mp3_audio = master.to(device), mp3_audio.to(device)
                 with torch.no_grad():
-                    clean = model.pretransform.encode(clean.to(device))
-                    mp3 = model.pretransform.encode(mp3.to(device))
+                    clean = model.pretransform.encode(master)
+                    mp3 = model.pretransform.encode(mp3_audio)
                 loss = gt.training_step(
                     model, clean, mp3=mp3, inpaint_mask_value=cfg.inpaint_mask_value
                 )
                 optimizer.zero_grad()
                 loss.backward()
+                if skip_params:
+                    # Backward after each pass, so only one DiT graph is held at a time.
+                    audio_loss = gt.audio_step(
+                        model,
+                        clean,
+                        mp3=mp3,
+                        master=master,
+                        mp3_audio=mp3_audio,
+                        level=level,
+                        inpaint_mask_value=cfg.inpaint_mask_value,
+                    )
+                    (cfg.audio_loss_weight * audio_loss).backward()
+                    audio_losses.append(audio_loss.item())
                 torch.nn.utils.clip_grad_norm_(params, cfg.max_grad_norm)
                 optimizer.step()
                 step += 1
@@ -298,11 +350,14 @@ def train(cfg: DictConfig) -> None:
                     print(
                         f"epoch {epoch + 1} step {step} loss {loss.item():.4f} "
                         f"{seconds:.2f} s/step",
+                        f"audio loss {audio_losses[-1]:.4f}" if skip_params else "",
                         flush=True,
                     )
                     mlflow.log_metrics(
                         {"batch_loss": loss.item(), "seconds_per_step": seconds}, step=step
                     )
+                    if skip_params:
+                        mlflow.log_metric("batch_audio_loss", audio_losses[-1], step=step)
 
             # A Ctrl-C or kill during the steps above ends the run at once. From here to
             # the next epoch it waits, so the checkpoints on disk are always whole.
@@ -313,6 +368,16 @@ def train(cfg: DictConfig) -> None:
                 mlflow.log_metrics(
                     {"training_loss": training, "validation_loss": valid}, step=epoch + 1
                 )
+                # What picks the best checkpoint: the audio loss, once there are skips.
+                score = valid
+                if skip_params:
+                    score = validate_audio()
+                    print(f"epoch {epoch + 1} validation audio loss {score:.4f}", flush=True)
+                    audio_metrics = {
+                        "training_audio_loss": sum(audio_losses) / len(audio_losses),
+                        "validation_audio_loss": score,
+                    }
+                    mlflow.log_metrics(audio_metrics, step=epoch + 1)
                 if torch.cuda.is_available():
                     # Peaks since the process started, so they include the encoding.
                     # Allocated is what the tensors needed; reserved adds PyTorch's
@@ -332,8 +397,8 @@ def train(cfg: DictConfig) -> None:
                 # Only the best and the last of this run's checkpoints are kept, and a
                 # checkpoint is deleted only once a newer one has been written in full.
                 stale = {best, last}
-                if valid < best_loss:
-                    best, best_loss = directory, valid
+                if score < best_loss:
+                    best, best_loss = directory, score
                     # The model holds the best weights right now.
                     listen(directory)
                 last = directory
@@ -350,7 +415,8 @@ def train(cfg: DictConfig) -> None:
 
         if last is not None:
             # best stays None when no validation loss was finite: a NaN is never below another.
-            print(f"best {best} (validation loss {best_loss:.4f}), last {last}", flush=True)
+            name = "validation audio loss" if skip_params else "validation loss"
+            print(f"best {best} ({name} {best_loss:.4f}), last {last}", flush=True)
 
 
 @hydra.main(config_path="../../../configs", config_name="train_lora", version_base=None)

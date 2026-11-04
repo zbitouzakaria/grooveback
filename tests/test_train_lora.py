@@ -11,6 +11,7 @@ import numpy as np
 import pytest
 import torch
 from hydra import compose, initialize_config_dir
+from safetensors.torch import load_file
 
 from grooveback import audio as ga
 from grooveback import dataset as gd
@@ -248,6 +249,60 @@ def test_mlflow_batch_loss_is_indexed_by_step(tmp_path, monkeypatch, tiny_checkp
     (run,) = client.search_runs([client.get_experiment_by_name("train_lora").experiment_id])
     batch = client.get_metric_history(run.info.run_id, "batch_loss")
     assert [metric.step for metric in batch] == [1, 2]
+
+
+def test_one_epoch_with_skips_writes_their_weights_and_logs_both_validation_losses(
+    tmp_path, monkeypatch, tiny_checkpoint
+):
+    """Non-zero weights in the checkpoint show that the second pass trained both skips:
+    they start at zero. Both losses are logged before training (0) and after the epoch."""
+    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
+    monkeypatch.setattr(gd, "round_trip", lambda audio, *, codec, kbps: 0.5 * audio)
+    write_musdb_song(tmp_path / "musdb", "a", seconds=2.0, seed=0)
+    write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
+
+    train(config(tmp_path, "audio_loss_weight=1.0"))
+
+    skips = load_file(tmp_path / "run" / "checkpoint-2" / "skips.safetensors")
+    assert skips["queries.weight"].abs().sum() > 0
+    assert skips["patches.weight"].abs().sum() > 0
+    client = mlflow.tracking.MlflowClient(f"sqlite:///{tmp_path / 'mlflow.db'}")
+    (run,) = client.search_runs([client.get_experiment_by_name("train_lora").experiment_id])
+    flow = client.get_metric_history(run.info.run_id, "validation_loss")
+    audio = client.get_metric_history(run.info.run_id, "validation_audio_loss")
+    assert [metric.step for metric in flow] == [0, 1]
+    assert [metric.step for metric in audio] == [0, 1]
+
+
+def test_a_resume_from_a_checkpoint_without_skips_starts_them_at_zero(
+    tmp_path, monkeypatch, tiny_checkpoint
+):
+    """checkpoint-2 is written with the skips off, as checkpoint-33135 was. The resume's
+    first audio validation, its baseline, sees the skips before any training."""
+    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
+    monkeypatch.setattr(gd, "round_trip", lambda audio, *, codec, kbps: 0.5 * audio)
+    write_musdb_song(tmp_path / "musdb", "a", seconds=2.0, seed=0)
+    write_song(tmp_path / "valid", "b", seconds=2.0, bitrates=[24, 32], seed=1)
+    train(config(tmp_path))
+    sizes = []
+    validation_audio_loss = gt.validation_audio_loss
+
+    def recording_validation_audio_loss(model, *args, **kwargs):
+        sizes.append(sum(weight.abs().sum().item() for weight in model.skips.parameters()))
+        return validation_audio_loss(model, *args, **kwargs)
+
+    monkeypatch.setattr(gt, "validation_audio_loss", recording_validation_audio_loss)
+
+    train(
+        config(
+            tmp_path,
+            "num_train_epochs=2",
+            "audio_loss_weight=1.0",
+            f"resume_from_checkpoint={tmp_path / 'run' / 'checkpoint-2'}",
+        )
+    )
+
+    assert sizes[0] == 0.0
 
 
 def test_a_resume_logs_into_the_mlflow_run_that_wrote_its_checkpoint(

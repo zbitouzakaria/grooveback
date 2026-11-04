@@ -130,6 +130,43 @@ def add_lora(model, config: dict) -> list[torch.nn.Parameter]:
     return list(sa3_lora.get_lora_params(model.model)) + new_input
 
 
+class DecoderSkips(torch.nn.Module):
+    """Two linear maps that carry the MP3 into SAME's decoder (ADR-0018).
+
+    `queries` maps the encoder's first layer, run on the MP3, onto the decoder's
+    query tokens. `patches` maps the MP3's patches onto the decoder's output
+    patches. Both start at zero, so the decoder starts unchanged.
+    """
+
+    def __init__(self, *, features: int, tokens: int, patches: int):
+        super().__init__()
+        self.queries = torch.nn.Linear(features, tokens)
+        self.patches = torch.nn.Conv1d(patches, patches, kernel_size=1)
+        for layer in (self.queries, self.patches):
+            torch.nn.init.zeros_(layer.weight)
+            torch.nn.init.zeros_(layer.bias)
+
+
+def add_skips(model) -> list[torch.nn.Parameter]:
+    """Put zero-initialised skips on the model; return their weights.
+
+    They sit next to `model.model`, not in it, so a LoRA checkpoint without
+    skips still loads: `_trainable_state` only reads `model.model`. The decoder
+    stays in fp32, as in the plain decode, because in bf16 it lands 21 to 23 dB
+    SNR from it on SAME-S. Its block recomputes its layers in the backward pass
+    to make room for that.
+    """
+    autoencoder = model.pretransform.model
+    block = autoencoder.decoder.layers[-1]
+    block.checkpointing = True
+    model.skips = DecoderSkips(
+        features=autoencoder.encoder.layers[0].out_channels,
+        tokens=block.in_channels,
+        patches=block.out_channels,
+    ).to(_device(model))
+    return list(model.skips.parameters())
+
+
 def _device(model) -> torch.device:
     return next(model.parameters()).device
 
@@ -212,6 +249,95 @@ def training_step(
     return F.mse_loss(velocity, noise - clean)
 
 
+def decode_with_skips(model, latents: torch.Tensor, *, mp3_audio: torch.Tensor) -> torch.Tensor:
+    """Decode latents to audio with the decoder also reading the MP3 (ADR-0018).
+
+    latents (8, 256, 107), mp3_audio (8, 2, 438_272) -> audio (8, 2, 438_272).
+    This repeats AudioAutoencoder.decode, which decodes a window under 128 frames
+    in one piece, because SAMEDecoder.forward cannot pass tokens to its block.
+    """
+    autoencoder = model.pretransform.model
+    block = autoencoder.decoder.layers[-1]
+    # 256 samples of 2 channels per patch, 16 patches per latent frame: (8, 512, 1712).
+    patches = autoencoder.pretransform.encode(mp3_audio)
+    features = autoencoder.encoder.layers[0].mapping(patches)  # (8, 768, 1712)
+    x = autoencoder.bottleneck.decode(latents * model.pretransform.scale)
+    for layer in autoencoder.decoder.layers[:-1]:
+        x = layer(x)  # (8, 768, 107)
+    tokens = model.skips.queries(features.transpose(1, 2))  # (8, 1712, 768)
+    # The block wants a token for every patch of its frames, in whole chunks without a
+    # sliding window. Those frames can outnumber the audio's patches: SAME-S's encoder
+    # pads 107 frames to 108, and a song rarely fills its last frame.
+    chunk = 1 if block.sliding_window_seq else block.chunk_size // block.stride
+    frames = x.shape[-1] + -x.shape[-1] % chunk
+    tokens = F.pad(tokens, (0, 0, 0, frames * block.stride - tokens.shape[1]))
+    # Given tokens, the block no longer adds its noise to its queries, so it is added here.
+    tokens = tokens + block.mask_noise * torch.randn_like(tokens)
+    decoded = block(x, override_new_tokens=tokens)[..., : patches.shape[-1]]
+    decoded = decoded + model.skips.patches(patches)
+    audio = autoencoder.pretransform.decode(decoded)
+    return torch.tanh(audio) if autoencoder.soft_clip else audio
+
+
+def audio_loss(audio: torch.Tensor, master: torch.Tensor) -> torch.Tensor:
+    """L1 on the waveform plus L1 between STFT magnitudes at three resolutions.
+
+    audio, master (8, 2, 438_272) -> a scalar. `normalized` keeps the magnitudes
+    on the waveform's scale, whatever the FFT size.
+    """
+    loss = F.l1_loss(audio, master)
+    for n_fft in (512, 2048, 8192):
+        window = torch.hann_window(n_fft, device=audio.device)
+        audio_stft, master_stft = (
+            torch.stft(x.flatten(0, 1), n_fft, window=window, normalized=True, return_complex=True)
+            for x in (audio, master)
+        )
+        loss = loss + F.l1_loss(audio_stft.abs(), master_stft.abs())
+    return loss
+
+
+def last_noise_level(model, *, steps: int, frames: int) -> float:
+    """The noise level of the sampler's last step: 0.138 at 50 steps on medium-base.
+
+    A rectified-flow sampler's last step goes from this level to 0, so what it
+    returns is `noised - level * velocity`, the estimate `audio_step` decodes.
+    """
+    from stable_audio_3.inference.sampling import build_schedule
+
+    levels = build_schedule(
+        steps=steps,
+        sigma_max=1.0,
+        dist_shift=model.sampling_dist_shift,
+        effective_seq_len=None,
+        fallback_seq_len=frames,
+        include_endpoint=True,
+        device="cpu",
+    )
+    return float(levels[-2])
+
+
+def audio_step(
+    model,
+    clean: torch.Tensor,
+    *,
+    mp3: torch.Tensor,
+    master: torch.Tensor,
+    mp3_audio: torch.Tensor,
+    level: float,
+    inpaint_mask_value: float,
+) -> torch.Tensor:
+    """Audio loss for one batch at noise level `level`, the second pass of ADR-0018.
+
+    The model's estimate of the clean latents is decoded with the skips and
+    compared with the master, so the gradient reaches the skips and the LoRA.
+    """
+    t = torch.full((clean.shape[0],), level, device=clean.device)
+    noised = clean * (1 - level) + torch.randn_like(clean) * level
+    velocity = predict_velocity(model, noised, t, mp3=mp3, inpaint_mask_value=inpaint_mask_value)
+    audio = decode_with_skips(model, noised - level * velocity, mp3_audio=mp3_audio)
+    return audio_loss(audio, master)
+
+
 @torch.no_grad()
 def validation_loss(
     model,
@@ -229,7 +355,7 @@ def validation_loss(
     device = _device(model)
     generator = torch.Generator(device=device).manual_seed(0)
     total, count = 0.0, 0
-    for clean, mp3 in torch.utils.data.DataLoader(dataset, batch_size=batch_size):
+    for clean, mp3, *_ in torch.utils.data.DataLoader(dataset, batch_size=batch_size):
         for level in timesteps:
             t = torch.full((clean.shape[0],), level, device=device)
             noise = torch.randn(clean.shape, generator=generator, device=device)
@@ -243,6 +369,42 @@ def validation_loss(
 
 
 @torch.no_grad()
+def validation_audio_loss(
+    model,
+    dataset: torch.utils.data.Dataset,
+    *,
+    level: float,
+    batch_size: int,
+    inpaint_mask_value: float,
+) -> float:
+    """Mean audio loss over every window at noise level `level`, decoded with the skips.
+
+    The latents' noise and the decoder's own noise come from the same seed on
+    every call, so two calls differ only because the model changed. The seed
+    stays inside this call: training's draws carry on as if it had not run.
+    """
+    device = _device(model)
+    total, count = 0.0, 0
+    with torch.random.fork_rng(devices=[device] if device.type == "cuda" else []):
+        torch.manual_seed(0)
+        for clean, mp3, master, mp3_audio in torch.utils.data.DataLoader(
+            dataset, batch_size=batch_size
+        ):
+            loss = audio_step(
+                model,
+                clean,
+                mp3=mp3,
+                master=master.to(device),
+                mp3_audio=mp3_audio.to(device),
+                level=level,
+                inpaint_mask_value=inpaint_mask_value,
+            )
+            total += loss.item() * clean.shape[0]
+            count += clean.shape[0]
+    return total / count
+
+
+@torch.no_grad()
 def restore(
     model,
     mp3: torch.Tensor,
@@ -250,6 +412,7 @@ def restore(
     steps: int,
     inpaint_mask_value: float,
     sampler_type: str = "euler",
+    mp3_audio: np.ndarray | None = None,
 ) -> np.ndarray:
     """Generate the clean version of one window of MP3 latents, as audio.
 
@@ -257,9 +420,14 @@ def restore(
     from seeded noise and denoising in `steps` steps with one of SA3's samplers
     for rectified flow. "euler" (SA3's default) and "dpmpp" call the model once
     per step, "rk4" four times; all three are deterministic given the noise.
+    A model with skips also reads `mp3_audio`, the window's coded audio, when
+    it decodes.
     """
     from stable_audio_3.inference.sampling import sample_diffusion
 
+    skips = hasattr(model, "skips")
+    if skips and mp3_audio is None:
+        raise ValueError("This model has decoder skips: give restore the window's mp3_audio.")
     device = _device(model)
     channels, frames = mp3.shape
     cond = _conditioning(model, mp3=mp3[None], inpaint_mask_value=inpaint_mask_value)
@@ -277,7 +445,12 @@ def restore(
         dist_shift=model.sampling_dist_shift,
         sampler_type=sampler_type,
         disable_tqdm=True,
+        decode=not skips,
     )
+    if skips:
+        audio = decode_with_skips(
+            model, audio, mp3_audio=torch.from_numpy(mp3_audio)[None].to(device)
+        )
     return audio[0].float().cpu().numpy()
 
 
@@ -296,7 +469,8 @@ def _trainable_state(model) -> dict[str, torch.Tensor]:
 
 
 def save_checkpoint(directory: Path, model, optimizer, *, config: dict, step: int, epoch: int):
-    """Write `lora.safetensors` (trained weights, fp32) and `state.pt` (optimizer, step, epoch).
+    """Write `lora.safetensors` (trained weights, fp32) and `state.pt` (optimizer, step, epoch),
+    and `skips.safetensors` for a model with skips.
 
     The weights stay fp32: SA3's own save_lora_safetensors rounds them to
     fp16, which would make a resumed run start from slightly different
@@ -305,6 +479,9 @@ def save_checkpoint(directory: Path, model, optimizer, *, config: dict, step: in
     directory.mkdir(parents=True, exist_ok=True)
     weights = {name: tensor.contiguous().cpu() for name, tensor in _trainable_state(model).items()}
     save_file(weights, directory / "lora.safetensors", metadata={"lora_config": json.dumps(config)})
+    if hasattr(model, "skips"):
+        skips = {name: tensor.cpu() for name, tensor in model.skips.state_dict().items()}
+        save_file(skips, directory / "skips.safetensors")
     state = {"optimizer": optimizer.state_dict(), "step": step, "epoch": epoch}
     torch.save(state, directory / "state.pt")
 
@@ -329,9 +506,15 @@ def load_lora_weights(model, path: Path, *, config: dict) -> None:
     model.model.load_state_dict(weights, strict=False)
 
 
+def load_skips(model, path: Path) -> None:
+    """Load skips written by `save_checkpoint` into a model that has skips."""
+    model.skips.load_state_dict(load_file(path))
+
+
 def load_trained_model(variant: str, checkpoint: Path, *, device: torch.device):
     """Base SA3 plus the LoRA and MP3 input saved in `checkpoint/lora.safetensors`,
-    ready to restore. The LoRA's shape is read from the file itself."""
+    and the skips of `checkpoint/skips.safetensors` if it has any, ready to
+    restore. The LoRA's shape is read from the file itself."""
     from stable_audio_3.models.lora import load_lora_checkpoint
 
     path = Path(checkpoint) / "lora.safetensors"
@@ -339,6 +522,10 @@ def load_trained_model(variant: str, checkpoint: Path, *, device: torch.device):
     model = load_model(variant, device=device)
     add_lora(model, config)
     load_lora_weights(model, path, config=config)
+    skips = Path(checkpoint) / "skips.safetensors"
+    if skips.exists():
+        add_skips(model)
+        load_skips(model, skips)
     return model
 
 

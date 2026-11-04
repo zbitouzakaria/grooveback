@@ -200,6 +200,7 @@ def lora(
         steps=steps,
         inpaint_mask_value=inpaint_mask_value,
         sampler_type=sampler_type,
+        mp3_audio=audio,
     )
     out = _fit_to_input(out, audio.shape[-1])
     return _match_input_loudness(out, audio, sample_rate)

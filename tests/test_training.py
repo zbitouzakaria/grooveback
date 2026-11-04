@@ -136,6 +136,116 @@ def test_saved_weights_reload_to_the_same_validation_loss(tmp_path, monkeypatch,
     assert reloaded_loss == trained_loss
 
 
+def test_saved_skips_reload_to_the_same_validation_audio_loss(
+    tmp_path, monkeypatch, tiny_checkpoint
+):
+    """A disk round trip of the skips, set away from zero: the reloaded model scores
+    the same audio loss to the last bit, on the same seeded noise."""
+    write_song(tmp_path / "songs", "a", seconds=1.0, bitrates=[24], seed=0)
+    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
+    config = gt.lora_config(rank=4, lora_alpha=4)
+    trained = gt.load_model("small-music-base", device=CPU)
+    optimizer = torch.optim.AdamW(gt.add_lora(trained, config), lr=1e-2)
+    gt.add_skips(trained)
+    torch.nn.init.normal_(trained.skips.queries.weight, std=0.1)
+    torch.nn.init.normal_(trained.skips.patches.weight, std=0.1)
+    dataset = gd.LatentPairDataset(
+        tmp_path / "songs",
+        trained,
+        bitrates=[24],
+        window_frames=128,
+        bitrates_file=tmp_path / "bitrates.json",
+        keep_audio=True,
+    )
+    gt.save_checkpoint(tmp_path / "ckpt", trained, optimizer, config=config, step=1, epoch=1)
+
+    reloaded = gt.load_trained_model("small-music-base", tmp_path / "ckpt", device=CPU)
+
+    settings = {"level": 0.138, "batch_size": 4, "inpaint_mask_value": 0.0}
+    trained_loss = gt.validation_audio_loss(trained, dataset, **settings)
+    reloaded_loss = gt.validation_audio_loss(reloaded, dataset, **settings)
+    assert reloaded_loss == trained_loss
+
+
+def test_the_audio_loss_is_identical_on_an_unchanged_model(tmp_path, monkeypatch, tiny_checkpoint):
+    """The noise on the latents and the decoder's own noise (0.1 on its queries, as on
+    medium-base) are drawn on every call, so an unseeded call would give another number.
+    Training draws between two validations, so the test does too: with nothing drawn in
+    between, the random state restored after the first call hides a missing seed."""
+    write_song(tmp_path / "songs", "a", seconds=1.0, bitrates=[24], seed=0)
+    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
+    model = gt.load_model("small-music-base", device=CPU)
+    gt.add_skips(model)
+    model.pretransform.model.decoder.layers[-1].mask_noise = 0.1
+    dataset = gd.LatentPairDataset(
+        tmp_path / "songs",
+        model,
+        bitrates=[24],
+        window_frames=128,
+        bitrates_file=tmp_path / "bitrates.json",
+        keep_audio=True,
+    )
+    settings = {"level": 0.138, "batch_size": 4, "inpaint_mask_value": 0.0}
+
+    first = gt.validation_audio_loss(model, dataset, **settings)
+    torch.randn(1)
+    second = gt.validation_audio_loss(model, dataset, **settings)
+
+    assert second == first
+
+
+def test_untrained_skips_leave_the_decoded_audio_unchanged(monkeypatch, tiny_checkpoint):
+    """Equal to the last bit under one seed, so the skips also draw the decoder's noise
+    in its order. The tiny model is set up like medium-base where it differs: noise of
+    0.1 on the queries, and a bottleneck that scales and adds noise (2.0 stands in for
+    its running_std). The tiny decoder's blocks start at zero and would ignore the
+    latents, so its weights are moved. 107 frames fill no whole number of its 8-frame
+    chunks, so the padding runs too."""
+    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
+    model = gt.load_model("small-music-base", device=CPU)
+    gt.add_skips(model)
+    decoder = model.pretransform.model.decoder
+    decoder.layers[-1].mask_noise = 0.1
+    model.pretransform.model.bottleneck.running_std = torch.tensor(2.0)
+    model.pretransform.model.bottleneck.noise_regularize = True
+    torch.manual_seed(0)
+    with torch.no_grad():
+        for weight in decoder.parameters():
+            weight.add_(0.05 * torch.randn_like(weight))
+    latents = torch.randn(2, 8, 107)
+    mp3_audio = torch.randn(2, 2, 107 * 64)
+
+    with torch.no_grad():
+        torch.manual_seed(1)
+        plain = model.pretransform.decode(latents)
+        torch.manual_seed(1)
+        skipped = gt.decode_with_skips(model, latents, mp3_audio=mp3_audio)
+
+    torch.testing.assert_close(skipped, plain[..., : 107 * 64], rtol=0, atol=0)
+
+
+@pytest.mark.parametrize("skip", ["queries", "patches"])
+def test_trained_skips_make_the_decoded_audio_depend_on_the_mp3(
+    skip, monkeypatch, tiny_checkpoint
+):
+    """Each skip alone, set away from zero, carries the MP3. The bound is far below
+    the differences these seeds give, which are of the order of the audio itself."""
+    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
+    model = gt.load_model("small-music-base", device=CPU)
+    gt.add_skips(model)
+    torch.manual_seed(0)
+    torch.nn.init.normal_(getattr(model.skips, skip).weight, std=0.1)
+    latents = torch.randn(1, 8, 32)
+    first_mp3 = torch.randn(1, 2, 32 * 64)
+    second_mp3 = torch.randn(1, 2, 32 * 64)
+
+    with torch.no_grad():
+        first = gt.decode_with_skips(model, latents, mp3_audio=first_mp3)
+        second = gt.decode_with_skips(model, latents, mp3_audio=second_mp3)
+
+    assert (first - second).abs().max() > 1e-3
+
+
 def test_resume_restores_the_saved_training_state(tmp_path, monkeypatch, tiny_checkpoint):
     monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
     model = gt.load_model("small-music-base", device=CPU)

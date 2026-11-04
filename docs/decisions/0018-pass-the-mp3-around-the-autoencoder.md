@@ -72,7 +72,8 @@ the LoRA away from the average the sampler needs. At t = 0.138 the estimate is c
 two losses to agree.
 
 The audio loss is an L1 distance on the waveform plus an L1 distance between multi-resolution STFT magnitudes. Both
-measure fidelity, given Richter et al.'s result. Its weight against the flow loss is a setting.
+measure fidelity, given Richter et al.'s result. Its weight against the flow loss is a setting. The skips have their
+own learning rate, above the LoRA's: they start at zero, and Adam moves each weight by about its learning rate per step.
 
 ## Validation keeps the audio
 
@@ -92,7 +93,7 @@ inference they decode the sampler's own; the test clips show how much that matte
 
 ## How we test it
 
-Eight tests, three of them on the validation set.
+Nine tests, three of them on the validation set.
 
 Validation set:
 
@@ -107,3 +108,4 @@ Skips and training:
 - `test_one_epoch_with_skips_writes_their_weights_and_logs_both_validation_losses`
 - `test_a_resume_from_a_checkpoint_without_skips_starts_them_at_zero`
 - `test_saved_skips_reload_to_the_same_validation_audio_loss`
+- `test_lora_returns_the_input_length_from_a_checkpoint_with_skips`
