@@ -16,12 +16,14 @@ TARGET_LUFS = -14.0
 """Everything is level-matched here before any comparison. See ADR-0005."""
 
 
-def load(path: str | Path) -> tuple[np.ndarray, int]:
-    """Read an audio file as float32 `(channels, samples)`.
+def load(path: str | Path, *, start: int = 0, stop: int | None = None) -> tuple[np.ndarray, int]:
+    """Read an audio file, or samples `start` to `stop` of it, as float32 `(channels, samples)`.
 
     Always 2-D, even for mono, so downstream code never branches on shape.
     """
-    audio, sample_rate = sf.read(str(path), dtype="float32", always_2d=True)
+    audio, sample_rate = sf.read(
+        str(path), start=start, stop=stop, dtype="float32", always_2d=True
+    )
     return np.ascontiguousarray(audio.T), sample_rate
 
 

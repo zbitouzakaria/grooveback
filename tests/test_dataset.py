@@ -166,6 +166,57 @@ def test_a_validation_item_uses_its_stored_bitrate(tmp_path, monkeypatch, tiny_c
     torch.testing.assert_close(mp3, dataset.mp3[("a", 128)][:, 0:32], rtol=0, atol=0)
 
 
+def test_a_validation_window_returns_the_same_stretch_of_the_master_as_its_latents(
+    tmp_path, monkeypatch, tiny_checkpoint
+):
+    """Windows of 32 frames of 64 samples: the third starts at frame 64, sample 4_096."""
+    write_song(tmp_path / "songs", "a", seconds=1.0, bitrates=[24], seed=0)
+    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
+    monkeypatch.setattr(gt, "encode", mean_encode)
+    model = gt.load_model("small-music-base", device=CPU)
+    dataset = gd.LatentPairDataset(
+        tmp_path / "songs",
+        model,
+        bitrates=[24],
+        window_frames=32,
+        bitrates_file=tmp_path / "bitrates.json",
+        keep_audio=True,
+    )
+
+    _, _, master, _ = dataset[2]
+
+    original, _ = ga.load(tmp_path / "songs" / "a" / "original.wav")
+    np.testing.assert_array_equal(master.numpy(), original[:, 4_096:6_144])
+
+
+def test_a_validation_window_returns_the_audio_of_its_stored_copy(
+    tmp_path, monkeypatch, tiny_checkpoint
+):
+    """write_song scales each copy by kbps / 256. The second window, samples 2_048 to
+    4_096, is the only one stored with the middle copy, 64k, scaled by 0.25: a window
+    that always got the first or the last copy loaded would show here."""
+    write_song(tmp_path / "songs", "a", seconds=1.0, bitrates=[24, 64, 128], seed=0)
+    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
+    monkeypatch.setattr(gt, "encode", mean_encode)
+    model = gt.load_model("small-music-base", device=CPU)
+    windows = [["a", 32 * index] for index in range(21)]
+    stored = {"drawn_from": [24, 64, 128], "windows": windows, "bitrates": [24, 64] + [128] * 19}
+    (tmp_path / "bitrates.json").write_text(json.dumps(stored))
+    dataset = gd.LatentPairDataset(
+        tmp_path / "songs",
+        model,
+        bitrates=[24, 64, 128],
+        window_frames=32,
+        bitrates_file=tmp_path / "bitrates.json",
+        keep_audio=True,
+    )
+
+    _, _, _, coded = dataset[1]
+
+    original, _ = ga.load(tmp_path / "songs" / "a" / "original.wav")
+    np.testing.assert_array_equal(coded.numpy(), 0.25 * original[:, 2_048:4_096])
+
+
 def test_fixed_bitrates_store_one_bitrate_per_window_on_first_use(tmp_path):
     windows = [("a", 0), ("a", 107), ("b", 0)]
 

@@ -36,7 +36,9 @@ class LatentPairDataset(torch.utils.data.Dataset):
     An item's MP3 bitrate is drawn at random, uniformly over `bitrates`, every
     time it is read, so each epoch sees every window once at a fresh bitrate.
     With `bitrates_file` (validation) each window keeps one bitrate instead,
-    drawn once and stored there (see `fixed_bitrates`).
+    drawn once and stored there (see `fixed_bitrates`). With `keep_audio` too,
+    an item also holds the window's audio, on the CPU, for the audio loss of
+    ADR-0018: the master and the coded version its latents come from.
     """
 
     def __init__(
@@ -47,6 +49,7 @@ class LatentPairDataset(torch.utils.data.Dataset):
         bitrates: list[int],
         window_frames: int,
         bitrates_file: Path | None = None,
+        keep_audio: bool = False,
     ):
         self.window_frames = window_frames
         self.bitrates = bitrates
@@ -77,19 +80,37 @@ class LatentPairDataset(torch.utils.data.Dataset):
             if bitrates_file is None
             else fixed_bitrates(bitrates_file, self.windows, bitrates=bitrates)
         )
+        self.audio = None
+        if keep_audio:
+            ratio = model.pretransform.downsampling_ratio
+
+            def window_audio(song: str, file: str, start: int) -> torch.Tensor:
+                stop = (start + window_frames) * ratio
+                path = Path(data_dir) / song / file
+                return torch.from_numpy(ga.load(path, start=start * ratio, stop=stop)[0])
+
+            self.audio = [
+                (
+                    window_audio(song, "original.wav", start),
+                    window_audio(song, f"{kbps}k.wav", start),
+                )
+                for (song, start), kbps in zip(self.windows, self.fixed, strict=True)
+            ]
 
     def __len__(self) -> int:
         return len(self.windows)
 
-    def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
-        """Clean and MP3 latents of one window, both (256, 107)."""
+    def __getitem__(self, index: int) -> tuple[torch.Tensor, ...]:
+        """Clean and MP3 latents of one window, both (256, 107), then with `keep_audio`
+        its master and coded audio, both (2, 438_272) on medium-base."""
         song, start = self.windows[index]
         if self.fixed is None:
             kbps = self.bitrates[int(torch.randint(len(self.bitrates), ()))]
         else:
             kbps = self.fixed[index]
         window = slice(start, start + self.window_frames)
-        return self.clean[song][:, window], self.mp3[(song, kbps)][:, window]
+        latents = self.clean[song][:, window], self.mp3[(song, kbps)][:, window]
+        return latents if self.audio is None else (*latents, *self.audio[index])
 
 
 def fixed_bitrates(path: Path, windows: list[tuple[str, int]], *, bitrates: list[int]) -> list[int]:
