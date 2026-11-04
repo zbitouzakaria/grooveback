@@ -51,3 +51,4 @@ the source of truth stays obvious.
 | 0015 | **Reproduce Apollo's test protocol** — Apollo and Apollo → εar-VAE scored on the 50 held-out MUSDB18-HQ test mixtures at six bitrates with the authors' own preprocessing, codec and metrics; their codec leaves some MP3s 25 ms late, fixed here with a Hann taper |
 | 0016 | AudioSR, A2SB, εar-VAE and εar-VAE2 on 50 clips drawn from the MUSDB18-HQ test mixtures — none scores above the untouched MP3 on SDR; `musdb_eval --clips` draws them, `--render` scores renders made in other environments |
 | 0017 | **Augment the LoRA's training data** — remixes with one stem per kind at Demucs's gains, Jeon et al.'s random EQ on stems and mix, a left/right swap, and one or two codec round trips drawn from MP3, Opus and AAC |
+| 0018 | Pass the MP3 around the autoencoder with decoder skips — two zero-initialised skips from the MP3 into SAME-L's decoder, trained with an audio loss on a second pass at the sampler's last noise level |
