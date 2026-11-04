@@ -59,7 +59,8 @@ sample_steps: 50          # sampling steps for the best checkpoint's listening w
 listening_songs: 4        # validation songs whose first window each new best restores
 log_every: 10             # steps between batch_loss / seconds_per_step points
 
-# Continue from .../checkpoint-{step}: weights, Adam's averages, step and epoch.
+# Continue from .../checkpoint-{step}: weights, Adam's averages, step and epoch, and the
+# MLflow run that wrote it, when mlflow_db holds that run.
 # The optimizer settings above replace the ones saved in the checkpoint.
 resume_from_checkpoint: null
 
