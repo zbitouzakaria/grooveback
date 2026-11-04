@@ -72,9 +72,30 @@ def codec_simu(clip: np.ndarray, kbps: int) -> np.ndarray:
 
     Source: `codec_simu` and `match2` in Apollo's
     look2hear/datas/musdb_moisesdb_datamodule.py, copied with the random bitrate
-    replaced by `kbps`: sox MP3 and back to `clip`'s length, the shortfall
-    filled from the clean clip, then rolled by the lag their phase-transform
-    cross-correlation finds on the first channel.
+    replaced by `kbps`: the sox round trip (`sox_round_trip`), then `align`.
+    """
+    return align(sox_round_trip(clip, kbps), clean=clip)
+
+
+def sox_round_trip(clip: np.ndarray, kbps: int) -> np.ndarray:
+    """`clip` through torchaudio's sox MP3 at `kbps` and back to `clip`'s length,
+    the shortfall filled from `clip`. Not aligned: LAME's delay leaves the MP3
+    1,105 samples late."""
+    import torchaudio
+
+    wav = torch.from_numpy(clip)
+    coded = torchaudio.functional.apply_codec(wav, SR, format="mp3", compression=kbps)
+    if coded.shape[-1] >= wav.shape[-1]:
+        coded = coded[..., : wav.shape[-1]]
+    else:
+        coded = torch.cat([coded, wav[..., coded.shape[-1] :]], -1)
+    return coded.numpy()
+
+
+def align(coded: np.ndarray, *, clean: np.ndarray) -> np.ndarray:
+    """`coded` rolled by the lag that the phase-transform cross-correlation
+    (GCC-PHAT) of `coded` and `clean` finds on the first channel. Source: `match2`
+    in Apollo's look2hear/datas/musdb_moisesdb_datamodule.py.
 
     One change: both signals are tapered with a Hann window before the
     correlation. Untapered, the jump from a clip's last sample back to its
@@ -84,14 +105,7 @@ def codec_simu(clip: np.ndarray, kbps: int) -> np.ndarray:
     and left the MP3 1,105 samples late (2.5% of the MUSDB18-HQ test clips at
     24 kbps).
     """
-    import torchaudio
-
-    wav = torch.from_numpy(clip)
-    coded = torchaudio.functional.apply_codec(wav, SR, format="mp3", compression=kbps)
-    if coded.shape[-1] >= wav.shape[-1]:
-        coded = coded[..., : wav.shape[-1]]
-    else:
-        coded = torch.cat([coded, wav[..., coded.shape[-1] :]], -1)
+    coded, wav = torch.from_numpy(coded), torch.from_numpy(clean)
     window = torch.hann_window(wav.shape[-1], periodic=False)
     phi = torch.fft.rfft(coded * window, dim=-1) * torch.fft.rfft(wav * window, dim=-1).conj()
     phi = phi / (phi.abs() + 1e-3)
