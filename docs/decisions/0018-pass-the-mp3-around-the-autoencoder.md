@@ -96,9 +96,9 @@ Eight tests, three of them on the validation set.
 
 Validation set:
 
-- `test_a_validation_item_holds_the_master_audio_of_its_window`
-- `test_a_validation_item_holds_the_coded_audio_its_latents_come_from`
-- `test_the_validation_audio_loss_is_the_same_on_two_calls`
+- `test_a_validation_window_returns_the_same_stretch_of_the_master_as_its_latents`
+- `test_a_validation_window_returns_the_audio_of_its_stored_copy`
+- `test_the_audio_loss_is_identical_on_an_unchanged_model`
 
 Skips and training:
 
