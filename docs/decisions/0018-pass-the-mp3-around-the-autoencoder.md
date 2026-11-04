@@ -4,7 +4,7 @@ Date: 2026-11-03
 
 ## Status
 
-Proposed.
+Accepted.
 
 ## The autoencoder caps the LoRA below its own input
 
