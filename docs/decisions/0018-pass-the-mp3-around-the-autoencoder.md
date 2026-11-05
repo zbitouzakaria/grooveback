@@ -4,7 +4,10 @@ Date: 2026-11-03
 
 ## Status
 
-Accepted.
+Abandoned. The model learned to copy the MP3 below about 5 kHz and generate the rest, so it scored near the MP3 on SDR
+but did not sound good. One linear matrix from the skips, with no model, beat the whole model on SDR at all six
+bitrates, Apollo stayed ahead on LSD at every bitrate, and the training run went NaN. We keep the idea for later and do
+not merge the code.
 
 ## The autoencoder caps the LoRA below its own input
 
