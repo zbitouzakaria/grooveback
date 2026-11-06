@@ -173,6 +173,7 @@ def lora(
     steps: int,
     inpaint_mask_value: float,
     sampler_type: str = "euler",
+    seed: int = 0,
 ):
     """Restore a whole file with the LoRA fine-tune: its MP3 latents condition
     one sampling run from noise (`grooveback.training.restore`), with one of
@@ -185,21 +186,47 @@ def lora(
     ceiling, for the same `seconds_total` reason. The LoRA itself only trained
     on 10 s windows.
     """
+    return lora_batch(
+        model,
+        [audio],
+        sample_rate,
+        steps=steps,
+        inpaint_mask_value=inpaint_mask_value,
+        sampler_type=sampler_type,
+        seed=seed,
+    )[0]
+
+
+def lora_batch(
+    model,
+    clips: list[np.ndarray],
+    sample_rate: int,
+    *,
+    steps: int,
+    inpaint_mask_value: float,
+    sampler_type: str = "euler",
+    seed: int = 0,
+) -> list[np.ndarray]:
+    """`lora` on clips of one length, in one sampling run."""
     if sample_rate != model.sample_rate:
         raise ValueError(f"The LoRA model expects {model.sample_rate} Hz, got {sample_rate} Hz.")
-    seconds = audio.shape[-1] / sample_rate
+    samples = clips[0].shape[-1]
+    seconds = samples / sample_rate
     if seconds > SDEDIT_MAX_SECONDS:
         raise ValueError(
             f"Input is {seconds:.1f} s; this solver takes whole files up to "
             f"{SDEDIT_MAX_SECONDS:.0f} s. Cut the file first."
         )
-    latents = gt.encode(model, audio)
-    out = gt.restore(
+    latents = gt.encode_batch(model, np.stack(clips))
+    outs = gt.restore_batch(
         model,
         latents,
         steps=steps,
         inpaint_mask_value=inpaint_mask_value,
         sampler_type=sampler_type,
+        seed=seed,
     )
-    out = _fit_to_input(out, audio.shape[-1])
-    return _match_input_loudness(out, audio, sample_rate)
+    return [
+        _match_input_loudness(_fit_to_input(out, samples), clip, sample_rate)
+        for out, clip in zip(outs, clips, strict=True)
+    ]

@@ -139,7 +139,6 @@ def _seconds(model, frames: int) -> float:
     return frames * model.pretransform.downsampling_ratio / model.sample_rate
 
 
-@torch.no_grad()
 def encode(model, audio: np.ndarray) -> torch.Tensor:
     """Audio (2, samples) at the model's rate to latents (channels, frames).
 
@@ -149,9 +148,15 @@ def encode(model, audio: np.ndarray) -> torch.Tensor:
     its last chunk off the frame grid otherwise, which shifts the song's last
     112 frames in time.
     """
-    batch = torch.from_numpy(np.ascontiguousarray(audio)).unsqueeze(0).to(_device(model))
+    return encode_batch(model, audio[None])[0]
+
+
+@torch.no_grad()
+def encode_batch(model, audio: np.ndarray) -> torch.Tensor:
+    """`encode` on clips of one length: (32, 2, 264_600) -> (32, 256, 65)."""
+    batch = torch.from_numpy(np.ascontiguousarray(audio)).to(_device(model))
     batch = F.pad(batch, (0, -batch.shape[-1] % model.pretransform.downsampling_ratio))
-    return model.pretransform.encode(batch)[0]
+    return model.pretransform.encode(batch)
 
 
 # --- One step ----------------------------------------------------------------
@@ -242,7 +247,6 @@ def validation_loss(
     return total / count
 
 
-@torch.no_grad()
 def restore(
     model,
     mp3: torch.Tensor,
@@ -258,27 +262,52 @@ def restore(
     for rectified flow. "euler" (SA3's default) and "dpmpp" call the model once
     per step, "rk4" four times; all three are deterministic given the noise.
     """
+    return restore_batch(
+        model,
+        mp3[None],
+        steps=steps,
+        inpaint_mask_value=inpaint_mask_value,
+        sampler_type=sampler_type,
+    )[0]
+
+
+@torch.no_grad()
+def restore_batch(
+    model,
+    mp3: torch.Tensor,
+    *,
+    steps: int,
+    inpaint_mask_value: float,
+    sampler_type: str = "euler",
+    seed: int = 0,
+) -> np.ndarray:
+    """`restore` on windows of one length: (32, 256, 65) -> (32, 2, 266_240).
+
+    Every window starts from the noise a single window gets at `seed`, so what
+    a window restores to does not depend on the windows beside it.
+    """
     from stable_audio_3.inference.sampling import sample_diffusion
 
     device = _device(model)
-    channels, frames = mp3.shape
-    cond = _conditioning(model, mp3=mp3[None], inpaint_mask_value=inpaint_mask_value)
-    generator = torch.Generator(device=device).manual_seed(0)
+    batch, channels, frames = mp3.shape
+    cond = _conditioning(model, mp3=mp3, inpaint_mask_value=inpaint_mask_value)
+    generator = torch.Generator(device=device).manual_seed(seed)
+    noise = torch.randn((1, channels, frames), generator=generator, device=device)
     audio = sample_diffusion(
         model=model.model,
-        noise=torch.randn((1, channels, frames), generator=generator, device=device),
+        noise=noise.expand(batch, -1, -1).contiguous(),
         cond_inputs=model.get_conditioning_inputs(cond),
         diffusion_objective=model.diffusion_objective,
         steps=steps,
         cfg_scale=1.0,
         sample_rate=model.sample_rate,
         pretransform=model.pretransform,
-        padding_mask=torch.ones(1, frames, dtype=torch.bool, device=device),
+        padding_mask=torch.ones(batch, frames, dtype=torch.bool, device=device),
         dist_shift=model.sampling_dist_shift,
         sampler_type=sampler_type,
         disable_tqdm=True,
     )
-    return audio[0].float().cpu().numpy()
+    return audio.float().cpu().numpy()
 
 
 # --- Checkpoints -------------------------------------------------------------
