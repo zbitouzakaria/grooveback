@@ -60,6 +60,7 @@ explicit = true
 dev = [
     "pytest>=8",
     "ruff",
+    "rust-just>=1.59.0",
 ]
 # The extra autoencoders benchmarked in ADR-0011. εar-VAE's model code imports
 # dac and alias_free_torch; CoDiCodec is its own package. All resolve under the

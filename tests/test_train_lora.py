@@ -2,6 +2,7 @@
 (tests/conftest.py) through the real config file."""
 
 import hashlib
+import re
 import signal
 from pathlib import Path
 from unittest import mock
@@ -11,6 +12,7 @@ import numpy as np
 import pytest
 import torch
 from hydra import compose, initialize_config_dir
+from omegaconf import OmegaConf
 
 from grooveback import audio as ga
 from grooveback import dataset as gd
@@ -54,6 +56,7 @@ def config(tmp_path, *overrides):
                 f"sources.tracks.dir={tmp_path / 'musdb'}",
                 f"sources.remixes.dir={tmp_path / 'musdb'}",
                 "epoch_windows=4",
+                "num_train_epochs=1",
                 "num_workers=0",
                 f"valid_dir={tmp_path / 'valid'}",
                 f"save_dir={tmp_path / 'run'}",
@@ -92,6 +95,23 @@ def test_one_epoch_writes_weights_optimizer_state_and_a_listening_pack(
         "original.flac",
         "restored.flac",
     ]
+
+
+def test_the_config_leaves_nothing_to_set_on_the_command_line():
+    """`just train` takes no arguments."""
+    with initialize_config_dir(config_dir=str(CONFIGS), version_base=None):
+        cfg = compose("train_lora")
+
+    assert OmegaConf.missing_keys(cfg) == set()
+
+
+def test_the_default_save_dir_is_named_after_the_time_of_the_run():
+    """A fresh run refuses a save_dir that holds checkpoints, so a fixed default would
+    refuse the second run."""
+    with initialize_config_dir(config_dir=str(CONFIGS), version_base=None):
+        cfg = compose("train_lora")
+
+    assert re.fullmatch(r"artifacts/lora/\d{4}-\d\d-\d\d_\d\d-\d\d-\d\d", cfg.save_dir)
 
 
 def test_training_runs_epochs_of_epoch_windows_items(tmp_path, monkeypatch, tiny_checkpoint):

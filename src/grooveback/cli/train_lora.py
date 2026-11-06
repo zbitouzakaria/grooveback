@@ -1,10 +1,9 @@
 """LoRA fine-tune of Stable Audio 3 to restore MP3s, configured by configs/train_lora.yaml.
 
-    uv run python -m grooveback.cli.train_lora sources.tracks.dir=data/lora/musdb-train \\
-        sources.remixes.dir=data/lora/musdb-train valid_dir=data/lora/valid \\
-        save_dir=artifacts/lora/run1
+    just train
+    just train save_dir=artifacts/lora/run1 lr=5e-5
     # continue that run with a new learning rate (the config always wins):
-    uv run python -m grooveback.cli.train_lora ... num_train_epochs=2 lr=5e-5 \\
+    just train save_dir=artifacts/lora/run1 num_train_epochs=300 lr=2e-5 \\
         resume_from_checkpoint=artifacts/lora/run1/checkpoint-{step}
 
 Every training item is a fresh window, read from one of the `sources` picked
