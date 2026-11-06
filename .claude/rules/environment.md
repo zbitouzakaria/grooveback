@@ -38,8 +38,9 @@ python3 -m http.server 8880 -d demo      # then open /base/, /sdedit/ or /roundt
 ```
 
 `just train` and `just evaluate` take any Hydra override and read `data/`, laid
-out as the README says. Their defaults are the run behind checkpoint-46765. On a
-pod with the data volume, `ln -s /workspace/musdb-lora data` gives that layout.
+out as the README says. `just train`'s defaults are the run behind
+checkpoint-46765. On a pod with the data volume, `ln -s /workspace/musdb-lora data`
+gives that layout, and `uv sync --frozen` took 10 s.
 
 `run_xp.py` skips any render whose file already exists and re-scores
 everything on every run, so it is safe to re-run, and renders made on a GPU

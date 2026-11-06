@@ -283,8 +283,9 @@ def restore_batch(
 ) -> np.ndarray:
     """`restore` on windows of one length: (32, 256, 65) -> (32, 2, 266_240).
 
-    Every window starts from the noise a single window gets at `seed`, so what
-    a window restores to does not depend on the windows beside it.
+    Every window starts from the noise a single window gets at `seed`. SAME adds
+    noise of its own from torch's global generator, so two runs at one seed are
+    close, not equal: up to 0.04 dB apart on any score of a 6 s test clip.
     """
     from stable_audio_3.inference.sampling import sample_diffusion
 

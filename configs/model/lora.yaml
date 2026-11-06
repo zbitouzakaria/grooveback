@@ -1,7 +1,7 @@
 # Restore with a LoRA fine-tune of Stable Audio 3 (grooveback.training): the
 # MP3's latents condition one sampling run from noise.
 #   uv run python -m grooveback.cli.run model=lora input=... output_dir=... \
-#       model.checkpoint=artifacts/lora/small/checkpoint-32
+#       model.checkpoint=artifacts/lora/run1/checkpoint-46765
 
 name: lora
 variant: medium-base        # the base checkpoint the LoRA was trained on
