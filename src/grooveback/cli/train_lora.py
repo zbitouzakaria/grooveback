@@ -1,10 +1,9 @@
 """LoRA fine-tune of Stable Audio 3 to restore MP3s, configured by configs/train_lora.yaml.
 
-    uv run python -m grooveback.cli.train_lora sources.tracks.dir=data/lora/musdb-train \\
-        sources.remixes.dir=data/lora/musdb-train valid_dir=data/lora/valid \\
-        save_dir=artifacts/lora/run1
+    just train
+    just train save_dir=artifacts/lora/run1 lr=5e-5
     # continue that run with a new learning rate (the config always wins):
-    uv run python -m grooveback.cli.train_lora ... num_train_epochs=2 lr=5e-5 \\
+    just train save_dir=artifacts/lora/run1 num_train_epochs=300 lr=2e-5 \\
         resume_from_checkpoint=artifacts/lora/run1/checkpoint-{step}
 
 Every training item is a fresh window, read from one of the `sources` picked
@@ -13,7 +12,7 @@ by its weight: `tracks`, real tracks at a random start (`TrackDataset`), or
 Apollo splits them half and half, as the config does. `augmentations` sets
 ADR-0017's random EQs, left/right swap and chain of one or two codecs.
 `valid_dir` is a `scripts/prepare_dataset.py` output: fixed windows, each with
-a sox MP3 at a fixed one of `bitrates`. The split between training and
+a coded version at a fixed one of `bitrates`. The split between training and
 validation is in the folders: the training ones must not hold the validation
 songs. MUSDB18-HQ's own train/ folder holds musdb's 14 validation songs, so
 they are moved out of it.
@@ -126,6 +125,9 @@ def train(cfg: DictConfig) -> None:
     if unset:
         raise ValueError(f"sources.{unset[0]}.dir is not set, though its weight is above 0.")
     augmentations = gd.Augmentations(**OmegaConf.to_container(cfg.augmentations))
+    for folder in [*(spec.dir for spec in sources.values()), cfg.valid_dir]:
+        if not Path(folder).is_dir():
+            raise FileNotFoundError(f"{folder} does not exist; the README lists what data/ holds.")
     # MLflow keeps one run per call, in a local SQLite file: its parameters are
     # this config; epoch metrics are indexed by epoch (0 = before training), batch
     # metrics by step. A resume continues its checkpoint's run, whose epochs and

@@ -116,4 +116,10 @@ def tiny_checkpoint():
 
     torch.manual_seed(0)
     config = copy.deepcopy(TINY_SA3)
-    return config, create_diffusion_cond_from_config(config).state_dict()
+    model = create_diffusion_cond_from_config(config)
+    # SAME's blocks start with their output layers at zero, so the decoder's new tokens never
+    # see the latents and every restoration would be one fixed sound. A trained SAME has none.
+    for parameter in model.pretransform.parameters():
+        if parameter.numel() and not parameter.any():
+            torch.nn.init.normal_(parameter, std=0.1)
+    return config, model.state_dict()

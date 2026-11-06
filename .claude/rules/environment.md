@@ -1,6 +1,6 @@
 # Environment
 
-uv, Python 3.12. `uv sync --all-groups`, `uv run pytest`.
+uv, just, Python 3.12. `uv sync --all-groups`, `just test`.
 
 ## Third-party models
 
@@ -26,6 +26,9 @@ cd third_party/a2sb && ./setup.sh
 ## Running things
 
 ```bash
+just test                                       # pytest; the only one of the three for the Mac
+just train                                      # configs/train_lora.yaml, on a GPU
+just evaluate model.checkpoint=<dir>            # configs/evaluate.yaml: the 100 test clips, on a GPU
 uv run python scripts/run_xp.py device=cuda     # the whole benchmark, one pass
 uv run python -m grooveback.cli.baseline --method apollo <track> <output.wav>
 uv run python -m grooveback.cli.musdb_eval musdb18hq/test scores.csv --kbps 24   # ADR-0015, ADR-0016
@@ -33,6 +36,11 @@ uv run --group notebooks python scripts/build_demo.py   # listening pages from a
 uv run --group notebooks python scripts/publish_benchmark.py [--page-only]   # the benchmark page, docs/benchmark/
 python3 -m http.server 8880 -d demo      # then open /base/, /sdedit/ or /roundtrip/ (ADR-0010)
 ```
+
+`just train` and `just evaluate` take any Hydra override and read `data/`, laid
+out as the README says. `just train`'s defaults are the run behind
+checkpoint-46765. On a pod with the data volume, `ln -s /workspace/musdb-lora data`
+gives that layout, and `uv sync --frozen` took 10 s.
 
 `run_xp.py` skips any render whose file already exists and re-scores
 everything on every run, so it is safe to re-run, and renders made on a GPU

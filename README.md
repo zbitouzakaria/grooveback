@@ -116,13 +116,35 @@ Each experiment is written up in full, with the evidence, in [`docs/decisions/`]
 
 ## Running the code
 
-You'll need [uv](https://docs.astral.sh/uv/) and Python 3.12. Apollo, εar-VAE and εar-VAE2 are pulled in as git submodules:
+You'll need [uv](https://docs.astral.sh/uv/), [just](https://just.systems/) (`brew install just`, or `uv tool install rust-just`) and Python 3.12. Apollo, εar-VAE and εar-VAE2 are pulled in as git submodules:
 
 ```
 git submodule update --init --recursive
 uv sync --all-groups
-uv run pytest
+just test
 ```
+
+Three commands train the LoRA and test it. Each runs on the machine you start it on. `just test` runs anywhere; the other two need a GPU, so I run them on a rented one. Hydra carries the parameters: any field of [`configs/train_lora.yaml`](configs/train_lora.yaml) or [`configs/evaluate.yaml`](configs/evaluate.yaml) can follow the command. The defaults of `just train` are the best run so far, 206 epochs in 28 hours on one GPU, not the 40-epoch LoRA of the listening page.
+
+```
+just test                                  # the unit tests; pytest's arguments work too
+just train                                 # checkpoints land in artifacts/lora/{date}/
+just train lr=5e-5 save_dir=artifacts/lora/slower
+just evaluate model.checkpoint=artifacts/lora/slower/checkpoint-46765
+just evaluate model.checkpoint=artifacts/lora/slower/checkpoint-46765 clips=4 'bitrates=[32]' 'seeds=[0]' output_dir=artifacts/quick
+```
+
+`just evaluate` restores the 100 test clips at six MP3 bitrates and four sampler seeds, and writes `scores.csv`, the MP3s and the renders in `test-euler-50-0.0/` inside the checkpoint. That folder is named after the sampler, its steps and the mask value, and the renders in it are kept, so a run can be restarted. `scores.csv` holds the last run alone, so a quick check gets its own `output_dir`. One seed gives all the clips the same noise, and at 32 kbps it moves the scores more than a checkpoint does, so compare checkpoints on the `lora` columns, the mean of the seeds.
+
+Both read from `data/`, which isn't in the repo:
+
+```
+data/musdb18hq/train/{song}/{mixture,bass,drums,other,vocals}.wav   # without the 14 validation songs
+data/musdb18hq/test/{song}/mixture.wav                               # or mixture.flac
+data/valid-chains/{song}/{original,1k,2k,3k,4k,5k,6k}.wav
+```
+
+The last one is made from musdb's 14 validation songs, one `{song}.wav` each, by `uv run python scripts/prepare_dataset.py <wav dir> data/valid-chains --chains 6`. They are ANiMAL - Rockshow, Actions - One Minute Smile, Alexander Ross - Goodbye Bolero, Clara Berry And Wooldog - Waltz For My Victims, Fergessen - Nos Palpitants, James May - On The Line, Johnny Lokke - Promises & Lies, Leaf - Summerghost, Meaxic - Take A Step, Patrick Talbot - A Reason To Leave, Skelpolu - Human Mistakes, Traffic Experiment - Sirens, Triviul - Angelsaint and Young Griffo - Pennies. `just train` and `just evaluate` also need `HF_TOKEN` in a `.env` file, with access to the gated [Stable Audio 3](https://huggingface.co/stabilityai/stable-audio-3-medium) repo for its text encoder.
 
 The MUSDB18-HQ benchmark scores Apollo on the 50 test songs at a given MP3 bitrate and writes one row per 6 s clip. The MP3 step needs sox with MP3 support (`apt install sox libsox-fmt-mp3` on Ubuntu). The LoRA's training data also goes through ffmpeg's MP3, Opus and AAC encoders (`apt install ffmpeg`, ADR-0017). Without them, the tests that depend on them are skipped.
 

@@ -13,7 +13,14 @@ import torch
 from grooveback import latents as gl
 from grooveback import training as gt
 from grooveback.audio import loudness
-from grooveback.solvers import SDEDIT_MAX_SECONDS, latent_sub, lora, roundtrip, sdedit
+from grooveback.solvers import (
+    SDEDIT_MAX_SECONDS,
+    latent_sub,
+    lora,
+    lora_batch,
+    roundtrip,
+    sdedit,
+)
 
 SR = 44_100
 
@@ -415,3 +422,42 @@ def test_lora_rejects_input_longer_than_the_cap_before_encoding():
     with pytest.raises(ValueError, match="whole files up to"):
         lora(model, np.zeros((2, n), dtype=np.float32), SR, steps=8, inpaint_mask_value=0.0)
     model.pretransform.encode.assert_not_called()
+
+
+def test_lora_batch_restores_a_clip_the_same_as_lora_alone(monkeypatch, tiny_checkpoint):
+    """Two different clips, so a batch that mixed them up would fail. One training step at
+    a high rate, because until the MP3 input trains the output ignores the clip. atol=1e-5
+    sits between float32 rounding across batch sizes, measured at 2e-7, and the gap between
+    two clips' restorations at one seed, 8e-4 before their loudness is matched."""
+    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
+    model = gt.load_model("small-music-base", device=torch.device("cpu"))
+    optimizer = torch.optim.AdamW(gt.add_lora(model, gt.lora_config(rank=4, lora_alpha=4)), lr=1e-2)
+    clean = torch.randn(2, 8, 40, generator=torch.Generator().manual_seed(1))
+    mp3 = torch.randn(2, 8, 40, generator=torch.Generator().manual_seed(2))
+    gt.training_step(model, clean, mp3=mp3, inpaint_mask_value=0.0).backward()
+    optimizer.step()
+    rng = np.random.default_rng(0)
+    first = rng.uniform(-0.5, 0.5, size=(2, 44_100)).astype(np.float32)
+    second = rng.uniform(-0.1, 0.1, size=(2, 44_100)).astype(np.float32)
+    first_alone = lora(model, first, SR, steps=2, inpaint_mask_value=0.0, seed=3)
+    second_alone = lora(model, second, SR, steps=2, inpaint_mask_value=0.0, seed=3)
+
+    batched = lora_batch(model, [first, second], SR, steps=2, inpaint_mask_value=0.0, seed=3)
+
+    np.testing.assert_allclose(batched[0], first_alone, atol=1e-5)
+    np.testing.assert_allclose(batched[1], second_alone, atol=1e-5)
+
+
+def test_lora_batch_matches_each_clip_to_its_own_loudness(monkeypatch, tiny_checkpoint):
+    """The tolerance covers float32 rounding of the gain."""
+    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
+    model = gt.load_model("small-music-base", device=torch.device("cpu"))
+    gt.add_lora(model, gt.lora_config(rank=4, lora_alpha=4))
+    rng = np.random.default_rng(0)
+    loud = rng.uniform(-0.5, 0.5, size=(2, 44_100)).astype(np.float32)
+    quiet = rng.uniform(-0.05, 0.05, size=(2, 44_100)).astype(np.float32)
+
+    batched = lora_batch(model, [loud, quiet], SR, steps=2, inpaint_mask_value=0.0)
+
+    assert loudness(batched[0], SR) == pytest.approx(loudness(loud, SR), abs=0.01)
+    assert loudness(batched[1], SR) == pytest.approx(loudness(quiet, SR), abs=0.01)

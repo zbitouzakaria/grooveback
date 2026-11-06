@@ -1,17 +1,18 @@
 # python -m grooveback.cli.train_lora: LoRA fine-tune of Stable Audio 3 to restore MP3s.
-# Every field is CLI-overridable, e.g. `variant=medium-base lr=5e-5`.
+# Every field is CLI-overridable, e.g. `just train lr=5e-5`. The defaults are the run that made
+# checkpoint-46765, so `just train` needs no arguments.
 
-variant: small-music-base   # SA3 base checkpoint: small-music-base (SAME-S) or medium-base (SAME-L)
+variant: medium-base      # SA3 base checkpoint: small-music-base (SAME-S) or medium-base (SAME-L)
 device: auto
 # Training data: every item is a fresh window from one source picked by weight, augmented
 # and coded as `augmentations` draws. A source at weight 0 is not loaded.
 sources:
   tracks:                 # windows of real tracks, at a random start on every draw
-    dir: null             # e.g. MUSDB18-HQ's train songs, without the validation ones
+    dir: data/musdb18hq/train  # MUSDB18-HQ's train songs, without the validation ones
     glob: "*/mixture.wav" # the files read under dir; "*.wav" for a flat folder of songs
     weight: 0.5
   remixes:                # one stem of each kind, each from a random song, summed (Demucs's remix)
-    dir: null             # MUSDB18-HQ songs: {song}/{bass,drums,other,vocals}.wav
+    dir: data/musdb18hq/train  # MUSDB18-HQ songs: {song}/{bass,drums,other,vocals}.wav
     weight: 0.5
 # ADR-0017. Every probability is per training item.
 augmentations:
@@ -30,13 +31,15 @@ augmentations:
   mp3_ffmpeg: 0.5         # MP3s coded by ffmpeg's libmp3lame; the others by torchaudio's sox
 epoch_windows: 1884       # items per epoch, as many as the 86 songs' prepared windows: 235 steps of 8
 num_workers: 8            # CPU processes drawing and coding windows while the GPU trains
-valid_dir: ???
-save_dir: ???             # checkpoint-{step}/ after every epoch; the best and the last are kept
+valid_dir: data/valid-chains      # scripts/prepare_dataset.py <wav dir> data/valid-chains --chains 6
+# checkpoint-{step}/ after every epoch; the best and the last are kept
+save_dir: artifacts/lora/${now:%Y-%m-%d_%H-%M-%S}
 mlflow_db: artifacts/mlflow.db   # local MLflow store: losses per epoch and per step
 log_system_metrics: true  # GPU/CPU utilisation, memory and power in MLflow, one mean per minute
-# Each validation window keeps one of these sox MP3s, drawn once into
-# valid_dir/validation_bitrates.json. musdb_eval's six.
-bitrates: [24, 32, 48, 64, 96, 128]
+# Each validation window keeps one of these coded versions, {n}k.wav, drawn once into
+# valid_dir/validation_bitrates.json. The six chains of prepare_dataset --chains 6; for a
+# folder of sox MP3s, the bitrates themselves.
+bitrates: [1, 2, 3, 4, 5, 6]
 window_seconds: 10.0      # cut to whole latent frames: 107 frames, 9.94 s
 
 # LoRA on the frozen transformer; the new MP3 input trains in full.
@@ -49,7 +52,7 @@ betas: [0.9, 0.95]
 weight_decay: 0.01
 max_grad_norm: 1.0
 batch_size: 8
-num_train_epochs: 1
+num_train_epochs: 206     # a total: a resumed run stops here too
 max_train_minutes: null   # stop after the epoch that crosses this budget
 seed: 0
 
