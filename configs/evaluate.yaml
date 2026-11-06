@@ -1,0 +1,26 @@
+# python -m grooveback.cli.evaluate: a LoRA checkpoint on the MUSDB18-HQ test clips.
+# Every field is CLI-overridable, e.g. `model.checkpoint=... seeds=[0] bitrates=[32]`.
+
+device: auto
+musdb_test: data/musdb18hq/test   # {track}/mixture.wav
+# mp3/, render/ and scores.csv. Existing renders are kept, so other sampling settings get
+# another folder.
+output_dir: ${model.checkpoint}/test-${model.sampler_type}-${model.steps}
+clips: 100                # the fixed draw of musdb_eval --clips; null scores all of them
+bitrates: [24, 32, 48, 64, 96, 128]   # the sox MP3s musdb_eval scores
+# Every clip of one seed starts from the same noise, so a seed moves all the clips' scores
+# together: at 32 kbps more than a checkpoint does. Compare checkpoints on several seeds.
+seeds: [0, 1, 2, 3]
+batch_size: 32            # clips per sampling run
+
+hydra:
+  output_subdir: null
+  job:
+    chdir: false
+  run:
+    dir: .
+
+defaults:
+  - model: lora
+  - override hydra/job_logging: disabled
+  - _self_

@@ -42,6 +42,7 @@ from grooveback.solvers import roundtrip
 
 SR = 44_100
 CLIP_SAMPLES = 6 * SR
+METRICS = ("sdr", "si_snr", "spectral_snr", "lsd")
 
 
 def vad_starts(audio: np.ndarray, win: int = 441) -> list[int]:
@@ -198,6 +199,24 @@ def evaluate(
     return rows
 
 
+def write_scores(rows: list[dict], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=list(rows[0]))
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def print_means(rows: list[dict]) -> None:
+    """One line per scored output, its mean of each metric over `rows`."""
+    for name in [column.removesuffix("_sdr") for column in rows[0] if column.endswith("_sdr")]:
+        means = ", ".join(
+            f"{metric} {np.mean([row[f'{name}_{metric}'] for row in rows]):.2f} dB"
+            for metric in METRICS
+        )
+        print(f"{name}: {means} over {len(rows)} clips")
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -238,17 +257,8 @@ def main(argv: list[str] | None = None) -> None:
         clips=args.clips,
         mp3_dir=args.mp3_dir,
     )
-    args.csv.parent.mkdir(parents=True, exist_ok=True)
-    with args.csv.open("w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=list(rows[0]))
-        writer.writeheader()
-        writer.writerows(rows)
-    for name in [column.removesuffix("_sdr") for column in rows[0] if column.endswith("_sdr")]:
-        means = ", ".join(
-            f"{metric} {np.mean([row[f'{name}_{metric}'] for row in rows]):.2f} dB"
-            for metric in ("sdr", "si_snr", "spectral_snr", "lsd")
-        )
-        print(f"{name}: {means} over {len(rows)} clips")
+    write_scores(rows, args.csv)
+    print_means(rows)
 
 
 if __name__ == "__main__":
