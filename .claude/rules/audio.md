@@ -52,4 +52,4 @@ the source of truth stays obvious.
 | 0016 | AudioSR, A2SB, εar-VAE and εar-VAE2 on 50 clips drawn from the MUSDB18-HQ test mixtures — none scores above the untouched MP3 on SDR; `musdb_eval --clips` draws them, `--render` scores renders made in other environments |
 | 0017 | **Augment the LoRA's training data** — remixes with one stem per kind at Demucs's gains, Jeon et al.'s random EQ on stems and mix, a left/right swap, and one or two codec round trips drawn from MP3, Opus and AAC |
 | 0018 | Pass the MP3 around the autoencoder with decoder skips — two zero-initialised skips from the MP3 into SAME-L's decoder, trained with an audio loss on a second pass at the sampler's last noise level |
-| 0019 | Run the Hydra commands on a RunPod GPU from the Mac — proposed: `just train remote=runpod` waits for the GPU, runs the same endpoint over `ssh -tt` or in the background on the pod, and deletes the pod however the job ends |
+| 0019 | Run the Hydra commands on a RunPod GPU from the Mac — `just train remote=runpod` waits for the GPU, runs the same endpoint over `ssh -tt` or in the background on the pod, and deletes the pod however the job ends |
