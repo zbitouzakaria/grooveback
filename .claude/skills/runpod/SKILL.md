@@ -85,9 +85,9 @@ image's 2.8, and its torchaudio no longer has `apply_codec`. After installing, r
 `uv pip uninstall --python /workspace/venv/bin/python torch torchaudio` and check that `torch.__version__` is the
 image's.
 
-Avoid `uv sync --frozen` on a pod. It follows the project lockfile, which pins its own torch, so it re-downloads
-~4 GB of torch and CUDA wheels the image already has — over half an hour, against 5 seconds for inheriting. Install
-the handful of missing packages explicitly instead of syncing an environment.
+`uv sync --frozen` on a pod follows the project lockfile, which pins its own torch, so it downloads ~4 GB of torch
+and CUDA wheels the image already has. That has taken over half an hour, and 10 seconds on a fresh L40S pod in US-MO-1
+(2026-11-06), so try it before installing packages by hand: `just train` and `just evaluate` run through it.
 
 **Exception: sync when the lockfile's torch is the point.** If the project pins a torch version the image does not
 provide, inheriting gives you the wrong one and results will not match local runs. Then pay the download and sync
