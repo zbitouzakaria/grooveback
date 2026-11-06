@@ -439,13 +439,13 @@ def test_lora_batch_restores_a_clip_the_same_as_lora_alone(monkeypatch, tiny_che
     rng = np.random.default_rng(0)
     first = rng.uniform(-0.5, 0.5, size=(2, 44_100)).astype(np.float32)
     second = rng.uniform(-0.1, 0.1, size=(2, 44_100)).astype(np.float32)
+    first_alone = lora(model, first, SR, steps=2, inpaint_mask_value=0.0, seed=3)
+    second_alone = lora(model, second, SR, steps=2, inpaint_mask_value=0.0, seed=3)
 
     batched = lora_batch(model, [first, second], SR, steps=2, inpaint_mask_value=0.0, seed=3)
 
-    alone = lora(model, first, SR, steps=2, inpaint_mask_value=0.0, seed=3)
-    np.testing.assert_allclose(batched[0], alone, atol=1e-5)
-    alone = lora(model, second, SR, steps=2, inpaint_mask_value=0.0, seed=3)
-    np.testing.assert_allclose(batched[1], alone, atol=1e-5)
+    np.testing.assert_allclose(batched[0], first_alone, atol=1e-5)
+    np.testing.assert_allclose(batched[1], second_alone, atol=1e-5)
 
 
 def test_lora_batch_matches_each_clip_to_its_own_loudness(monkeypatch, tiny_checkpoint):
