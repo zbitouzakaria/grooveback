@@ -1,13 +1,14 @@
 """Score a LoRA checkpoint on the MUSDB18-HQ test clips, configured by configs/evaluate.yaml.
 
     just evaluate model.checkpoint=artifacts/lora/run1/checkpoint-46765
-    just evaluate model.checkpoint=... clips=4 'bitrates=[32]' 'seeds=[0]'
+    just evaluate model.checkpoint=... output_dir=artifacts/quick clips=4 'seeds=[0]'
 
 At each of `bitrates` it writes the MP3 of the `clips` clips `musdb_eval` draws,
 restores them once per seed, many clips per sampling run, and scores the
 untouched MP3 (`input`) and each seed's restoration (`seed{n}`) as `musdb_eval`
 does. `lora` is the mean of the seeds' scores, the number to compare checkpoints
-on. The scores come before level matching, as Apollo's protocol makes them.
+on. Renders keep their MP3's loudness: the scores skip the match to -14 LUFS, as
+Apollo's protocol does.
 
 `output_dir` receives:
 
@@ -18,7 +19,7 @@ on. The scores come before level matching, as Apollo's protocol makes them.
 A render that already exists is kept and everything is scored again, so an
 interrupted run can be restarted, and adding a seed costs only that seed. A run
 with other sampling settings needs its own `output_dir`, as the default gives it.
-scores.csv holds the bitrates and seeds of the last run.
+scores.csv holds this run's clips, bitrates and seeds alone.
 """
 
 from __future__ import annotations
@@ -41,35 +42,33 @@ def render(
     mp3_dir: Path,
     render_dir: Path,
     *,
+    clips: list[Path],
     batch_size: int,
     steps: int,
     inpaint_mask_value: float,
     sampler_type: str,
     seed: int,
 ) -> None:
-    """Restore every `{track}/{start}.wav` of `mp3_dir` that `render_dir` does not hold yet."""
-    paths = [
-        path
-        for path in sorted(mp3_dir.glob("*/*.wav"))
-        if not (render_dir / path.relative_to(mp3_dir)).exists()
-    ]
-    for first in range(0, len(paths), batch_size):
-        batch = paths[first : first + batch_size]
+    """Restore `clips`, `{track}/{start}.wav` in `mp3_dir`, that `render_dir` does not hold yet."""
+    pending = [clip for clip in clips if not (render_dir / clip).exists()]
+    for first in range(0, len(pending), batch_size):
+        batch = pending[first : first + batch_size]
         restored = lora_batch(
             model,
-            [ga.load(path)[0] for path in batch],
+            [ga.load(mp3_dir / clip)[0] for clip in batch],
             model.sample_rate,
             steps=steps,
             inpaint_mask_value=inpaint_mask_value,
             sampler_type=sampler_type,
             seed=seed,
         )
-        for path, audio in zip(batch, restored, strict=True):
-            # _match_input_loudness leaves a NaN in place, and the scores would only read nan.
+        for clip, audio in zip(batch, restored, strict=True):
+            # _match_input_loudness leaves a NaN in place. Scoring would stop on it too, but
+            # only after every render, and without naming the clip.
             if not np.isfinite(audio).all():
-                raise ValueError(f"The restoration of {path} at seed {seed} is not finite.")
-            ga.save(render_dir / path.relative_to(mp3_dir), audio, model.sample_rate)
-    print(f"{render_dir}: {len(paths)} clips restored", flush=True)
+                raise ValueError(f"The restoration of {clip} at seed {seed} is not finite.")
+            ga.save(render_dir / clip, audio, model.sample_rate)
+    print(f"{render_dir}: {len(pending)} clips restored", flush=True)
 
 
 def evaluate(cfg: DictConfig) -> None:
@@ -85,7 +84,8 @@ def evaluate(cfg: DictConfig) -> None:
     rows = []
     for kbps in cfg.bitrates:
         mp3_dir = output_dir / "mp3" / f"{kbps}k"
-        musdb_eval.evaluate(musdb_test, kbps=kbps, clips=cfg.clips, mp3_dir=mp3_dir)
+        drawn = musdb_eval.evaluate(musdb_test, kbps=kbps, clips=cfg.clips, mp3_dir=mp3_dir)
+        clips = [Path(row["track"]) / f"{row['start']}.wav" for row in drawn]
         renders = {
             f"seed{seed}": output_dir / "render" / f"seed{seed}" / f"{kbps}k" for seed in cfg.seeds
         }
@@ -94,6 +94,7 @@ def evaluate(cfg: DictConfig) -> None:
                 model,
                 mp3_dir,
                 renders[f"seed{seed}"],
+                clips=clips,
                 batch_size=cfg.batch_size,
                 steps=cfg.model.steps,
                 inpaint_mask_value=cfg.model.inpaint_mask_value,

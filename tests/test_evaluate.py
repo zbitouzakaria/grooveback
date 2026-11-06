@@ -3,6 +3,8 @@
 
 import csv
 import hashlib
+import subprocess
+import sys
 from pathlib import Path
 from unittest import mock
 
@@ -54,22 +56,18 @@ def save_lora(directory):
     gt.save_checkpoint(directory, model, optimizer, config=lora_config, step=1, epoch=1)
 
 
-@pytest.fixture
-def musdb_test(tmp_path):
-    """Two tracks of 9 s white noise in MUSDB18-HQ's layout, one 6 s clip each, at start 0."""
-    rng = np.random.default_rng(0)
-    for track in ("a", "b"):
-        (tmp_path / "test" / track).mkdir(parents=True)
-        noise = rng.uniform(-0.5, 0.5, size=(9 * SR, 2))
-        sf.write(tmp_path / "test" / track / "mixture.wav", noise, SR, subtype="PCM_16")
-    return tmp_path / "test"
+def write_track(root, name, *, seed):
+    """One track in MUSDB18-HQ's layout: 9 s of white noise, which is one 6 s clip, at start 0."""
+    noise = np.random.default_rng(seed).uniform(-0.5, 0.5, size=(9 * SR, 2))
+    (root / name).mkdir(parents=True)
+    sf.write(root / name / "mixture.wav", noise, SR, subtype="PCM_16")
 
 
-def test_scores_csv_has_a_row_per_clip_at_each_bitrate(
-    tmp_path, monkeypatch, tiny_checkpoint, musdb_test
-):
+def test_scores_csv_has_a_row_per_clip_at_each_bitrate(tmp_path, monkeypatch, tiny_checkpoint):
     monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
     save_lora(tmp_path / "checkpoint")
+    write_track(tmp_path / "test", "a", seed=0)
+    write_track(tmp_path / "test", "b", seed=1)
 
     ev.evaluate(config(tmp_path, "bitrates=[24,32]", "seeds=[0]"))
 
@@ -82,11 +80,10 @@ def test_scores_csv_has_a_row_per_clip_at_each_bitrate(
     ]
 
 
-def test_writes_the_mp3s_and_renders_by_bitrate_and_seed(
-    tmp_path, monkeypatch, tiny_checkpoint, musdb_test
-):
+def test_writes_the_mp3s_and_renders_by_bitrate_and_seed(tmp_path, monkeypatch, tiny_checkpoint):
     monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
     save_lora(tmp_path / "checkpoint")
+    write_track(tmp_path / "test", "a", seed=0)
 
     ev.evaluate(config(tmp_path, "bitrates=[24,32]", "seeds=[1]"))
 
@@ -96,21 +93,18 @@ def test_writes_the_mp3s_and_renders_by_bitrate_and_seed(
     )
     assert written == [
         "mp3/24k/a/0.wav",
-        "mp3/24k/b/0.wav",
         "mp3/32k/a/0.wav",
-        "mp3/32k/b/0.wav",
         "render/seed1/24k/a/0.wav",
-        "render/seed1/24k/b/0.wav",
         "render/seed1/32k/a/0.wav",
-        "render/seed1/32k/b/0.wav",
     ]
 
 
 def test_scores_csv_scores_the_mp3_each_seed_and_their_mean_on_every_metric(
-    tmp_path, monkeypatch, tiny_checkpoint, musdb_test
+    tmp_path, monkeypatch, tiny_checkpoint
 ):
     monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
     save_lora(tmp_path / "checkpoint")
+    write_track(tmp_path / "test", "a", seed=0)
 
     ev.evaluate(config(tmp_path, "bitrates=[32]", "seeds=[0,1]"))
 
@@ -127,13 +121,14 @@ def test_scores_csv_scores_the_mp3_each_seed_and_their_mean_on_every_metric(
 
 @pytest.mark.parametrize("metric", ["sdr", "si_snr", "spectral_snr", "lsd"])
 def test_the_lora_score_of_a_clip_is_the_mean_of_its_seeds(
-    tmp_path, monkeypatch, tiny_checkpoint, musdb_test, metric
+    tmp_path, monkeypatch, tiny_checkpoint, metric
 ):
     """rel=1e-12 covers the rounding of a mean of two doubles written as text."""
     monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
     save_lora(tmp_path / "checkpoint")
+    write_track(tmp_path / "test", "a", seed=0)
 
-    ev.evaluate(config(tmp_path, "bitrates=[32]", "seeds=[0,1]", "clips=1"))
+    ev.evaluate(config(tmp_path, "bitrates=[32]", "seeds=[0,1]"))
 
     (row,) = csv.DictReader((tmp_path / "out" / "scores.csv").open())
     seeds = float(row[f"seed0_{metric}"]), float(row[f"seed1_{metric}"])
@@ -142,13 +137,15 @@ def test_the_lora_score_of_a_clip_is_the_mean_of_its_seeds(
 
 
 def test_an_identity_restoration_scores_exactly_like_the_mp3(
-    tmp_path, monkeypatch, tiny_checkpoint, musdb_test
+    tmp_path, monkeypatch, tiny_checkpoint
 ):
     """The gate of .claude/rules/audio.md: every path from the MP3 to its score, disk
     round trips included. A render of the wrong clip or bitrate would score differently."""
     monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
     monkeypatch.setattr(ev, "lora_batch", lambda model, clips, sample_rate, **settings: clips)
     save_lora(tmp_path / "checkpoint")
+    write_track(tmp_path / "test", "a", seed=0)
+    write_track(tmp_path / "test", "b", seed=1)
 
     ev.evaluate(config(tmp_path, "bitrates=[24,32]", "seeds=[0]"))
 
@@ -156,9 +153,7 @@ def test_an_identity_restoration_scores_exactly_like_the_mp3(
     assert [row["seed0_sdr"] for row in rows] == [row["input_sdr"] for row in rows]
 
 
-def test_the_model_settings_of_the_config_reach_the_solver(
-    tmp_path, monkeypatch, tiny_checkpoint, musdb_test
-):
+def test_the_model_settings_of_the_config_reach_the_solver(tmp_path, monkeypatch, tiny_checkpoint):
     monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
     received = []
 
@@ -168,6 +163,7 @@ def test_the_model_settings_of_the_config_reach_the_solver(
 
     monkeypatch.setattr(ev, "lora_batch", identity)
     save_lora(tmp_path / "checkpoint")
+    write_track(tmp_path / "test", "a", seed=0)
 
     ev.evaluate(
         config(
@@ -186,9 +182,8 @@ def test_the_model_settings_of_the_config_reach_the_solver(
 
 
 def test_the_batch_size_of_the_config_sets_the_clips_per_sampling_run(
-    tmp_path, monkeypatch, tiny_checkpoint, musdb_test
+    tmp_path, monkeypatch, tiny_checkpoint
 ):
-    """Two clips in all, one per run."""
     monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
     sizes = []
 
@@ -198,6 +193,8 @@ def test_the_batch_size_of_the_config_sets_the_clips_per_sampling_run(
 
     monkeypatch.setattr(ev, "lora_batch", identity)
     save_lora(tmp_path / "checkpoint")
+    write_track(tmp_path / "test", "a", seed=0)
+    write_track(tmp_path / "test", "b", seed=1)
 
     ev.evaluate(config(tmp_path, "bitrates=[32]", "seeds=[0]", "batch_size=1"))
 
@@ -205,10 +202,11 @@ def test_the_batch_size_of_the_config_sets_the_clips_per_sampling_run(
 
 
 def test_the_variant_of_the_config_is_the_base_model_loaded(
-    tmp_path, monkeypatch, tiny_checkpoint, musdb_test
+    tmp_path, monkeypatch, tiny_checkpoint
 ):
     monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
     save_lora(tmp_path / "checkpoint")
+    write_track(tmp_path / "test", "a", seed=0)
     variants = []
 
     def recording(variant):
@@ -222,11 +220,11 @@ def test_the_variant_of_the_config_is_the_base_model_loaded(
     assert variants == ["medium-base"]
 
 
-def test_prints_the_mean_scores_of_each_bitrate(
-    tmp_path, monkeypatch, capsys, tiny_checkpoint, musdb_test
-):
+def test_prints_the_mean_scores_of_each_bitrate(tmp_path, monkeypatch, capsys, tiny_checkpoint):
     monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
     save_lora(tmp_path / "checkpoint")
+    write_track(tmp_path / "test", "a", seed=0)
+    write_track(tmp_path / "test", "b", seed=1)
 
     ev.evaluate(config(tmp_path, "bitrates=[24,32]", "seeds=[0]"))
 
@@ -243,28 +241,54 @@ def test_prints_the_mean_scores_of_each_bitrate(
     assert "32 kbps" in printed
 
 
-def test_two_seeds_restore_a_clip_differently(tmp_path, monkeypatch, tiny_checkpoint, musdb_test):
+def test_two_seeds_restore_a_clip_differently(tmp_path, monkeypatch, tiny_checkpoint):
+    """The seeds' renders are 0.1 apart at their peak, so 1e-3 only rules out one noise for both."""
     monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
     save_lora(tmp_path / "checkpoint")
+    write_track(tmp_path / "test", "a", seed=0)
 
-    ev.evaluate(config(tmp_path, "bitrates=[32]", "seeds=[0,1]", "clips=1"))
+    ev.evaluate(config(tmp_path, "bitrates=[32]", "seeds=[0,1]"))
 
-    renders = tmp_path / "out" / "render"
-    first = ga.load(next((renders / "seed0" / "32k").glob("*/*.wav")))[0]
-    second = ga.load(next((renders / "seed1" / "32k").glob("*/*.wav")))[0]
+    first = ga.load(tmp_path / "out" / "render" / "seed0" / "32k" / "a" / "0.wav")[0]
+    second = ga.load(tmp_path / "out" / "render" / "seed1" / "32k" / "a" / "0.wav")[0]
     assert np.abs(first - second).max() > 1e-3
 
 
-def test_a_second_run_keeps_the_renders_it_finds(
-    tmp_path, monkeypatch, tiny_checkpoint, musdb_test
-):
+def test_clips_limits_the_mp3s_written(tmp_path, monkeypatch, tiny_checkpoint):
+    """Two clips in the set: without the limit a run restores all of the test set at every
+    seed, 37 times the 100 clips, and still scores 100."""
+    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
+    save_lora(tmp_path / "checkpoint")
+    write_track(tmp_path / "test", "a", seed=0)
+    write_track(tmp_path / "test", "b", seed=1)
+
+    ev.evaluate(config(tmp_path, "bitrates=[32]", "seeds=[0]", "clips=1"))
+
+    assert len(list((tmp_path / "out" / "mp3" / "32k").glob("*/*.wav"))) == 1
+
+
+def test_a_smaller_run_restores_only_its_own_clips(tmp_path, monkeypatch, tiny_checkpoint):
+    """The folder still holds the larger run's MP3s, which are not this run's to restore."""
+    monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
+    save_lora(tmp_path / "checkpoint")
+    write_track(tmp_path / "test", "a", seed=0)
+    write_track(tmp_path / "test", "b", seed=1)
+    ev.evaluate(config(tmp_path, "bitrates=[32]", "seeds=[0]", "clips=2"))
+
+    ev.evaluate(config(tmp_path, "bitrates=[32]", "seeds=[1]", "clips=1"))
+
+    assert len(list((tmp_path / "out" / "render" / "seed1" / "32k").glob("*/*.wav"))) == 1
+
+
+def test_a_second_run_keeps_the_renders_it_finds(tmp_path, monkeypatch, tiny_checkpoint):
     """The render is rewritten at half level first: sampling again would give back the
     original, so an unchanged hash proves it was not done again."""
     monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
     save_lora(tmp_path / "checkpoint")
-    cfg = config(tmp_path, "bitrates=[32]", "seeds=[0]", "clips=1")
+    write_track(tmp_path / "test", "a", seed=0)
+    cfg = config(tmp_path, "bitrates=[32]", "seeds=[0]")
     ev.evaluate(cfg)
-    render = next((tmp_path / "out" / "render" / "seed0" / "32k").glob("*/*.wav"))
+    render = tmp_path / "out" / "render" / "seed0" / "32k" / "a" / "0.wav"
     ga.save(render, 0.5 * ga.load(render)[0], SR)
     kept = hashlib.sha256(render.read_bytes()).hexdigest()
 
@@ -273,14 +297,13 @@ def test_a_second_run_keeps_the_renders_it_finds(
     assert hashlib.sha256(render.read_bytes()).hexdigest() == kept
 
 
-def test_a_second_run_restores_the_renders_it_lacks(
-    tmp_path, monkeypatch, tiny_checkpoint, musdb_test
-):
+def test_a_second_run_restores_the_renders_it_lacks(tmp_path, monkeypatch, tiny_checkpoint):
     monkeypatch.setattr(gt, "base_checkpoint", lambda variant: tiny_checkpoint)
     save_lora(tmp_path / "checkpoint")
-    cfg = config(tmp_path, "bitrates=[32]", "seeds=[0]", "clips=1")
+    write_track(tmp_path / "test", "a", seed=0)
+    cfg = config(tmp_path, "bitrates=[32]", "seeds=[0]")
     ev.evaluate(cfg)
-    render = next((tmp_path / "out" / "render" / "seed0" / "32k").glob("*/*.wav"))
+    render = tmp_path / "out" / "render" / "seed0" / "32k" / "a" / "0.wav"
     render.unlink()
 
     ev.evaluate(cfg)
@@ -307,20 +330,42 @@ def test_an_unset_checkpoint_is_named_in_the_error():
 
 
 def test_the_checkpoint_is_the_only_setting_left_to_give():
+    """A null counts as set for OmegaConf and would only fail in the run, so the test
+    folder is read too."""
     with initialize_config_dir(config_dir=str(CONFIGS), version_base=None):
         cfg = compose("evaluate", overrides=["model.checkpoint=run/checkpoint-7"])
 
     assert OmegaConf.missing_keys(cfg) == set()
+    assert cfg.musdb_test == "data/musdb18hq/test"
 
 
-def test_the_default_output_dir_changes_with_the_sampling_settings():
+@pytest.mark.parametrize(
+    ("override", "folder"),
+    [
+        ("model.steps=32", "test-euler-32-0.0"),
+        ("model.sampler_type=rk4", "test-rk4-50-0.0"),
+        ("model.inpaint_mask_value=0.5", "test-euler-50-0.5"),
+    ],
+)
+def test_the_default_output_dir_changes_with_each_sampling_setting(override, folder):
     """Renders on disk are kept, so a run with other settings must not read them."""
     with initialize_config_dir(config_dir=str(CONFIGS), version_base=None):
-        cfg = compose(
-            "evaluate", overrides=["model.checkpoint=run/checkpoint-7", "model.steps=32"]
-        )
+        cfg = compose("evaluate", overrides=["model.checkpoint=run/checkpoint-7", override])
 
-    assert cfg.output_dir == "run/checkpoint-7/test-euler-32"
+    assert cfg.output_dir == f"run/checkpoint-7/{folder}"
+
+
+def test_the_module_reads_its_config_file():
+    """`just evaluate` runs the module: compose() above would not notice a wrong
+    config_name or config_path in @hydra.main."""
+    run = subprocess.run(
+        [sys.executable, "-m", "grooveback.cli.evaluate", "--cfg", "job", "model.checkpoint=c"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    assert "output_dir: ${model.checkpoint}/test-" in run.stdout
 
 
 class TestRender:
@@ -340,6 +385,7 @@ class TestRender:
             mock.Mock(sample_rate=SR),
             tmp_path / "mp3",
             tmp_path / "render",
+            clips=[Path("a/0.wav"), Path("a/1.wav"), Path("b/0.wav")],
             batch_size=2,
             steps=2,
             inpaint_mask_value=0.0,
@@ -350,7 +396,7 @@ class TestRender:
         assert sizes == [2, 1]
 
     def test_refuses_a_non_finite_restoration_before_saving_it(self, tmp_path, monkeypatch):
-        """A NaN in a render reaches the scores as nan and nothing fails."""
+        """Scoring stops on a NaN too, but after every render and without naming the clip."""
         ga.save(tmp_path / "mp3" / "a" / "0.wav", np.zeros((2, SR), dtype=np.float32), SR)
         monkeypatch.setattr(
             ev,
@@ -363,6 +409,7 @@ class TestRender:
                 mock.Mock(sample_rate=SR),
                 tmp_path / "mp3",
                 tmp_path / "render",
+                clips=[Path("a/0.wav")],
                 batch_size=2,
                 steps=2,
                 inpaint_mask_value=0.0,
