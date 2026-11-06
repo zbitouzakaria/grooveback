@@ -18,6 +18,7 @@ Zakaria wants to run and change all of this by hand. The commands should look li
 ```bash
 just train                          # on this machine
 just train remote=runpod lr=5e-5    # the same run, on an L40S
+just train remote=runpod remote.background=true    # a long run that outlives a lost connection
 just evaluate remote=runpod remote.wait_minutes=120 model.checkpoint=artifacts/lora/run1/checkpoint-46765
 ```
 
@@ -54,11 +55,11 @@ of this project, it adds 5 packages to the 246 in `uv.lock` and leaves torch at 
 ## We write it ourselves, on the SDK
 
 No tool above does what we asked without a wrapper, and the job itself is small: three SDK calls, `rsync` and `ssh`. We
-expect about 100 lines in `src/grooveback/remote.py`. Two choices remain.
+expect about 130 lines in `src/grooveback/remote.py`. Two choices remain.
 
 ### How the command asks for a pod
 
-**A Hydra group, `remote=runpod`. This is what we propose.** `configs/remote/runpod.yaml` holds the machine, as
+**A Hydra group, `remote=runpod`. This is what we chose.** `configs/remote/runpod.yaml` holds the machine, as
 `configs/xp/` already holds optional settings. One syntax covers the run and the machine. Hydra also checks the config
 on the Mac, so a missing `model.checkpoint` fails before we pay for a pod. Each entry point gets one `if`.
 
@@ -68,15 +69,20 @@ config error only shows on the pod, after the GPU wait.
 
 ### How the job lives on the pod
 
-**Attached to the terminal, with `ssh -tt`. This is what we propose.** The local terminal is connected to the pod's, so
-logs print here with nothing to poll. Ctrl-C reaches the job as a real SIGINT, and `train_lora` already handles that:
-it ends at once during the steps, and waits while a checkpoint is written. The cost is that a lost connection ends the
-job. We lose at most one epoch, 7.3 minutes in the last run, because the checkpoints are on the volume. But the run
-then stops until someone resumes it, and a 28-hour run needs the Mac connected for 28 hours.
+We build both, because they suit different runs. Attached is the default, and `remote.background=true` asks for the
+other.
 
-**In the background on the pod, with a log file the Mac follows.** The job survives a lost connection, and the Mac
-attaches again when it comes back. That takes about 30 more lines: start the job, follow the log, reconnect, and send
-the Ctrl-C ourselves. We would move to this if connections turn out to end long runs.
+**Attached to the terminal, with `ssh -tt`.** The local terminal is connected to the pod's, so logs print here with
+nothing to poll. Ctrl-C reaches the job as a real SIGINT, and `train_lora` already handles that: it ends at once during
+the steps, and waits while a checkpoint is written. The cost is that a lost connection ends the job. We lose at most
+one epoch, 7.3 minutes in the last run, because the checkpoints are on the volume. But the run then stops until someone
+resumes it. This suits `just evaluate` and short trainings.
+
+**In the background on the pod, with a log file the Mac follows.** A lost connection only stops the printing. The job
+goes on, and the Mac connects again and continues from the last line it printed. This suits a 28-hour training, which
+would otherwise need the Mac connected for 28 hours. It takes about 30 more lines: start the job, follow the log,
+reconnect, and send the Ctrl-C ourselves. That last part has a catch. We measured that a job started with `&` from a
+script ignores SIGINT, so the Mac sends SIGTERM instead, which `train_lora` handles the same way.
 
 ## What we want to build
 
@@ -89,6 +95,7 @@ gpu: NVIDIA L40S          # $1.09 per hour
 volume: 18v73b8ggl        # grooveback-US-MO-1, 80 GB
 data_center: US-MO-1
 wait_minutes: 60          # how long to keep asking for the GPU
+background: false         # true: the job goes on after a lost connection
 image: runpod/pytorch:1.3.3-cu1281-torch271-ubuntu2404
 ```
 
@@ -110,13 +117,31 @@ def run_on_pod(remote, *, module, results):
     pod = wait_for_pod(remote)           # create_pod once a minute until wait_minutes run out
     try:
         host = wait_for_ssh(pod)         # get_pod until ssh.direct appears
-        ssh(host, INSTALL)               # apt-get rsync sox ffmpeg; data/ and artifacts/ link to the volume
+        ssh(host, INSTALL)               # rsync, sox, ffmpeg, uv; data/ and artifacts/ link to the volume
         rsync(".", host)                 # this tree as it stands, uncommitted edits included
-        code = ssh(host, command(module), terminal=True)   # uv run python -m ... with the overrides
+        job = command(module)            # uv run python -m ... with the overrides
+        code = run_in_background(pod, job) if remote.background else ssh(host, job, terminal=True)
         rsync(host, results)             # the run's checkpoints or scores come home
     finally:
         runpod.terminate_pod(pod["id"])  # success, crash, Ctrl-C: the pod always goes
     sys.exit(code)
+```
+
+The background mode adds one function. The job writes its exit code to a file when it ends, so that file tells the Mac
+the job is over, however many times the connection dropped:
+
+```python
+def run_in_background(pod, job):
+    host = wait_for_ssh(pod)
+    ssh(host, f"setsid nohup bash -c '{job}; echo $? > job.code' > job.log 2>&1 &")
+    shown = 0                                    # log lines already printed here
+    try:
+        while not (code := ssh(host, "cat job.code")):
+            shown += print_log(host, after=shown)    # returns when the job ends or the connection drops
+            host = wait_for_ssh(pod)                 # raises if the pod is gone
+    except KeyboardInterrupt:
+        code = stop_job(host)                    # SIGTERM, then wait for job.code
+    return int(code)
 ```
 
 A Ctrl-C ends the job, and the results still come home. A second Ctrl-C skips that copy, and the results stay on the
@@ -124,9 +149,9 @@ volume.
 
 The paths in the configs are relative, and on the pod `data/` and `artifacts/` are links to the volume. So
 `artifacts/lora/run1` means the same run on both machines, and what a run writes survives the pod. Hydra resolves a
-default `save_dir`, which holds the time, on the Mac, and the pod is given that value. The environment lives on the
-volume too (`UV_PROJECT_ENVIRONMENT`), since a `uv sync` on a pod once took over half an hour, and only the first
-launch should pay for that.
+default `save_dir`, which holds the time, on the Mac, and the pod is given that value. The environment stays on the
+pod's own disk. `uv sync --frozen` took 10 s on the last fresh L40S pod and over half an hour on an earlier one, so a
+slow sync costs about $0.55, and we do not need a venv on the volume.
 
 The right RunPod configuration means `RUNPOD_API_KEY` and `HF_TOKEN` in `.env`, and the Mac's SSH key registered with
 RunPod. The Hugging Face token reaches the pod through `create_pod`'s `env`, never on a command line. A missing key is
@@ -143,14 +168,20 @@ trap 'setsid nohup sh -c "sleep 900; runpodctl pod delete $RUNPOD_POD_ID" > /dev
 ```
 
 [RunPod documents](https://docs.runpod.io/pods/manage-pods) `runpodctl` and a pod-scoped API key inside every pod, and
-gives `runpodctl pod stop` as an example. We have not tried a delete with that key. The pod's SSH server also gets a
-5-minute timeout, so a vanished Mac ends the job. Together they limit a lost pod to about 20 minutes of billing, $0.36
-on an L40S. On the Mac, `ssh` runs under `caffeinate -i`, so idle sleep does not end a long run. A closed lid on
-battery still does.
+gives `runpodctl pod stop` as an example. We have not tried a delete with that key.
+
+The two modes differ in what a lost Mac costs. Attached, the pod's SSH server gets a 5-minute timeout, so a vanished
+Mac ends the job. With the timer, that limits a lost pod to about 20 minutes of billing, $0.36 on an L40S. On the Mac,
+`ssh` runs under `caffeinate -i`, so idle sleep does not end an attached run. A closed lid on battery still does.
+
+In the background, the job goes on without the Mac, which is the point. It runs to its end, the pod deletes itself 15
+minutes later, and the results stay on the volume. So a Mac that never comes back costs the rest of the run: up to 28
+hours, about $31, for a training. A Mac that comes back after the pod is gone says so, and the command ends with an
+error.
 
 ## How we test it
 
-Nine tests, on a fake `runpod` module and fake `ssh` and `rsync` commands on the `PATH` that record their arguments:
+Thirteen tests, on a fake `runpod` module and fake `ssh` and `rsync` commands on the `PATH` that record their arguments:
 
 - `test_remote_run_trains_nothing_on_this_machine`
 - `test_overrides_reach_the_pod_unchanged_without_the_remote_ones`
@@ -161,8 +192,12 @@ Nine tests, on a fake `runpod` module and fake `ssh` and `rsync` commands on the
 - `test_results_come_home_before_the_pod_is_deleted`
 - `test_config_errors_fail_before_a_pod_is_created`
 - `test_the_jobs_exit_code_is_the_commands_exit_code`
+- `test_background_log_has_no_gap_or_repeat_after_a_lost_connection`
+- `test_ctrl_c_stops_a_background_job_before_the_pod_is_deleted`
+- `test_a_background_jobs_exit_code_is_the_commands_exit_code`
+- `test_background_run_ends_with_an_error_when_the_pod_is_gone`
 
-Fakes cannot show what a real pod does, so we also run one short check on a real L40S, for about $1:
+Fakes cannot show what a real pod does, so we also run short checks on a real L40S, for about $2:
 
 ```bash
 just train remote=runpod num_train_epochs=1 epoch_windows=16
@@ -171,14 +206,19 @@ just train remote=runpod num_train_epochs=1 epoch_windows=16
 This must print its logs here and end with `pod list` empty. A second run gets a Ctrl-C after its first steps: the job
 must stop and the pod must go. A third has its `ssh` killed from outside: the pod must delete itself.
 
+Two more runs add `remote.background=true`. In one we kill the `ssh` from outside: the job must go on and its log must
+continue here. In the other we kill the local command itself: the job must finish, its results must be on the volume,
+and the pod must delete itself. A Ctrl-C in the first of these must also stop the job, since SIGTERM takes a different
+path from the attached run's SIGINT.
+
 ## What we do not know yet
 
 We do not know if the pod-scoped key can delete its own pod. If it cannot, `runpodctl pod stop` still frees the GPU,
-and only the disk bills until the Mac deletes the pod.
+and only the disk bills until the Mac deletes the pod. A background run depends on this most, since no Mac may be there
+to delete it.
 
-SQLite on the network volume is untested, since every run so far kept `mlflow.db` on the pod's own disk. We have not
-measured how slowly torch imports from a venv on the volume. We have also not measured how much of the volume's 80 GB
-is free, and one `just evaluate` writes about 6 GB of audio.
+SQLite on the network volume is untested, since every run so far kept `mlflow.db` on the pod's own disk. We have also
+not measured how much of the volume's 80 GB is free, and one `just evaluate` writes about 6 GB of audio.
 
 Everything on the Mac that a pod needs must already be on the volume. A checkpoint trained before this ADR, such as
 `checkpoint-46765`, has to be copied there once.
